@@ -1,0 +1,105 @@
+@use '../../../styles/lms-tokens' as lms;
+
+.sidebar {
+  display: flex;
+  flex-direction: column;
+  width: lms.$lms-sidebar-width;
+  height: 100%;
+  background: lms.$lms-white;
+}
+
+.sidebar-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  height: lms.$lms-topbar-height;
+  padding: 0 12px 0 16px;
+  background: lms.$lms-petrol;
+  color: lms.$lms-white;
+  font-size: 15px;
+}
+
+.user-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.close {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+
+  &:hover {
+    background: rgb(255 255 255 / 12%);
+  }
+}
+
+.nav-list {
+  flex: 1 1 auto;
+  margin: 0;
+  padding: 0;
+  overflow-y: auto;
+  list-style: none;
+  // The divider stops at the header block, so the petrol blue runs uninterrupted into the top bar.
+  border-right: 1px solid lms.$lms-divider;
+}
+
+.nav-item {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  height: lms.$lms-nav-item-height;
+  padding: 0 16px;
+  border-bottom: 1px solid lms.$lms-divider;
+  color: lms.$lms-text;
+  font-size: 14px;
+  text-decoration: none;
+  cursor: pointer;
+
+  .material-symbols-outlined {
+    font-size: 21px;
+    color: lms.$lms-text;
+  }
+
+  // The active item takes a light grey full-width fill, as it does in the existing app.
+  &.active {
+    background: lms.$lms-nav-active;
+  }
+}
+
+// Hover belongs to items that actually go somewhere. LMS's own entries are inert here, and giving
+// them the same grey fill as the active route would read as if they were navigable.
+a.nav-item:hover {
+  background: lms.$lms-nav-active;
+}
+
+span.nav-item {
+  cursor: default;
+}
+
+.label {
+  flex: 1 1 auto;
+}
+
+.chevron {
+  font-size: 20px;
+  color: lms.$lms-text-muted;
+}
+
+.sidebar-footer {
+  border-right: 1px solid lms.$lms-divider;
+  padding: 14px 16px 18px;
+  background: lms.$lms-sidebar-footer;
+  color: lms.$lms-text-muted;
+  font-size: 12px;
+  line-height: 1.8;
+}

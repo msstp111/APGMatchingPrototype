@@ -1,0 +1,37 @@
+<div class="matching-screen">
+  <h1>Matching</h1>
+
+  @if (error()) {
+    <p class="error">{{ error() }}</p>
+  }
+
+  <div class="columns">
+    <section>
+      <h2>Processor Spaces ({{ spaces().length }})</h2>
+      <ul>
+        @for (space of spaces(); track space.id) {
+          <li>
+            {{ space.deliveryDate }} — {{ space.processor }} / {{ space.plant }} —
+            {{ space.stockClass }} — {{ space.quantityRequired }} head
+          </li>
+        } @empty {
+          <li>No processor spaces.</li>
+        }
+      </ul>
+    </section>
+
+    <section>
+      <h2>Livestock Availability ({{ availability().length }})</h2>
+      <ul>
+        @for (record of availability(); track record.id) {
+          <li>
+            {{ record.availableFrom }} — {{ record.stockClass }} —
+            {{ record.quantityAvailable }} head — location {{ record.locationId }}
+          </li>
+        } @empty {
+          <li>No availability records.</li>
+        }
+      </ul>
+    </section>
+  </div>
+</div>

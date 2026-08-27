@@ -1,0 +1,32 @@
+@use '../styles/lms-tokens' as lms;
+
+.shell {
+  display: flex;
+  height: 100vh;
+  overflow: hidden;
+}
+
+app-sidebar {
+  flex: 0 0 auto;
+  width: lms.$lms-sidebar-width;
+  transition: margin-left 180ms ease;
+}
+
+// The hamburger collapses the sidebar out of view, as it does in the existing app.
+.sidebar-collapsed app-sidebar {
+  margin-left: -#{lms.$lms-sidebar-width};
+}
+
+.main-column {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.content {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: auto;
+  background: lms.$lms-surface;
+}

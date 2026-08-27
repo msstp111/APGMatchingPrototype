@@ -1,0 +1,39 @@
+// LMS v7 design tokens.
+//
+// Every colour below was SAMPLED FROM THE PIXELS of ExistingAppScreenshots/*.png, not eyeballed.
+// The screenshots are ~1.75x device pixels, so the metrics are the measured pixel counts divided
+// by that factor. Phase 2 builds the full palette on top of these values — it must not re-sample
+// and arrive at different answers, so the same numbers are recorded in Documents/BUILD-LOG.md.
+
+$lms-petrol: #00567e; // top bar, sidebar header block, create FAB
+$lms-dev-flag: #ccd457; // the "# DEV ENVIRONMENT #" flag — a yellow-green, not a pure yellow
+$lms-surface: #fafafa; // page background behind the content area
+$lms-nav-active: #f6f6f6; // full-width fill on the selected sidebar item
+$lms-zebra: #eeeeee; // alternate row stripe
+$lms-sidebar-footer: #ebebeb; // the version / copyright block
+$lms-divider: #e0e0e0; // sidebar edge and row rules
+$lms-text: #212121;
+$lms-text-muted: #757575; // small uppercase column headers, footer text
+$lms-white: #ffffff;
+
+$lms-sidebar-width: 190px;
+$lms-topbar-height: 52px;
+$lms-nav-item-height: 48px;
+$lms-row-height: 44px;
+
+:root {
+  --lms-petrol: #{$lms-petrol};
+  --lms-dev-flag: #{$lms-dev-flag};
+  --lms-surface: #{$lms-surface};
+  --lms-nav-active: #{$lms-nav-active};
+  --lms-zebra: #{$lms-zebra};
+  --lms-sidebar-footer: #{$lms-sidebar-footer};
+  --lms-divider: #{$lms-divider};
+  --lms-text: #{$lms-text};
+  --lms-text-muted: #{$lms-text-muted};
+
+  --lms-sidebar-width: #{$lms-sidebar-width};
+  --lms-topbar-height: #{$lms-topbar-height};
+  --lms-nav-item-height: #{$lms-nav-item-height};
+  --lms-row-height: #{$lms-row-height};
+}

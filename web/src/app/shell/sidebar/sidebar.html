@@ -1,0 +1,41 @@
+<nav class="sidebar">
+  <div class="sidebar-header">
+    <span class="user-name">{{ userName }}</span>
+    <button type="button" class="close" aria-label="Close navigation" (click)="close.emit()">
+      <span class="material-symbols-outlined">close</span>
+    </button>
+  </div>
+
+  <ul class="nav-list">
+    @for (item of navItems; track item.label) {
+      <li>
+        @if (item.route) {
+          <a
+            class="nav-item"
+            [routerLink]="item.route"
+            routerLinkActive="active"
+            [routerLinkActiveOptions]="{ exact: false }"
+          >
+            <span class="material-symbols-outlined">{{ item.icon }}</span>
+            <span class="label">{{ item.label }}</span>
+          </a>
+        } @else {
+          <!-- LMS's own entries. Present so the prototype reads as part of the real app; they go
+               nowhere, and they look ordinary rather than disabled on purpose. -->
+          <span class="nav-item">
+            <span class="material-symbols-outlined">{{ item.icon }}</span>
+            <span class="label">{{ item.label }}</span>
+            @if (item.expandable) {
+              <span class="material-symbols-outlined chevron">expand_more</span>
+            }
+          </span>
+        }
+      </li>
+    }
+  </ul>
+
+  <div class="sidebar-footer">
+    <div>{{ version }}</div>
+    <div>{{ copyright }}</div>
+  </div>
+</nav>

@@ -1,0 +1,50 @@
+@use '../../../styles/lms-tokens' as lms;
+
+.top-bar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  height: lms.$lms-topbar-height;
+  padding: 0 20px;
+  background: lms.$lms-petrol;
+  color: lms.$lms-white;
+  // The bar clips rather than pushing the layout wide if the viewport gets narrow enough that the
+  // wordmark and the dev flag no longer both fit.
+  overflow: hidden;
+}
+
+.hamburger {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+
+  &:hover {
+    background: rgb(255 255 255 / 12%);
+  }
+}
+
+.wordmark {
+  font-size: 19px;
+  font-weight: 400;
+  letter-spacing: 0.4px;
+}
+
+.spacer {
+  flex: 1 1 auto;
+}
+
+.dev-flag {
+  color: lms.$lms-dev-flag;
+  font-size: 15px;
+  font-weight: 700;
+  letter-spacing: 0.3px;
+  white-space: nowrap;
+}

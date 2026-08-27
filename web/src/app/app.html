@@ -1,0 +1,13 @@
+<!-- The sidebar's blue header block sits level with the top bar, so the two read as one continuous
+     petrol band across the head of the app — exactly as they do in LMS v7. -->
+<div class="shell" [class.sidebar-collapsed]="!sidebarOpen()">
+  <app-sidebar (close)="closeSidebar()" />
+
+  <div class="main-column">
+    <app-top-bar (toggleSidebar)="toggleSidebar()" />
+
+    <main class="content">
+      <router-outlet />
+    </main>
+  </div>
+</div>

@@ -8,7 +8,56 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Current state
 
-There is **no application code yet** — the repo contains only the requirements document and seed data, and `main` has no commits. There is no build, lint, or test command until the solution is scaffolded. When scaffolding, record the real commands here (`dotnet build` / `dotnet test` / `dotnet run` for the API, `ng serve` / `ng build` / `ng test` and the single-spec invocation for the client).
+Phase 0 is complete: the solution, the Angular app, EF Core + SQLite and the deterministic seeder are in place, and the LMS shell (top bar + sidebar) is built. Phases 1–8 are still to come — see `Documents/BUILD-LOG.md` for what each finished phase actually did.
+
+### Layout
+
+```
+ApgMatchingPrototype.sln
+src/Apg.Domain/            pure C# — entities, enums, NzTime. NO EF Core, NO ASP.NET. Ever.
+src/Apg.Api/               minimal API (.NET 9), EF Core + SQLite, the seeder
+tests/Apg.Domain.Tests/    xUnit — domain purity, date handling
+tests/Apg.Api.Tests/       xUnit — seed determinism and the demonstration cases
+web/                       Angular 22 + Angular Material 22
+Data/                      CSV exports from the existing forecasting system (unchanged)
+Documents/                 roadmap, phase docs, build log
+```
+
+### Versions
+
+.NET 9 SDK (9.0.317) · EF Core 9 (Sqlite provider) · xUnit 2.9 · Node 24 LTS · Angular 22.1 · Angular Material 22.1 · TypeScript 6.0 · vitest 4 (Angular's current default runner).
+
+### Commands
+
+Run from the repo root unless stated.
+
+| What | Command |
+| --- | --- |
+| Build everything | `dotnet build` |
+| Run all .NET tests | `dotnet test` |
+| One test project | `dotnet test tests/Apg.Api.Tests` |
+| One test | `dotnet test --filter "FullyQualifiedName~At_least_one_space_is_over_filled"` |
+| Run the API | `dotnet run --project src/Apg.Api --launch-profile http` → http://localhost:5286 |
+| Angular dev server | `npm start` in `web/` → http://localhost:4200 |
+| Angular build | `npm run build` in `web/` |
+| Angular tests | `npm test` in `web/` |
+| One Angular spec | `npx ng test --watch=false --include=src/app/app.spec.ts` in `web/` |
+| **Both halves together** | `.\dev.ps1` from the repo root |
+
+`dotnet` and `node` are installed at `C:\Program Files\dotnet` and `C:\Program Files\nodejs`; if a fresh shell cannot find them, the machine `PATH` has not been re-read yet.
+
+### Wiring
+
+- The Angular dev server proxies `/api` to `http://localhost:5286` (`web/proxy.conf.json`, wired into `angular.json`'s `serve` options), so the client only ever calls same-origin paths. CORS for `http://localhost:4200` is configured in the API as a fallback for running without the proxy.
+- SQLite lives at `src/Apg.Api/apg.db`, gitignored. The schema is created with `EnsureCreated` — there are no migrations, deliberately. Deleting the file and restarting reproduces identical seed data.
+- `POST /api/dev/reset-database` drops, recreates and re-seeds. Phase 8 adds the button that calls it.
+- Read endpoints in Phase 0 are `GET /api/processor-spaces` and `GET /api/livestock-availability`, returning **raw stored records**. These are not the DTO contract — Phase 1 designs that, and it carries every computed field.
+
+### Conventions
+
+- The seeder is deterministic: an explicit mulberry32 PRNG (`src/Apg.Api/Seeding/Mulberry32.cs`), never `System.Random`. Every date is an offset from the Sunday of the current **New Zealand** week.
+- Every invented list (processors, plants, carriers, stock classes, farmer names) lives in `src/Apg.Api/Seeding/SeedConfig.cs` so APG's real values are a one-file swap.
+- LMS colours and metrics live in `web/src/styles/_lms-tokens.scss`, sampled from the screenshots. The Material palettes in `web/src/styles/_theme-colors.scss` were generated from `#00567E`. Do not re-sample; the values are recorded in the build log.
 
 Supporting choices are recorded in `Documents/ROADMAP.md`: EF Core + SQLite for persistence, xUnit for the domain tests, Angular CDK `DragDrop` for the matching interaction, SCSS for styling.
 
