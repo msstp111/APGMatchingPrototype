@@ -1,0 +1,9 @@
+id,weightKg,weighDate,recordedAt,notes,isDemoData,dailyGainOverrideKg,targetWeightOverrideKg,expectedSaleDateOverride,purchaseId,groupId,createdAt
+1,38,2026-03-25T20:19:28.665Z,2026-04-08T21:19:28.666Z,Growing faster than expected — lush pasture conditions,true,0.22,,,,461,2026-04-08T21:19:28.666Z
+2,28,2026-02-11T20:19:28.670Z,2026-04-08T21:19:28.671Z,Initial weigh-in after settling,true,,,,,462,2026-04-08T21:19:28.671Z
+3,34,2026-02-25T20:19:28.670Z,2026-04-08T21:19:28.672Z,Routine weigh 2,true,,,,,462,2026-04-08T21:19:28.672Z
+4,40,2026-03-11T20:19:28.670Z,2026-04-08T21:19:28.673Z,Routine weigh 3,true,,,,,462,2026-04-08T21:19:28.673Z
+5,46,2026-03-25T20:19:28.670Z,2026-04-08T21:19:28.674Z,Routine weigh 4,true,,,,,462,2026-04-08T21:19:28.674Z
+6,600,2026-04-01T20:19:28.679Z,2026-04-08T21:19:28.680Z,Above target weight — ready for processing,true,,,,,463,2026-04-08T21:19:28.680Z
+7,85,2026-03-18T20:19:28.683Z,2026-04-08T21:19:28.684Z,Lighter contract — adjusted target to 550 kg,true,,550,,,464,2026-04-08T21:19:28.684Z
+8,32,2026-03-29T20:19:28.688Z,2026-04-08T21:19:28.688Z,Committed sale date — buyer confirmed,true,,,2026-05-20T21:19:28.688Z,,465,2026-04-08T21:19:28.688Z

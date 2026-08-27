@@ -1,0 +1,1002 @@
+<title>APG Matching Build Plan</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600&family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,600;1,6..72,400&display=swap">
+
+<style>
+:root {
+  --ground:      #EAEDE8;
+  --surface:     #FBFCFA;
+  --surface-2:   #F1F4EF;
+  --ink:         #17211D;
+  --ink-soft:    #3B4842;
+  --muted:       #62706A;
+  --faint:       #8B978F;
+  --rule:        #CDD5CD;
+  --rule-soft:   #DDE3DC;
+  --accent:      #2E6F5E;
+  --accent-soft: #DCEAE3;
+  --demand:      #A8532B;
+  --demand-soft: #F3E2D8;
+  --shadow:      0 1px 2px rgba(23,33,29,.06), 0 8px 24px -16px rgba(23,33,29,.28);
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --ground:      #101614;
+    --surface:     #18201D;
+    --surface-2:   #1E2724;
+    --ink:         #E6EBE6;
+    --ink-soft:    #C2CCC5;
+    --muted:       #93A199;
+    --faint:       #6C7A73;
+    --rule:        #2E3A35;
+    --rule-soft:   #232D29;
+    --accent:      #6FBFA3;
+    --accent-soft: #1D302A;
+    --demand:      #DB9067;
+    --demand-soft: #2E241E;
+    --shadow:      0 1px 2px rgba(0,0,0,.4), 0 8px 24px -16px rgba(0,0,0,.8);
+  }
+}
+:root[data-theme="dark"] {
+  --ground:      #101614;
+  --surface:     #18201D;
+  --surface-2:   #1E2724;
+  --ink:         #E6EBE6;
+  --ink-soft:    #C2CCC5;
+  --muted:       #93A199;
+  --faint:       #6C7A73;
+  --rule:        #2E3A35;
+  --rule-soft:   #232D29;
+  --accent:      #6FBFA3;
+  --accent-soft: #1D302A;
+  --demand:      #DB9067;
+  --demand-soft: #2E241E;
+  --shadow:      0 1px 2px rgba(0,0,0,.4), 0 8px 24px -16px rgba(0,0,0,.8);
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  background: var(--ground);
+  color: var(--ink);
+  font-family: "IBM Plex Sans", ui-sans-serif, system-ui, sans-serif;
+  font-size: 16px;
+  line-height: 1.6;
+  -webkit-font-smoothing: antialiased;
+}
+
+h1, h2, h3 { font-family: Newsreader, ui-serif, Georgia, serif; font-weight: 600; text-wrap: balance; margin: 0; line-height: 1.15; }
+
+.mono { font-family: "IBM Plex Mono", ui-monospace, SFMono-Regular, monospace; }
+
+.label {
+  font-family: "IBM Plex Mono", ui-monospace, monospace;
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: .1em;
+  text-transform: uppercase;
+  color: var(--faint);
+}
+
+/* ---------- shell ---------- */
+
+.shell {
+  max-width: 1240px;
+  margin: 0 auto;
+  padding: 0 28px 96px;
+}
+
+@media (min-width: 1040px) {
+  .shell { display: grid; grid-template-columns: 210px minmax(0, 1fr); gap: 56px; }
+  .masthead, .fullwidth { grid-column: 1 / -1; }
+}
+
+/* ---------- masthead ---------- */
+
+.masthead { padding: 72px 0 40px; border-bottom: 1px solid var(--rule); }
+
+.masthead .eyebrow { display: flex; gap: 14px; align-items: center; margin-bottom: 22px; }
+.masthead .eyebrow::after { content: ""; flex: 1; height: 1px; background: var(--rule); }
+
+h1 { font-size: clamp(40px, 6vw, 68px); letter-spacing: -.02em; max-width: 15ch; }
+
+.standfirst {
+  font-family: Newsreader, serif;
+  font-size: clamp(18px, 2.2vw, 22px);
+  line-height: 1.5;
+  color: var(--ink-soft);
+  max-width: 60ch;
+  margin: 22px 0 0;
+}
+
+.meta-row { display: flex; flex-wrap: wrap; gap: 28px; margin-top: 34px; }
+.meta-row > div { display: flex; flex-direction: column; gap: 3px; }
+.meta-row .v { font-size: 15px; font-weight: 500; }
+
+/* ---------- rail ---------- */
+
+.rail { display: none; }
+@media (min-width: 1040px) {
+  .rail { display: block; position: sticky; top: 0; align-self: start; padding: 44px 0; max-height: 100vh; overflow-y: auto; }
+}
+.rail ol { list-style: none; margin: 10px 0 0; padding: 0; display: flex; flex-direction: column; }
+.rail a {
+  display: grid; grid-template-columns: 22px 1fr; gap: 9px; align-items: baseline;
+  padding: 6px 0; text-decoration: none; color: var(--muted);
+  font-size: 13.5px; line-height: 1.35; border-left: 2px solid transparent; padding-left: 12px;
+  transition: color .12s, border-color .12s;
+}
+.rail a:hover, .rail a:focus-visible { color: var(--ink); border-left-color: var(--rule); }
+.rail a .n { font-family: "IBM Plex Mono", monospace; font-size: 11px; color: var(--faint); }
+.rail a.is-done .t { text-decoration: line-through; text-decoration-thickness: 1px; color: var(--faint); }
+.rail a.is-done .n { color: var(--accent); }
+
+.rail-progress { margin-top: 18px; padding-left: 14px; }
+.bar { height: 3px; background: var(--rule-soft); border-radius: 2px; overflow: hidden; margin-top: 7px; }
+.bar span { display: block; height: 100%; background: var(--accent); width: 0; transition: width .3s ease; }
+
+/* ---------- generic sections ---------- */
+
+section { padding: 52px 0; border-bottom: 1px solid var(--rule-soft); }
+section > .label { display: block; margin-bottom: 18px; }
+h2 { font-size: clamp(26px, 3.2vw, 34px); letter-spacing: -.015em; margin-bottom: 14px; }
+p { margin: 0 0 16px; max-width: 68ch; }
+p:last-child { margin-bottom: 0; }
+
+/* ---------- how it runs ---------- */
+
+.steps { display: grid; gap: 18px; margin-top: 26px; }
+@media (min-width: 640px) { .steps { grid-template-columns: repeat(2, 1fr); } }
+@media (min-width: 1000px) { .steps-4 { grid-template-columns: repeat(4, 1fr); } }
+.step { background: var(--surface); border: 1px solid var(--rule); border-radius: 3px; padding: 20px 22px; }
+.step-close { background: var(--accent-soft); border-color: var(--accent); }
+.step-close .n { color: var(--accent); }
+.subhead { font-family: Newsreader, serif; font-size: 22px; font-weight: 600; margin: 46px 0 0; }
+.step .n { font-family: "IBM Plex Mono", monospace; font-size: 12px; color: var(--accent); font-weight: 600; }
+.step h3 { font-size: 19px; margin: 6px 0 7px; }
+.step p { font-size: 14.5px; color: var(--muted); margin: 0; }
+.step code { font-family: "IBM Plex Mono", monospace; font-size: 12.5px; background: var(--surface-2); padding: 1px 5px; border-radius: 2px; color: var(--ink-soft); }
+
+/* ---------- domain diagram ---------- */
+
+.diagram { background: var(--surface); border: 1px solid var(--rule); border-radius: 3px; padding: 26px 22px 18px; margin-top: 8px; overflow-x: auto; }
+.diagram svg { display: block; width: 100%; min-width: 560px; height: auto; }
+.d-box { fill: var(--surface-2); stroke: var(--rule); stroke-width: 1; }
+.d-box-demand { fill: var(--demand-soft); stroke: var(--demand); stroke-width: 1; }
+.d-box-supply { fill: var(--accent-soft); stroke: var(--accent); stroke-width: 1; }
+.d-title { fill: var(--ink); font-family: "IBM Plex Sans", sans-serif; font-size: 13px; font-weight: 600; }
+.d-sub { fill: var(--muted); font-family: "IBM Plex Mono", monospace; font-size: 10.5px; }
+.d-edge { stroke: var(--faint); stroke-width: 1.5; fill: none; }
+.d-qty { fill: var(--muted); font-family: "IBM Plex Mono", monospace; font-size: 10.5px; }
+.d-cap { fill: var(--faint); font-family: "IBM Plex Mono", monospace; font-size: 10.5px; letter-spacing: .08em; }
+.diagram figcaption { font-size: 14px; color: var(--muted); margin-top: 16px; max-width: 62ch; }
+
+/* ---------- decisions ---------- */
+
+.decisions { display: grid; gap: 0; margin-top: 8px; border-top: 1px solid var(--rule-soft); }
+@media (min-width: 860px) { .decisions { grid-template-columns: 1fr 1fr; column-gap: 44px; } }
+.decision { display: grid; grid-template-columns: 26px 1fr; gap: 12px; padding: 14px 0; border-bottom: 1px solid var(--rule-soft); align-items: baseline; }
+.decision .n { font-family: "IBM Plex Mono", monospace; font-size: 12px; color: var(--accent); font-weight: 600; }
+.decision p { font-size: 14.5px; margin: 0; color: var(--ink-soft); }
+.decision strong { font-weight: 600; color: var(--ink); }
+
+/* ---------- stack ---------- */
+
+.stack { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 6px; }
+.chip {
+  font-family: "IBM Plex Mono", monospace; font-size: 12.5px;
+  background: var(--surface); border: 1px solid var(--rule); border-radius: 2px;
+  padding: 5px 10px; color: var(--ink-soft);
+}
+.chip b { color: var(--faint); font-weight: 400; }
+
+/* ---------- phases ---------- */
+
+.phases { padding-top: 52px; }
+.phase {
+  background: var(--surface);
+  border: 1px solid var(--rule);
+  border-radius: 3px;
+  padding: 30px 32px 32px;
+  margin-bottom: 22px;
+  box-shadow: var(--shadow);
+  scroll-margin-top: 20px;
+}
+.phase[data-done="1"] { background: var(--surface-2); border-color: var(--rule-soft); box-shadow: none; }
+.phase[data-done="1"] .phase-head h3 { color: var(--muted); }
+
+.phase-head { display: flex; align-items: flex-start; gap: 18px; flex-wrap: wrap; }
+.phase-num {
+  font-family: "IBM Plex Mono", monospace; font-size: 12px; font-weight: 600;
+  color: var(--accent); background: var(--accent-soft);
+  border-radius: 2px; padding: 4px 8px; white-space: nowrap; margin-top: 4px;
+}
+.phase-head h3 { font-size: 27px; letter-spacing: -.01em; flex: 1; min-width: 220px; }
+
+.done-toggle {
+  display: inline-flex; align-items: center; gap: 7px; cursor: pointer;
+  font-family: "IBM Plex Mono", monospace; font-size: 11px; letter-spacing: .08em; text-transform: uppercase;
+  color: var(--faint); background: none; border: 1px solid var(--rule); border-radius: 2px;
+  padding: 6px 10px; margin-top: 2px;
+}
+.done-toggle:hover { color: var(--ink); border-color: var(--faint); }
+.done-toggle[aria-pressed="true"] { color: var(--accent); border-color: var(--accent); background: var(--accent-soft); }
+.done-toggle .tick { width: 11px; height: 11px; opacity: .25; transition: opacity .12s; }
+.done-toggle[aria-pressed="true"] .tick { opacity: 1; }
+
+.delivers { font-family: Newsreader, serif; font-size: 19px; line-height: 1.45; color: var(--ink-soft); margin: 16px 0 0; max-width: 62ch; }
+
+.facts { display: flex; flex-wrap: wrap; gap: 10px 26px; margin-top: 18px; padding-top: 16px; border-top: 1px solid var(--rule-soft); }
+.fact { display: flex; gap: 8px; align-items: baseline; font-size: 13.5px; }
+.fact .k { font-family: "IBM Plex Mono", monospace; font-size: 10.5px; letter-spacing: .09em; text-transform: uppercase; color: var(--faint); }
+.fact .v { color: var(--ink-soft); }
+
+.keys { margin: 22px 0 0; padding: 0; list-style: none; display: grid; gap: 9px; }
+.keys li { position: relative; padding-left: 25px; font-size: 14.5px; line-height: 1.55; color: var(--ink-soft); }
+.keys li::before {
+  content: "—"; position: absolute; left: 0; top: 0;
+  color: var(--faint); font-family: "IBM Plex Mono", monospace; font-size: 12px; line-height: 1.9;
+}
+.keys b { font-weight: 600; color: var(--ink); }
+
+.risk {
+  margin-top: 22px; padding: 14px 18px;
+  background: var(--demand-soft); border-left: 2px solid var(--demand);
+  font-size: 14.5px; color: var(--ink-soft); border-radius: 0 2px 2px 0;
+}
+.risk .label { color: var(--demand); display: block; margin-bottom: 4px; }
+
+/* ---------- prompt ---------- */
+
+.prompt-wrap { margin-top: 26px; border: 1px solid var(--rule); border-radius: 3px; overflow: hidden; background: var(--surface-2); }
+.prompt-bar { display: flex; align-items: center; justify-content: space-between; gap: 14px; padding: 9px 12px 9px 16px; border-bottom: 1px solid var(--rule); }
+.prompt-bar .label { color: var(--muted); }
+.copy {
+  font-family: "IBM Plex Mono", monospace; font-size: 11px; letter-spacing: .08em; text-transform: uppercase;
+  background: var(--ink); color: var(--surface); border: 1px solid var(--ink);
+  border-radius: 2px; padding: 7px 13px; cursor: pointer; white-space: nowrap;
+  transition: background .12s, color .12s;
+}
+.copy:hover { background: var(--accent); border-color: var(--accent); color: #fff; }
+.copy.copied { background: var(--accent); border-color: var(--accent); color: #fff; }
+pre.prompt {
+  margin: 0; padding: 18px 20px;
+  font-family: "IBM Plex Mono", ui-monospace, monospace;
+  font-size: 12.5px; line-height: 1.7; color: var(--ink-soft);
+  white-space: pre-wrap; word-break: break-word;
+  max-height: 340px; overflow-y: auto;
+}
+
+/* ---------- deferred ---------- */
+
+.deferred { list-style: none; margin: 8px 0 0; padding: 0; counter-reset: d; }
+.deferred li {
+  display: grid; grid-template-columns: 28px 1fr; gap: 12px; align-items: baseline;
+  padding: 12px 0; border-bottom: 1px solid var(--rule-soft); font-size: 15px; color: var(--ink-soft);
+}
+.deferred li::before {
+  counter-increment: d; content: counter(d, decimal-leading-zero);
+  font-family: "IBM Plex Mono", monospace; font-size: 11px; color: var(--faint);
+}
+
+footer { padding: 44px 0 0; font-size: 13.5px; color: var(--faint); }
+footer .mono { font-size: 12.5px; }
+
+a { color: var(--accent); }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+@media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+</style>
+
+<div class="shell">
+
+  <header class="masthead">
+    <div class="eyebrow"><span class="label">Alpine Pastures Group &nbsp;·&nbsp; Booking Module &nbsp;·&nbsp; Prototype Pass 1</span></div>
+    <h1>The matching screen, in nine phases</h1>
+    <p class="standfirst">One drag-and-drop screen where APG staff fill meatworks' space from farmers' stock. Everything else in this build exists to make that one screen work.</p>
+    <div class="meta-row">
+      <div><span class="label">Scope</span><span class="v">APG only · no roles · pass 1</span></div>
+      <div><span class="label">Phases</span><span class="v">9, one chat each</span></div>
+      <div><span class="label">Spec</span><span class="v mono">Requirements 2026-08-27.docx</span></div>
+      <div><span class="label">Roadmap</span><span class="v mono">Documents/ROADMAP.md</span></div>
+    </div>
+  </header>
+
+  <nav class="rail" aria-label="Phases">
+    <span class="label">Build</span>
+    <ol id="rail-list">
+      <li><a href="#p0"><span class="n">00</span><span class="t">Scaffold &amp; seed</span></a></li>
+      <li><a href="#p1"><span class="n">01</span><span class="t">Domain core</span></a></li>
+      <li><a href="#p2"><span class="n">02</span><span class="t">Design pass</span></a></li>
+      <li><a href="#p3"><span class="n">03</span><span class="t">Cards &amp; week bands</span></a></li>
+      <li><a href="#p4"><span class="n">04</span><span class="t">Filter, sort, flip</span></a></li>
+      <li><a href="#p5"><span class="n">05</span><span class="t">Drag to match</span></a></li>
+      <li><a href="#p6"><span class="n">06</span><span class="t">Match management</span></a></li>
+      <li><a href="#p7"><span class="n">07</span><span class="t">Record creation</span></a></li>
+      <li><a href="#p8"><span class="n">08</span><span class="t">Polish &amp; demo</span></a></li>
+    </ol>
+    <div class="rail-progress">
+      <span class="label" id="prog-text">0 of 9 done</span>
+      <div class="bar"><span id="prog-bar"></span></div>
+    </div>
+  </nav>
+
+  <main>
+
+    <section id="how">
+      <span class="label">How the build is run</span>
+      <h2>Every phase is a fresh chat with four inputs</h2>
+      <p>Context stays small and the work stays inside its lane. A chat that only knows about its own phase cannot wander into the next one, and cannot quietly re-decide something already settled.</p>
+      <div class="steps steps-4">
+        <div class="step">
+          <span class="n">01</span>
+          <h3>The roadmap</h3>
+          <p><code>Documents/ROADMAP.md</code> — the shared, stable picture. Domain model, resolved decisions, phase list. Changes rarely.</p>
+        </div>
+        <div class="step">
+          <span class="n">02</span>
+          <h3>The build log</h3>
+          <p><code>Documents/BUILD-LOG.md</code> — what earlier phases actually did, and the decisions they took mid-build that this one is bound by.</p>
+        </div>
+        <div class="step">
+          <span class="n">03</span>
+          <h3>Its phase document</h3>
+          <p><code>Documents/Phases/PHASE-N-*.md</code> — detailed requirements for that phase alone, with acceptance criteria.</p>
+        </div>
+        <div class="step">
+          <span class="n">04</span>
+          <h3>The prompt</h3>
+          <p>Copied from this page. Names the phase, points at the documents, and states what must not happen.</p>
+        </div>
+      </div>
+      <p style="margin-top:26px">Every phase chat starts in <b>plan mode</b>. Plan first, approve, then build.</p>
+
+      <h3 class="subhead">And every phase ends the same way</h3>
+      <p style="margin-top:10px">A phase isn't finished when the code works. It's finished when it has been reviewed by someone who wasn't holding the keyboard, and recorded somewhere the next phase will read.</p>
+      <div class="steps">
+        <div class="step step-close">
+          <span class="n">CLOSE 01</span>
+          <h3>Review</h3>
+          <p>A subagent on the <b>sonnet</b> model reviews the phase for correctness bugs and code quality. It reports findings; the building chat fixes what's real and records what it deliberately didn't. Findings belonging to a later phase go in the log, not into this phase's code.</p>
+        </div>
+        <div class="step step-close">
+          <span class="n">CLOSE 02</span>
+          <h3>Record</h3>
+          <p>An entry appended to the build log: what shipped, what got decided mid-build, what deviated from the plan and why, what the review found, and what the next phase will trip over. Written for someone with no memory of the conversation — which is exactly who reads it.</p>
+        </div>
+      </div>
+    </section>
+
+    <section id="domain">
+      <span class="label">The domain in one picture</span>
+      <h2>Many-to-many is the whole point</h2>
+      <p>A meatworks commits space. A farmer offers stock. Neither owns the other, and neither owns the relationship — so the match is a first-class record carrying its own quantity, price, transport company and status. Never a foreign key on either side.</p>
+      <figure class="diagram">
+        <svg viewBox="0 0 640 264" role="img" aria-label="Two processor spaces connected by four match lines to three livestock availability records, showing that one space is filled from several records and one record splits across several spaces.">
+          <text class="d-cap" x="16" y="14">PROCESSOR SPACES · DEMAND</text>
+          <text class="d-cap" x="624" y="14" text-anchor="end">LIVESTOCK AVAILABILITY · SUPPLY</text>
+
+          <line class="d-edge" x1="196" y1="62"  x2="444" y2="42"></line>
+          <line class="d-edge" x1="196" y1="62"  x2="444" y2="132"></line>
+          <line class="d-edge" x1="196" y1="162" x2="444" y2="132"></line>
+          <line class="d-edge" x1="196" y1="162" x2="444" y2="222"></line>
+
+          <text class="d-qty" x="320" y="44"  text-anchor="middle">40 hd</text>
+          <text class="d-qty" x="306" y="106" text-anchor="middle">80 hd</text>
+          <text class="d-qty" x="334" y="160" text-anchor="middle">60 hd</text>
+          <text class="d-qty" x="320" y="204" text-anchor="middle">120 hd</text>
+
+          <rect class="d-box d-box-demand" x="16" y="30" width="180" height="64" rx="3"></rect>
+          <text class="d-title" x="32" y="56">ANZCO · Pareora</text>
+          <text class="d-sub"   x="32" y="76">Prime · 120 req · Tue 18</text>
+
+          <rect class="d-box d-box-demand" x="16" y="130" width="180" height="64" rx="3"></rect>
+          <text class="d-title" x="32" y="156">SFF · Finegand</text>
+          <text class="d-sub"   x="32" y="176">Lambs · 180 req · Thu 20</text>
+
+          <rect class="d-box d-box-supply" x="444" y="10" width="180" height="64" rx="3"></rect>
+          <text class="d-title" x="460" y="36">Sage Worth Grove</text>
+          <text class="d-sub"   x="460" y="56">Prime · 40 avail</text>
+
+          <rect class="d-box d-box-supply" x="444" y="100" width="180" height="64" rx="3"></rect>
+          <text class="d-title" x="460" y="126">Terrace Rata Ltd</text>
+          <text class="d-sub"   x="460" y="146">Mixed Cattle · 140 avail</text>
+
+          <rect class="d-box d-box-supply" x="444" y="190" width="180" height="64" rx="3"></rect>
+          <text class="d-title" x="460" y="216">Kowhai Downs</text>
+          <text class="d-sub"   x="460" y="236">Lamb · 200 avail</text>
+        </svg>
+        <figcaption>Each line is a Match. Pareora is filled from two farms; Terrace Rata is split across two processors. Note the stock classes down each side never have to agree — the two vocabularies do not map, and the operator makes the call during the drag.</figcaption>
+      </figure>
+    </section>
+
+    <section id="stack">
+      <span class="label">Stack</span>
+      <h2>Angular in front, .NET behind</h2>
+      <p>An ASP.NET Core minimal API over EF Core and SQLite, seeded from the CSV exports, with an Angular client that renders what it is given. The database holds raw records only — every matched sum, unmatched figure and derived status is computed on read.</p>
+      <div class="stack">
+        <span class="chip"><b>front end</b> Angular · standalone · signals</span>
+        <span class="chip"><b>components</b> Angular Material, themed</span>
+        <span class="chip"><b>drag</b> Angular CDK DragDrop</span>
+        <span class="chip"><b>style</b> SCSS tokens</span>
+        <span class="chip"><b>back end</b> ASP.NET Core minimal API</span>
+        <span class="chip"><b>data</b> EF Core + SQLite</span>
+        <span class="chip"><b>tests</b> xUnit</span>
+        <span class="chip"><b>seed</b> Data/*.csv</span>
+      </div>
+
+      <h3 class="subhead">One implementation of every rule</h3>
+      <p style="margin-top:10px">The single most consequential decision in this build. <code>Apg.Domain</code> is a plain C# library — no EF, no ASP.NET — and it owns every computed value: both matched sums, unmatched, the derived availability status, the confirm gates, the quantity default and cap, the price lookup, and the week-commencing Sunday.</p>
+      <p><b>The API returns DTOs with every computed field already on them, and the Angular client never recomputes a domain value in TypeScript.</b> The moment the same rule exists in both C# and TypeScript, the two drift and the numbers quietly disagree — which is precisely the failure this prototype cannot afford. The week-commencing Sunday is stamped server-side for the same reason: it keeps week banding out of the browser's timezone entirely.</p>
+      <p>Filtering and sorting are the exception, and are client-side over the already-loaded set — the data is small and filtering has to feel instant. Mutations go to the API and come back recomputed. On localhost that round trip costs a few milliseconds; duplicated domain logic would cost correctness.</p>
+      <p style="margin-top:22px"><b>The two lists are cards, not tables.</b> The frontend brief calls for cards on a week-banded timeline. Material's table is available if a later phase needs one, but the matching screen's two columns are not it.</p>
+    </section>
+
+    <section id="visual">
+      <span class="label">Visual language</span>
+      <h2>It has to look like LMS</h2>
+      <p><code>ExistingAppScreenshots/*.png</code> are four screens from APG's live system, LMS v7. This prototype extends that application's visual language rather than introducing a new one — which is most of why the stack gained Angular Material. Matching those screens by hand would take weeks; theming Material gets most of the way in a theme file.</p>
+      <p>What the screenshots settle: a petrol-blue top bar with a bold yellow <code>#&nbsp;DEV ENVIRONMENT&nbsp;#</code> flag; a fixed ~200px sidebar with a matching blue header block over a white nav list, active item in light grey, version string in a grey footer; a filter panel of underline Material selects with a stacked <code>× Clear</code> / <code>^ Hide</code> pair; dense zebra-striped content with small uppercase grey column headers; a circular blue <code>+</code> FAB; Roboto throughout; and empty values rendered as <code>-</code>.</p>
+      <p><b>Every prototype screen sits inside that shell</b> — top bar and sidebar present, not stubbed. The existing nav items render and go nowhere; the booking module adds its own. Phase 0 builds it, and Phase 2 samples the exact hex values from the pixels rather than eyeballing them.</p>
+
+      <h3 class="subhead">Two colour systems, resolved</h3>
+      <p style="margin-top:10px">Record status and quantity fill both wanted hue, and green cannot mean "exactly filled" and "confirmed" on the same card. The split is now settled, and no phase may reopen it.</p>
+      <p><b>Hue belongs exclusively to quantity fill</b> — orange under, green exact, blue over-filled, pink over-committed, as the spec prescribes. It shows as a <b>fill meter</b>: a bar of matched against original, at full saturation, with the numeral beside it. Colour, bar length and number are three redundant channels carrying one meaning, and unmatched quantity is the number operators hunt for.</p>
+      <p><b>Status uses everything except hue</b>, on the card's left edge: hairline grey for Booked, diagonal hatching for Pending, a solid petrol-blue bar for Confirmed, dashed with the whole card desaturated for Cancelled — each with an icon and a text label. Pattern reads as reliably as hue once learnt, and it leaves the saturated palette free for the numbers. It also happens to match the existing app, where status is plain uncoloured text.</p>
+      <p style="color:var(--muted)">This narrows the frontend brief's "cards should have colours based on their status": status is unmistakable, but carried by weight and pattern because hue is already committed. Easy to swap round if you'd rather — the only hard constraint is that the two systems must not both use colour.</p>
+    </section>
+
+    <section id="decisions">
+      <span class="label">Settled 2026-08-27</span>
+      <h2>Sixteen decisions that override the spec</h2>
+      <p>The requirements document contradicts itself in places and leaves authoring notes in angle brackets. These resolutions win wherever they conflict with it. They are in the roadmap so that no phase chat reopens them.</p>
+      <div class="decisions">
+        <div class="decision"><span class="n">01</span><p><strong>Over-filling is asymmetric.</strong> A space may be over-filled (blue). Supply is hard-capped, so over-committed pink stays unreachable.</p></div>
+        <div class="decision"><span class="n">02</span><p><strong>No <span class="mono">Notified</span> in pass 1.</strong> Drafted → Confirmed. The status stays in the type with no UI path.</p></div>
+        <div class="decision"><span class="n">03</span><p><strong>Drafted matches are deleted, not cancelled.</strong> A mis-drag needs no reason code.</p></div>
+        <div class="decision"><span class="n">04</span><p><strong>Cancelled matches live only in the Match list view</strong> — which pass 1 does not have, so they vanish from sight.</p></div>
+        <div class="decision"><span class="n">05</span><p><strong>Availability confirms at <span class="mono">unmatched == 0</span></strong> exactly, not <span class="mono">&lt;= 0</span>.</p></div>
+        <div class="decision"><span class="n">06</span><p><strong>Processor Space has no Pending status.</strong> Deliberate: partly-matched spaces stay Booked and stay in the default filter.</p></div>
+        <div class="decision"><span class="n">07</span><p><strong>Price is keyed on the Processor Space stock class</strong> — processor × PS class × week commencing Sunday.</p></div>
+        <div class="decision"><span class="n">08</span><p><strong>Every drag creates a new match.</strong> Re-dropping an existing pair yields a second match, never a top-up.</p></div>
+        <div class="decision"><span class="n">09</span><p><strong>Delivery time is one free-text field.</strong> The per-processor variants are deferred.</p></div>
+        <div class="decision"><span class="n">10</span><p><strong>Farmer derives from location.</strong> One farmer per location; picking the farm picks the farmer.</p></div>
+        <div class="decision"><span class="n">11</span><p><strong>Plants and carriers are invented</strong> — plausible NZ ones, in one config module for a one-file swap.</p></div>
+        <div class="decision"><span class="n">12</span><p><strong>Confirm a space</strong> when it has at least one Confirmed match and no Drafted ones.</p></div>
+        <div class="decision"><span class="n">13</span><p><strong>Match quantity caps at remaining supply plus its own quantity</strong> — not the record's original quantity, as the spec wrongly states.</p></div>
+        <div class="decision"><span class="n">14</span><p><strong>A mouse is always available.</strong> No keyboard drag path, no keyboard-only journey. Material's own keyboard behaviour stays; nothing is built on top of it.</p></div>
+        <div class="decision"><span class="n">15</span><p><strong>The visual language extends LMS</strong>, via themed Angular Material. Every screen renders inside the real shell — top bar and sidebar present, not stubbed.</p></div>
+        <div class="decision"><span class="n">16</span><p><strong>Hue belongs to quantity fill; status uses weight, pattern, icon and text.</strong> The two systems never both use colour.</p></div>
+      </div>
+    </section>
+
+    <section id="frontend">
+      <span class="label">Frontend direction</span>
+      <h2>Cards on a week-banded timeline</h2>
+      <p>Both sides render as cards inside the LMS content area — status on the left edge, a fill meter for quantity, expandable for detail, always sorted soonest-first, with a sticky <span class="mono">Week of…</span> rail down the left. A flip control swaps the columns, because some people picture animals on the left and processors on the right.</p>
+      <p><b>The hard part:</b> a Processor Space belongs to one day, but an Availability record becomes available on a date and stays available until it is used up. The working answer is <b>carry-over cards</b> — the record shows in full in its home week, then reappears at the top of every later week, muted and dashed, labelled <span class="mono">available since 10 Aug</span>, for as long as it has unmatched quantity. Scroll to any week and you see everything genuinely matchable that week, not just what became available in it.</p>
+      <p style="color:var(--muted)">Expect to iterate on this. Phase 2 presents it as a proposal alongside anything better found while designing.</p>
+    </section>
+
+    <div class="phases fullwidth">
+      <span class="label">The nine phases</span>
+      <h2 style="margin:14px 0 26px">Copy a prompt, open a fresh chat, plan first</h2>
+
+      <!-- PHASE 0 -->
+      <article class="phase" id="p0" data-phase="0">
+        <div class="phase-head">
+          <span class="phase-num">PHASE 00</span>
+          <h3>Scaffold &amp; Seed Data</h3>
+          <button class="done-toggle" aria-pressed="false"><svg class="tick" viewBox="0 0 12 12" aria-hidden="true"><path d="M1 6.5L4.5 10L11 2" fill="none" stroke="currentColor" stroke-width="2"/></svg>Done</button>
+        </div>
+        <p class="delivers">A running Angular app in the real LMS shell, talking to a running .NET API, over a deterministic seed dataset realistic enough that every later phase can be judged by looking at the screen.</p>
+        <div class="facts">
+          <span class="fact"><span class="k">Depends on</span><span class="v">Nothing</span></span>
+          <span class="fact"><span class="k">Doc</span><span class="v mono">PHASE-0-scaffold-and-seed.md</span></span>
+          <span class="fact"><span class="k">Closes with</span><span class="v">sonnet review &rarr; build log</span></span>
+        </div>
+        <ul class="keys">
+          <li><b>Three .NET projects plus an Angular app</b> — and <code>Apg.Domain</code> starts as it must continue, with no EF Core or ASP.NET reference.</li>
+          <li><b>The LMS shell for real</b> — themed Material, petrol-blue top bar with the yellow dev flag, sidebar with the full nav list. Not a placeholder; every later phase is judged inside it.</li>
+          <li><b>One config file</b> holds every invented list — plants, carriers, stock classes — so APG's real values are a one-file swap.</li>
+          <li><b>Deterministic generation</b> from an explicit seeded PRNG, anchored to the current week's Sunday <em>in New Zealand time</em> so the demo never goes stale and never lands in the wrong week.</li>
+          <li><b>Demonstration cases baked in:</b> a space filled from three farms, a record split across three spaces, an over-filled space, an exact fill, a fully confirmed record.</li>
+          <li><b>Raw values only</b> in the schema. Nothing computed is ever persisted.</li>
+        </ul>
+        <div class="risk"><span class="label">Watch out</span>Bad seed data makes a good matching screen look broken. The scaffold is routine; the data is the actual deliverable, and it deserves most of the phase.</div>
+        <div class="prompt-wrap">
+          <div class="prompt-bar"><span class="label">Prompt</span><button class="copy">Copy</button></div>
+<pre class="prompt">Read Documents/ROADMAP.md, Documents/BUILD-LOG.md and Documents/Phases/PHASE-0-scaffold-and-seed.md in full before doing anything else.
+
+You are building Phase 0 — Scaffold &amp; Seed Data — and nothing else.
+
+Two things carry this phase, and neither is the scaffold.
+
+First, the seed data. Standing up the solution, the Angular app and the EF Core context is routine; generating demo data that makes the matching screen look real is what every later phase gets judged against. The seeder must be deterministic — use an explicit PRNG written into the codebase rather than System.Random, whose algorithm is not guaranteed stable across .NET versions. Anchor its dates as offsets from the current week's Sunday computed in New Zealand time, not from the server's UTC clock: Saturday 13:00 UTC is already Sunday in New Zealand, and a UTC anchor puts the whole dataset in the wrong week for twelve hours every Saturday. It must contain every demonstration case in section 4.7 — prove those with a test rather than by eyeballing the database.
+
+Second, the shell. Read ExistingAppScreenshots/*.png before you write any Angular. This prototype has to look like it belongs in APG's live LMS app, so build the real top bar and sidebar now rather than a placeholder — every later phase is judged inside them. Sample the petrol blue from the pixels for the Material theme rather than eyeballing it, and record the hex values you used in the build log so Phase 2 doesn't arrive at different ones.
+
+Keep Apg.Domain free of EF Core and ASP.NET references from the very first commit. It is easy to lose by accident and it is what makes Phase 1 testable.
+
+Rules:
+- Build only what PHASE-0 specifies. If you spot work belonging to a later phase, note it and stop.
+- The roadmap's "Resolved spec questions" override the requirements .docx wherever they conflict. Do not reopen them.
+- Store raw values only. No computed quantity or derived status is ever persisted in the schema.
+- Leave dotnet build, dotnet test and the Angular build green, and update CLAUDE.md — it currently claims no stack has been chosen.
+
+When the build is green, close the phase in two steps. First, spawn a subagent on the sonnet model to review this phase's work for correctness bugs and code quality — hand it the phase document, the roadmap and the diff, have it report findings rather than apply them, then fix what is real and record what you deliberately did not fix and why. Do not let the review expand scope: a finding that belongs to a later phase goes in the build log, not into this phase's code. Second, append an entry to Documents/BUILD-LOG.md using the template at the top of that file, written for someone with no memory of this conversation. The phase document's "Closing this phase" section lists what this phase in particular must record.
+
+Produce a plan for my approval first.</pre>
+        </div>
+      </article>
+
+      <!-- PHASE 1 -->
+      <article class="phase" id="p1" data-phase="1">
+        <div class="phase-head">
+          <span class="phase-num">PHASE 01</span>
+          <h3>Domain Core</h3>
+          <button class="done-toggle" aria-pressed="false"><svg class="tick" viewBox="0 0 12 12" aria-hidden="true"><path d="M1 6.5L4.5 10L11 2" fill="none" stroke="currentColor" stroke-width="2"/></svg>Done</button>
+        </div>
+        <p class="delivers">Every computed quantity, status and rule in the prototype, as pure C# in <code>Apg.Domain</code> — plus the DTO contract the Angular client codes against for the rest of the build.</p>
+        <div class="facts">
+          <span class="fact"><span class="k">Depends on</span><span class="v">Phase 0</span></span>
+          <span class="fact"><span class="k">Doc</span><span class="v mono">PHASE-1-domain-core.md</span></span>
+          <span class="fact"><span class="k">Closes with</span><span class="v">sonnet review &rarr; build log</span></span>
+        </div>
+        <ul class="keys">
+          <li><b>Two matched sums</b> — including drafts and excluding them — plus unmatched, on both sides.</li>
+          <li><b>Derived availability status</b>, and a deliberate refusal to derive processor space status, which is stored.</li>
+          <li><b>Match creation rules:</b> the default quantity, the supply cap, the exact refusal message.</li>
+          <li><b>Date handling, over-tested</b> — weeks commence Sunday and so do New Zealand's DST transitions, which is the single most likely source of an off-by-one-week error here.</li>
+          <li><b>The DTO contract</b> — every computed field lands on the wire, so nothing is ever recomputed in TypeScript. Every later phase codes against this shape.</li>
+        </ul>
+        <div class="risk"><span class="label">Watch out</span>This is the highest-risk phase and it has no visible output. These rules feed every card, badge and colour in the app, and when they drift nothing crashes — the numbers just go quietly wrong on a tool APG uses to commit real livestock.</div>
+        <div class="prompt-wrap">
+          <div class="prompt-bar"><span class="label">Prompt</span><button class="copy">Copy</button></div>
+<pre class="prompt">Read Documents/ROADMAP.md, Documents/BUILD-LOG.md and Documents/Phases/PHASE-1-domain-core.md in full before doing anything else.
+
+You are building Phase 1 — Domain Core — and nothing else. There is no UI in this phase.
+
+Treat the tests as the deliverable alongside the code. These functions produce every number APG will use to commit real livestock, and when they are wrong nothing crashes — the figures are just quietly incorrect, which is the worst failure this app can have. Work through the test list in the phase document, and pay particular attention to the Drafted boundary between the two matched sums, the exact-zero condition on availability confirmation, and the fact that cancelling a record must leave its matches untouched.
+
+Give date handling its own deliberate pass — the phase document has an expanded test list for it, and all of it matters. Week banding is the spine of the matching screen, and a date in the wrong week doesn't look like a bug: the record is simply somewhere the operator isn't looking. New Zealand's daylight saving transitions fall on Sundays, which is also our week boundary, so cover both of those specific Sundays. Convert UTC instants to New Zealand time before taking a date, never after. Inject a clock rather than calling DateTime.Now, and prove "the current week" is right with the clock pinned to Saturday 13:00 UTC — already Sunday in New Zealand.
+
+Rules:
+- Build only what PHASE-1 specifies. If you spot work belonging to a later phase, note it and stop.
+- Apg.Domain must compile with no EF Core and no ASP.NET reference. Projection to DTOs may live in the API, but it must call the domain for every computed value rather than reimplementing any of them.
+- Design the DTOs deliberately: if a card will display a number, that number must arrive on the DTO. A missing field is what forces a later phase to recompute in TypeScript.
+- The roadmap's "Resolved spec questions" override the requirements .docx wherever they conflict. Do not reopen them.
+- Leave dotnet build, dotnet test and the Angular build green, and update CLAUDE.md with anything a future chat must know.
+
+When the build is green, close the phase in two steps. First, spawn a subagent on the sonnet model to review this phase's work for correctness bugs and code quality — hand it the phase document, the roadmap and the diff, have it report findings rather than apply them, then fix what is real and record what you deliberately did not fix and why. Do not let the review expand scope: a finding that belongs to a later phase goes in the build log, not into this phase's code. Second, append an entry to Documents/BUILD-LOG.md using the template at the top of that file, written for someone with no memory of this conversation. The phase document's "Closing this phase" section lists what this phase in particular must record.
+
+Produce a plan for my approval first.</pre>
+        </div>
+      </article>
+
+      <!-- PHASE 2 -->
+      <article class="phase" id="p2" data-phase="2">
+        <div class="phase-head">
+          <span class="phase-num">PHASE 02</span>
+          <h3>Design Pass</h3>
+          <button class="done-toggle" aria-pressed="false"><svg class="tick" viewBox="0 0 12 12" aria-hidden="true"><path d="M1 6.5L4.5 10L11 2" fill="none" stroke="currentColor" stroke-width="2"/></svg>Done</button>
+        </div>
+        <p class="delivers">A ten-artboard design canvas of the whole matching screen, plus a written design system that Phases 3–8 build from without reopening a single visual question.</p>
+        <div class="facts">
+          <span class="fact"><span class="k">Depends on</span><span class="v">Phases 0–1</span></span>
+          <span class="fact"><span class="k">Skill</span><span class="v mono">design</span></span>
+          <span class="fact"><span class="k">Doc</span><span class="v mono">PHASE-2-design-pass.md</span></span>
+          <span class="fact"><span class="k">Closes with</span><span class="v">sonnet review &rarr; build log</span></span>
+        </div>
+        <ul class="keys">
+          <li><b>Uses the <span class="mono">design</span> skill</b> — a multi-artboard canvas published as an Artifact you can then edit visually.</li>
+          <li><b>Extends LMS, doesn't replace it.</b> The four screenshots are the reference; every control is a themed Material component, and the shell is fixed.</li>
+          <li><b>Ten artboards</b>, from the full screen in its shell down to drag states, the carry-over card, and every empty and edge case.</li>
+          <li><b>Density over beauty.</b> A card that looks elegant four-to-a-screen and forces scrolling for the fifth has failed.</li>
+          <li><b>Touches no application code.</b> The output is a canvas and <span class="mono">design-system.md</span>.</li>
+        </ul>
+        <div class="risk"><span class="label">Watch out</span>The colour collision is already settled — apply it, don't reopen it. The real problem is making two columns of cards feel native to an application where every other screen is a dense zebra-striped table. Density is most of the answer: LMS shows twenty-odd rows at a glance, and a card list showing four has broken the family resemblance.</div>
+        <div class="prompt-wrap">
+          <div class="prompt-bar"><span class="label">Prompt</span><button class="copy">Copy</button></div>
+<pre class="prompt">Read Documents/ROADMAP.md, Documents/BUILD-LOG.md, Documents/Phases/PHASE-2-design-pass.md and Documents/Requirements/Frontend ideas.md in full before doing anything else.
+
+You are running Phase 2 — the Design Pass — and nothing else. Do not modify any application code — nothing under src/, tests/ or web/.
+
+You must invoke the `design` skill for this phase. This is where the bulk of the UI gets designed, and Phases 3-8 implement from your output rather than making visual decisions of their own, so anything you leave ambiguous becomes several inconsistent decisions later.
+
+Before you design anything, open the four PNGs in ExistingAppScreenshots/ and study them. You are extending APG's live LMS application, not designing a new product: same shell, same blues, same Roboto, comparable density. Reuse the hex values Phase 0 recorded in the build log rather than sampling slightly different ones. Design with themed Material components throughout — a design that needs bespoke controls is the wrong design here, however nice it looks.
+
+The status-versus-quantity colour collision is already resolved in the roadmap under "Two colour systems, resolved". Apply it and document it in full; do not reopen it. Hue belongs to the quantity fill meter, status lives on the card's left edge as weight, pattern and icon.
+
+The genuine problem is making two columns of cards feel native to an app where every other screen is a dense table. Density is most of the answer. The other open question is the carry-over card — an availability record reappearing in later week bands while it still has unmatched quantity. Present it as a proposal with your reasoning, and if you find something better while designing, show both and say which you would ship.
+
+Use real seeded data in every artboard, never placeholder text. A mouse is assumed available, so design no keyboard-drag affordances.
+
+Rules:
+- Build only what PHASE-2 specifies. No application code.
+- The roadmap's "Resolved spec questions" override the requirements .docx wherever they conflict. Do not reopen them.
+- Documents/design-system.md must be complete enough that Phase 3 needs no further design decisions.
+- Report the canvas Artifact URL when you finish.
+
+When the build is green, close the phase in two steps. First, spawn a subagent on the sonnet model to review this phase's work for correctness bugs and code quality — hand it the phase document, the roadmap and the diff, have it report findings rather than apply them, then fix what is real and record what you deliberately did not fix and why. Do not let the review expand scope: a finding that belongs to a later phase goes in the build log, not into this phase's code. Second, append an entry to Documents/BUILD-LOG.md using the template at the top of that file, written for someone with no memory of this conversation. The phase document's "Closing this phase" section lists what this phase in particular must record.
+
+Produce a plan for my approval first.</pre>
+        </div>
+      </article>
+
+      <!-- PHASE 3 -->
+      <article class="phase" id="p3" data-phase="3">
+        <div class="phase-head">
+          <span class="phase-num">PHASE 03</span>
+          <h3>Card Lists &amp; Week Bands</h3>
+          <button class="done-toggle" aria-pressed="false"><svg class="tick" viewBox="0 0 12 12" aria-hidden="true"><path d="M1 6.5L4.5 10L11 2" fill="none" stroke="currentColor" stroke-width="2"/></svg>Done</button>
+        </div>
+        <p class="delivers">Both columns rendering real data as cards, banded by week, with a sticky rail and carry-over cards. The screen looks finished and does nothing.</p>
+        <div class="facts">
+          <span class="fact"><span class="k">Depends on</span><span class="v">Phases 1–2</span></span>
+          <span class="fact"><span class="k">Doc</span><span class="v mono">PHASE-3-card-lists-and-week-bands.md</span></span>
+          <span class="fact"><span class="k">Closes with</span><span class="v">sonnet review &rarr; build log</span></span>
+        </div>
+        <ul class="keys">
+          <li><b>Inside the shell</b> — the columns lay out in the width the sidebar leaves, and the top bar and sidebar don't scroll with them.</li>
+          <li><b>Status on the left edge, quantity as a fill meter</b> — the two systems stay separate exactly as the design system specifies.</li>
+          <li><b>Week bands</b> with a sticky <span class="mono">Week of…</span> rail, current week distinguished, empty weeks still shown.</li>
+          <li><b>A space sits in exactly one band.</b> An availability record sits in its home band and carries over into later ones.</li>
+          <li><b>Carry-over cards are the same record</b>, never a copy — and must never double-count in any total.</li>
+          <li><b>Read-only.</b> Expand and collapse is the only interaction in this phase.</li>
+        </ul>
+        <div class="risk"><span class="label">Watch out</span>Carry-over cards are why this phase exists on its own. Get the horizon cap, the visual demotion, and the "same record, not a copy" identity right here, because Phases 4 and 5 both build directly on top of them.</div>
+        <div class="prompt-wrap">
+          <div class="prompt-bar"><span class="label">Prompt</span><button class="copy">Copy</button></div>
+<pre class="prompt">Read Documents/ROADMAP.md, Documents/BUILD-LOG.md, Documents/Phases/PHASE-3-card-lists-and-week-bands.md and Documents/design-system.md in full before doing anything else.
+
+You are building Phase 3 — Card Lists &amp; Week Bands — and nothing else.
+
+Cards are read-only in this phase. No filtering, no sorting, no flip button, no dragging, no opening matches, no add buttons — those are Phases 4 to 7. Expand and collapse is the only interaction you build.
+
+The carry-over card is the hard part and the reason this phase stands alone. A processor space belongs to one day; an availability record becomes available on a date and stays available until it is used up, so it must appear in full in its home week band and then reappear, visually demoted, at the top of every later band while it still has unmatched quantity. It is the same record, not a copy — expanding a carry-over card shows the same matches, and it must never double-count in any total or count.
+
+Every number on every card must arrive on the DTO already computed. No domain arithmetic anywhere in web/ — if something you need is missing from the contract, add it to the API rather than working it out in TypeScript.
+
+Rules:
+- Build only what PHASE-3 specifies. If you spot work belonging to a later phase, note it and stop.
+- Implement from design-system.md rather than making new visual decisions.
+- The roadmap's "Resolved spec questions" override the requirements .docx wherever they conflict. Do not reopen them.
+- Leave dotnet build, dotnet test and the Angular build green, and update CLAUDE.md with anything a future chat must know.
+
+When the build is green, close the phase in two steps. First, spawn a subagent on the sonnet model to review this phase's work for correctness bugs and code quality — hand it the phase document, the roadmap and the diff, have it report findings rather than apply them, then fix what is real and record what you deliberately did not fix and why. Do not let the review expand scope: a finding that belongs to a later phase goes in the build log, not into this phase's code. Second, append an entry to Documents/BUILD-LOG.md using the template at the top of that file, written for someone with no memory of this conversation. The phase document's "Closing this phase" section lists what this phase in particular must record.
+
+Produce a plan for my approval first.</pre>
+        </div>
+      </article>
+
+      <!-- PHASE 4 -->
+      <article class="phase" id="p4" data-phase="4">
+        <div class="phase-head">
+          <span class="phase-num">PHASE 04</span>
+          <h3>Filter, Sort &amp; Flip</h3>
+          <button class="done-toggle" aria-pressed="false"><svg class="tick" viewBox="0 0 12 12" aria-hidden="true"><path d="M1 6.5L4.5 10L11 2" fill="none" stroke="currentColor" stroke-width="2"/></svg>Done</button>
+        </div>
+        <p class="delivers">The controls that get an operator from "everything" to "the twelve records I could plausibly match this morning".</p>
+        <div class="facts">
+          <span class="fact"><span class="k">Depends on</span><span class="v">Phases 1, 3</span></span>
+          <span class="fact"><span class="k">Doc</span><span class="v mono">PHASE-4-filter-sort-flip.md</span></span>
+          <span class="fact"><span class="k">Closes with</span><span class="v">sonnet review &rarr; build log</span></span>
+        </div>
+        <ul class="keys">
+          <li><b>Stock class filters on both sides</b>, prominently — and the processor side narrows to that processor's own list.</li>
+          <li><b>Spec default filters</b> on load: spaces Booked; availability Booked or Pending with unmatched above zero.</li>
+          <li><b>Flip swaps the columns</b> and loses no state, which is why each column must be identifiable without relying on its position.</li>
+          <li><b>Sorting works within week bands</b>, not across them. The chronological spine stays put.</li>
+        </ul>
+        <div class="risk"><span class="label">Watch out</span>Filters and carry-over cards interact subtly. A filtered-out record must not sneak back as a carry-over — but when filtering to a single week, carry-over cards are precisely what makes the view correct, so they have to survive a week filter.</div>
+        <div class="prompt-wrap">
+          <div class="prompt-bar"><span class="label">Prompt</span><button class="copy">Copy</button></div>
+<pre class="prompt">Read Documents/ROADMAP.md, Documents/BUILD-LOG.md, Documents/Phases/PHASE-4-filter-sort-flip.md and Documents/design-system.md in full before doing anything else.
+
+You are building Phase 4 — Filter, Sort &amp; Flip — and nothing else. This phase only changes what is shown; nothing here may change data.
+
+Two things need care. First, filters and carry-over cards: a record excluded by a filter must not reappear as a carry-over card, but when the operator filters to a single week the carry-over cards are exactly what make that view correct, so they must survive a week filter. Decide the rule explicitly and say which you applied.
+
+Second, sorting operates within week bands rather than across them — the chronological band order is the spine of the screen. If you think a global sort that dissolves the bands is genuinely wanted, offer it as an explicit mode rather than silently breaking them.
+
+The reset control must return a column to exactly the default constants exported from Phase 1, asserted by a test, so the defaults and the reset cannot drift apart.
+
+Rules:
+- Build only what PHASE-4 specifies. If you spot work belonging to a later phase, note it and stop.
+- The roadmap's "Resolved spec questions" override the requirements .docx wherever they conflict. Do not reopen them.
+- Leave dotnet build, dotnet test and the Angular build green, and update CLAUDE.md with anything a future chat must know.
+
+When the build is green, close the phase in two steps. First, spawn a subagent on the sonnet model to review this phase's work for correctness bugs and code quality — hand it the phase document, the roadmap and the diff, have it report findings rather than apply them, then fix what is real and record what you deliberately did not fix and why. Do not let the review expand scope: a finding that belongs to a later phase goes in the build log, not into this phase's code. Second, append an entry to Documents/BUILD-LOG.md using the template at the top of that file, written for someone with no memory of this conversation. The phase document's "Closing this phase" section lists what this phase in particular must record.
+
+Produce a plan for my approval first.</pre>
+        </div>
+      </article>
+
+      <!-- PHASE 5 -->
+      <article class="phase" id="p5" data-phase="5">
+        <div class="phase-head">
+          <span class="phase-num">PHASE 05</span>
+          <h3>Drag to Match</h3>
+          <button class="done-toggle" aria-pressed="false"><svg class="tick" viewBox="0 0 12 12" aria-hidden="true"><path d="M1 6.5L4.5 10L11 2" fill="none" stroke="currentColor" stroke-width="2"/></svg>Done</button>
+        </div>
+        <p class="delivers">The feature this entire prototype exists to prove — dragging a card onto a card in the other column to create a match.</p>
+        <div class="facts">
+          <span class="fact"><span class="k">Depends on</span><span class="v">Phases 1, 3, 4</span></span>
+          <span class="fact"><span class="k">Doc</span><span class="v mono">PHASE-5-drag-to-match.md</span></span>
+          <span class="fact"><span class="k">Closes with</span><span class="v">sonnet review &rarr; build log</span></span>
+        </div>
+        <ul class="keys">
+          <li><b>Both directions behave identically.</b> The operator should never have to think about which card they picked up first.</li>
+          <li><b>The quantity prompt</b> defaults to the smaller of the two unmatched figures, caps at supply, and leaves demand uncapped.</li>
+          <li><b>Refuse at the drop</b> with the exact words "There is no unmatched quantity" — don't open a dialog just to disable its button.</li>
+          <li><b>Mouse only</b> — a pointer is assumed available, which means dragging is the <em>only</em> way to make a match. That raises the stakes on getting it right rather than lowering them.</li>
+        </ul>
+        <div class="risk"><span class="label">Watch out</span>Dragging between two independently scrolling, independently filtered, week-banded columns is the riskiest build in the project. Spike the mechanics — including auto-scroll near a column edge — before building any of the polish around them.</div>
+        <div class="prompt-wrap">
+          <div class="prompt-bar"><span class="label">Prompt</span><button class="copy">Copy</button></div>
+<pre class="prompt">Read Documents/ROADMAP.md, Documents/BUILD-LOG.md, Documents/Phases/PHASE-5-drag-to-match.md and Documents/design-system.md in full before doing anything else.
+
+You are building Phase 5 — Drag to Match — and nothing else. This phase only creates matches, always at status Drafted. Editing, cancelling and confirming them is Phase 6.
+
+This is the deliverable the whole prototype exists to prove, and the riskiest build in it: dragging between two independently scrolling, independently filtered, week-banded columns. Spike the Angular CDK DragDrop mechanics first — including auto-scroll when a drag nears a column edge — and only then build the polish around them.
+
+Three details that are easy to get wrong. Dragging must work identically in both directions. When the default quantity would be below 1, refuse at the moment of the drop with exactly "There is no unmatched quantity" rather than opening the dialog and disabling its button. And the quantity cap applies to the availability side only — over-filling a processor space is allowed and shows as blue "Over-filled".
+
+Do not build a keyboard drag path. A mouse is assumed available at all times, and an earlier draft of the phase document required a keyboard alternative — that requirement was removed deliberately, so don't reinstate it or treat its absence as an oversight. The consequence is that pointer dragging is the only route to a match, so test that route hard.
+
+Rules:
+- Build only what PHASE-5 specifies. If you spot work belonging to a later phase, note it and stop.
+- The roadmap's "Resolved spec questions" override the requirements .docx wherever they conflict. Do not reopen them.
+- Verify the default price is keyed on the Processor Space stock class using a seeded pair whose two stock classes differ.
+- Leave dotnet build, dotnet test and the Angular build green, and update CLAUDE.md with anything a future chat must know.
+
+When the build is green, close the phase in two steps. First, spawn a subagent on the sonnet model to review this phase's work for correctness bugs and code quality — hand it the phase document, the roadmap and the diff, have it report findings rather than apply them, then fix what is real and record what you deliberately did not fix and why. Do not let the review expand scope: a finding that belongs to a later phase goes in the build log, not into this phase's code. Second, append an entry to Documents/BUILD-LOG.md using the template at the top of that file, written for someone with no memory of this conversation. The phase document's "Closing this phase" section lists what this phase in particular must record.
+
+Produce a plan for my approval first.</pre>
+        </div>
+      </article>
+
+      <!-- PHASE 6 -->
+      <article class="phase" id="p6" data-phase="6">
+        <div class="phase-head">
+          <span class="phase-num">PHASE 06</span>
+          <h3>Match Management</h3>
+          <button class="done-toggle" aria-pressed="false"><svg class="tick" viewBox="0 0 12 12" aria-hidden="true"><path d="M1 6.5L4.5 10L11 2" fill="none" stroke="currentColor" stroke-width="2"/></svg>Done</button>
+        </div>
+        <p class="delivers">The full life of a match after it is drafted — edit its quantity, price and transport; delete it, cancel it with a reason, or confirm it. Plus confirming a processor space.</p>
+        <div class="facts">
+          <span class="fact"><span class="k">Depends on</span><span class="v">Phase 5</span></span>
+          <span class="fact"><span class="k">Doc</span><span class="v mono">PHASE-6-match-management.md</span></span>
+          <span class="fact"><span class="k">Closes with</span><span class="v">sonnet review &rarr; build log</span></span>
+        </div>
+        <ul class="keys">
+          <li><b>Everything lives on the matching screen.</b> Pass 1 has no record detail pages and no match list.</li>
+          <li><b>Delete is for drafts</b>, no reason needed. Cancel-with-reason is for everything past draft.</li>
+          <li><b>Confirmed matches prompt</b> before a quantity or transport edit takes effect.</li>
+          <li><b>A disabled Confirm must say why</b> — silent greying-out is what makes non-technical users think an app is broken.</li>
+        </ul>
+        <div class="risk"><span class="label">Watch out</span>The non-cascade is the most surprising rule in the domain and the easiest for a helpful chat to "fix". Cancelling a match must never touch its parent records, and cancelling a record must never touch its matches. Test it.</div>
+        <div class="prompt-wrap">
+          <div class="prompt-bar"><span class="label">Prompt</span><button class="copy">Copy</button></div>
+<pre class="prompt">Read Documents/ROADMAP.md, Documents/BUILD-LOG.md, Documents/Phases/PHASE-6-match-management.md and Documents/design-system.md in full before doing anything else.
+
+You are building Phase 6 — Match Management — and nothing else.
+
+Pass 1 has no record detail pages and no Match list view, so every action here lives on the matching screen. A match must be openable from both its processor space and its availability record.
+
+Watch three things. Delete applies only to Drafted matches and needs no reason — it is the remedy for a mis-drag. Cancel applies past Drafted and requires one of the three specified reasons, after which the match disappears from the matching screen entirely, so warn the operator before they do it. And the quantity cap when editing is the availability's unmatched quantity plus this match's own current quantity — the requirements document says "originally available", which is wrong and would permit the over-commit the pink colour exists to flag.
+
+The non-cascade rule is the one most likely to get helpfully broken: cancelling a match must never touch its parent records, and cancelling a record must never touch its matches. Cover it with a test.
+
+Where the Confirm action on a processor space is disabled, say why. Silent greying-out is exactly what makes non-technical users think the app is broken.
+
+Rules:
+- Build only what PHASE-6 specifies. If you spot work belonging to a later phase, note it and stop.
+- The roadmap's "Resolved spec questions" override the requirements .docx wherever they conflict. Do not reopen them.
+- Processor Space status is stored, not derived. Do not write a function that computes it.
+- Leave dotnet build, dotnet test and the Angular build green, and update CLAUDE.md with anything a future chat must know.
+
+When the build is green, close the phase in two steps. First, spawn a subagent on the sonnet model to review this phase's work for correctness bugs and code quality — hand it the phase document, the roadmap and the diff, have it report findings rather than apply them, then fix what is real and record what you deliberately did not fix and why. Do not let the review expand scope: a finding that belongs to a later phase goes in the build log, not into this phase's code. Second, append an entry to Documents/BUILD-LOG.md using the template at the top of that file, written for someone with no memory of this conversation. The phase document's "Closing this phase" section lists what this phase in particular must record.
+
+Produce a plan for my approval first.</pre>
+        </div>
+      </article>
+
+      <!-- PHASE 7 -->
+      <article class="phase" id="p7" data-phase="7">
+        <div class="phase-head">
+          <span class="phase-num">PHASE 07</span>
+          <h3>Debug Record Creation</h3>
+          <button class="done-toggle" aria-pressed="false"><svg class="tick" viewBox="0 0 12 12" aria-hidden="true"><path d="M1 6.5L4.5 10L11 2" fill="none" stroke="currentColor" stroke-width="2"/></svg>Done</button>
+        </div>
+        <p class="delivers">Add, edit and cancel both record types from the matching screen, so records can be created live during a demo.</p>
+        <div class="facts">
+          <span class="fact"><span class="k">Depends on</span><span class="v">Phases 3, 4, 6</span></span>
+          <span class="fact"><span class="k">Doc</span><span class="v mono">PHASE-7-debug-record-creation.md</span></span>
+          <span class="fact"><span class="k">Closes with</span><span class="v">sonnet review &rarr; build log</span></span>
+        </div>
+        <ul class="keys">
+          <li><b>Marked as debug tooling.</b> Nobody watching a demo should mistake these for the farmer's real submission form.</li>
+          <li><b>Processor drives the form</b> — picking it filters both the plant list and the processor-specific stock class list.</li>
+          <li><b>Location implies the farmer</b>, shown back so the operator can confirm the pick.</li>
+          <li><b>Finance Stock opens no purchase list.</b> The draw-down is deferred past pass 1.</li>
+        </ul>
+        <div class="risk"><span class="label">Watch out</span>Reducing a record's quantity below what is already matched is the one legitimate route to the pink "Over-committed" state. Don't block the edit — the spec explicitly contemplates a farmer selling stock elsewhere. Warn, then let it through, and make the consequence visible.</div>
+        <div class="prompt-wrap">
+          <div class="prompt-bar"><span class="label">Prompt</span><button class="copy">Copy</button></div>
+<pre class="prompt">Read Documents/ROADMAP.md, Documents/BUILD-LOG.md, Documents/Phases/PHASE-7-debug-record-creation.md and Documents/design-system.md in full before doing anything else.
+
+You are building Phase 7 — Debug Record Creation — and nothing else.
+
+These forms are demo scaffolding, not the real create flows. The farmer and agent submission journey is deferred past pass 1, and this phase must not quietly become it. Mark the add controls visibly as debug tooling so nobody watching a demo mistakes them for a farmer's real submission form. Selecting Finance Stock as a transaction type does not open a Purchase list — that draw-down is deferred.
+
+Two behaviours matter more than the forms themselves. Reducing a record's quantity below what is already matched is the one legitimate route to the pink "Over-committed" state: warn, but let the operator through, because the spec explicitly contemplates a farmer selling stock elsewhere. And cancelling a record must leave every one of its matches intact — after cancelling a record with live matches, make it visible that the orphaned matches still exist rather than asking anyone to take it on trust.
+
+Rules:
+- Build only what PHASE-7 specifies. If you spot work belonging to a later phase, note it and stop.
+- The processor's stock class picker shows only that processor's own list, and changing processor must reset a now-invalid selection rather than leaving it stale.
+- The roadmap's "Resolved spec questions" override the requirements .docx wherever they conflict. Do not reopen them.
+- Leave dotnet build, dotnet test and the Angular build green, and update CLAUDE.md with anything a future chat must know.
+
+When the build is green, close the phase in two steps. First, spawn a subagent on the sonnet model to review this phase's work for correctness bugs and code quality — hand it the phase document, the roadmap and the diff, have it report findings rather than apply them, then fix what is real and record what you deliberately did not fix and why. Do not let the review expand scope: a finding that belongs to a later phase goes in the build log, not into this phase's code. Second, append an entry to Documents/BUILD-LOG.md using the template at the top of that file, written for someone with no memory of this conversation. The phase document's "Closing this phase" section lists what this phase in particular must record.
+
+Produce a plan for my approval first.</pre>
+        </div>
+      </article>
+
+      <!-- PHASE 8 -->
+      <article class="phase" id="p8" data-phase="8">
+        <div class="phase-head">
+          <span class="phase-num">PHASE 08</span>
+          <h3>Polish &amp; Demo Readiness</h3>
+          <button class="done-toggle" aria-pressed="false"><svg class="tick" viewBox="0 0 12 12" aria-hidden="true"><path d="M1 6.5L4.5 10L11 2" fill="none" stroke="currentColor" stroke-width="2"/></svg>Done</button>
+        </div>
+        <p class="delivers">A prototype that survives being shown to APG — plus a demo script naming the exact records to use.</p>
+        <div class="facts">
+          <span class="fact"><span class="k">Depends on</span><span class="v">Everything</span></span>
+          <span class="fact"><span class="k">Doc</span><span class="v mono">PHASE-8-polish-and-demo-readiness.md</span></span>
+          <span class="fact"><span class="k">Closes with</span><span class="v">sonnet review &rarr; build log</span></span>
+        </div>
+        <ul class="keys">
+          <li><b>Reset demo data</b> that genuinely restores the seeded demonstration cases, behind a confirmation.</li>
+          <li><b>Stock class iconography</b> from the forecasting CSV, whose names only partly overlap either booking-module list — so the fallback matters.</li>
+          <li><b>Still reads as LMS</b> when held next to the screenshots — shell, blues, type, density all intact after eight phases of change.</li>
+          <li><b>No raw <span class="mono">undefined</span>, <span class="mono">NaN</span> or <span class="mono">Invalid Date</span></b> under any filter combination.</li>
+        </ul>
+        <div class="risk"><span class="label">Watch out</span>The measure of this phase isn't a feature list. It's whether an APG staffer who has never seen the app can be handed the laptop and match livestock without being talked through it.</div>
+        <div class="prompt-wrap">
+          <div class="prompt-bar"><span class="label">Prompt</span><button class="copy">Copy</button></div>
+<pre class="prompt">Read Documents/ROADMAP.md, Documents/BUILD-LOG.md, Documents/Phases/PHASE-8-polish-and-demo-readiness.md and Documents/design-system.md in full before doing anything else.
+
+You are running Phase 8 — Polish &amp; Demo Readiness. This closes pass 1.
+
+Judge your work by one test: could an APG staff member who has never seen this app be handed the laptop and match livestock without being talked through it? Everything in the phase document serves that, so where you have to choose, favour whatever makes the screen legible to someone encountering it cold.
+
+Force the pink "Over-committed" state once to confirm it renders correctly, then confirm no ordinary flow can produce it. Check every stock class on both sides renders with an icon or a deliberate fallback — the icons come from APG's forecasting system and its names only partly overlap our two booking-module lists. Then put the finished screen next to ExistingAppScreenshots/*.png and check it still reads as part of the same application; eight phases of change is enough for the family resemblance to have drifted.
+
+Write Documents/DEMO.md naming the specific seeded records to use at each step, so the demo doesn't depend on hunting for a good example while people watch.
+
+Rules:
+- Build only what PHASE-8 specifies. If you want record detail pages or the Match list view, note them for pass 2 and stop.
+- The roadmap's "Resolved spec questions" override the requirements .docx wherever they conflict. Do not reopen them.
+- Leave dotnet build, dotnet test and the Angular production build green, and bring CLAUDE.md up to date with the finished app.
+- Finish by stating plainly what pass 1 deliberately does not do, so nobody mistakes an omission for a defect.
+
+When the build is green, close the phase in two steps. First, spawn a subagent on the sonnet model to review this phase's work for correctness bugs and code quality — hand it the phase document, the roadmap and the diff, have it report findings rather than apply them, then fix what is real and record what you deliberately did not fix and why. Do not let the review expand scope: a finding that belongs to a later phase goes in the build log, not into this phase's code. Second, append an entry to Documents/BUILD-LOG.md using the template at the top of that file, written for someone with no memory of this conversation. The phase document's "Closing this phase" section lists what this phase in particular must record.
+
+Produce a plan for my approval first.</pre>
+        </div>
+      </article>
+    </div>
+
+    <section id="deferred">
+      <span class="label">Pass 2 and beyond</span>
+      <h2>Deliberately not built</h2>
+      <p>Roughly in the order they would earn their place. Worth naming out loud at a demo, so an omission doesn't read as a defect.</p>
+      <ul class="deferred">
+        <li>Record detail views for both entities, with their match tables and dual sums</li>
+        <li>The standalone Match list view — and with it, any visibility of cancelled matches</li>
+        <li>The farmer and agent availability flow, including Finance Stock draw-down against purchases</li>
+        <li>Roles, and per-processor visibility gating: ANZCO sees most, SFF only once confirmed, Alliance none</li>
+        <li>The Notified status, and notifications by in-app, SMS and email</li>
+        <li>Default pricing maintenance</li>
+        <li>Weekly roll-up views on the two list screens</li>
+      </ul>
+    </section>
+
+    <footer>
+      <p class="mono">Alpine Pastures Group · Booking Module prototype · plan dated 27 August 2026<br>
+      Roadmap: Documents/ROADMAP.md &nbsp;·&nbsp; Build log: Documents/BUILD-LOG.md &nbsp;·&nbsp; Phase docs: Documents/Phases/ &nbsp;·&nbsp; Spec: Documents/Requirements/</p>
+    </footer>
+
+  </main>
+</div>
+
+<script>
+(function () {
+  var KEY = "apg-build-progress";
+
+  function read() {
+    try { return JSON.parse(localStorage.getItem(KEY) || "{}") || {}; }
+    catch (e) { return {}; }
+  }
+  function write(state) {
+    try { localStorage.setItem(KEY, JSON.stringify(state)); } catch (e) {}
+  }
+
+  var state = read();
+  var phases = Array.prototype.slice.call(document.querySelectorAll(".phase"));
+  var railLinks = Array.prototype.slice.call(document.querySelectorAll("#rail-list a"));
+  var bar = document.getElementById("prog-bar");
+  var progText = document.getElementById("prog-text");
+
+  function paint() {
+    var done = 0;
+    phases.forEach(function (el, i) {
+      var isDone = !!state[el.dataset.phase];
+      if (isDone) done++;
+      el.dataset.done = isDone ? "1" : "0";
+      var btn = el.querySelector(".done-toggle");
+      btn.setAttribute("aria-pressed", isDone ? "true" : "false");
+      if (railLinks[i]) railLinks[i].classList.toggle("is-done", isDone);
+    });
+    var pct = Math.round((done / phases.length) * 100);
+    bar.style.width = pct + "%";
+    progText.textContent = done + " of " + phases.length + " done";
+  }
+
+  phases.forEach(function (el) {
+    el.querySelector(".done-toggle").addEventListener("click", function () {
+      var id = el.dataset.phase;
+      if (state[id]) { delete state[id]; } else { state[id] = 1; }
+      write(state);
+      paint();
+    });
+  });
+
+  paint();
+
+  function fallbackCopy(text) {
+    var ta = document.createElement("textarea");
+    ta.value = text;
+    ta.setAttribute("readonly", "");
+    ta.style.position = "fixed";
+    ta.style.top = "-1000px";
+    document.body.appendChild(ta);
+    ta.select();
+    var ok = false;
+    try { ok = document.execCommand("copy"); } catch (e) { ok = false; }
+    document.body.removeChild(ta);
+    return ok;
+  }
+
+  document.querySelectorAll(".copy").forEach(function (btn) {
+    btn.addEventListener("click", function () {
+      var pre = btn.closest(".prompt-wrap").querySelector("pre.prompt");
+      var text = pre.textContent;
+
+      function done(ok) {
+        btn.textContent = ok ? "Copied" : "Select it";
+        btn.classList.toggle("copied", ok);
+        if (!ok) {
+          var r = document.createRange();
+          r.selectNodeContents(pre);
+          var s = window.getSelection();
+          s.removeAllRanges();
+          s.addRange(r);
+        }
+        setTimeout(function () { btn.textContent = "Copy"; btn.classList.remove("copied"); }, 1800);
+      }
+
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(text).then(function () { done(true); },
+                                                 function () { done(fallbackCopy(text)); });
+      } else {
+        done(fallbackCopy(text));
+      }
+    });
+  });
+})();
+</script>
