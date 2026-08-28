@@ -1,0 +1,116 @@
+@use '../card-geometry' as geo;
+@use '../../../styles/lms-tokens' as lms;
+
+:host {
+  flex: 1 1 0;
+  min-width: 0;
+  display: block;
+}
+
+.column {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-width: 0;
+  background: lms.$lms-card;
+  border: 1px solid lms.$lms-divider;
+}
+
+// --- 1. the column header ---
+.chead {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  height: geo.$column-header-height;
+  padding: 0 10px;
+  border-bottom: 1px solid lms.$lms-divider;
+}
+
+.glyph {
+  font-size: 18px;
+  color: lms.$lms-petrol;
+}
+
+.ctitle {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 600;
+  color: lms.$lms-text;
+}
+
+// Pushed right so the count sits at the far edge, above the meter column it describes the state of.
+.showing {
+  margin-left: auto;
+  @include geo.card-meta;
+  @include geo.numerals;
+}
+
+// The supply column takes a slightly different identity tone on its header, so the two sides stay
+// distinguishable once Phase 4 lets them swap position.
+.supply .glyph {
+  color: lms.$lms-supply-ink;
+}
+
+// --- 2. the reserved filter row (Phase 4) ---
+.filters {
+  height: geo.$filter-row-height;
+  border-bottom: 1px solid lms.$lms-divider;
+  background: lms.$lms-surface;
+}
+
+// --- 3. the scrolling list ---
+// The scroll container. The band rails stick relative to THIS, which is why their offset is the
+// strip's height rather than zero.
+.list {
+  flex: 1 1 auto;
+  overflow-y: auto;
+  overflow-x: hidden;
+  position: relative;
+}
+
+// z-index 3 so it sits over the sticky week rails (1) and the cards.
+.strip {
+  position: sticky;
+  top: 0;
+  z-index: 3;
+  display: flex;
+  align-items: center;
+  gap: geo.$col-gap;
+  height: geo.$header-strip-height;
+  // 48px rail + 6px spine + the card's own 8px padding, so each cell sits over its column.
+  padding: 0 8px 0 (geo.$leading-offset + 8px);
+  background: lms.$lms-surface;
+  border-bottom: 1px solid lms.$lms-divider;
+  @include geo.micro-caps;
+}
+
+// Widths from the shared partial, identical to the cards' — this alignment is what makes a list of
+// cards read as a table.
+.s-tile {
+  flex: 0 0 geo.$col-tile;
+}
+
+.s-name {
+  @include geo.col-name;
+}
+
+.s-sclass {
+  @include geo.col-fixed(geo.$col-stock-class);
+}
+
+.s-date {
+  @include geo.col-fixed(geo.$col-date);
+}
+
+.s-qty {
+  @include geo.col-fixed(geo.$col-quantity, right);
+}
+
+// Matches the meter block exactly; if these two diverge the columns stop lining up.
+.s-meter {
+  @include geo.col-fixed(geo.$col-meter-block, right);
+}
+
+.s-chev {
+  flex: 0 0 geo.$col-chevron;
+}

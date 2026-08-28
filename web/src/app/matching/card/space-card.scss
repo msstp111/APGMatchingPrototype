@@ -1,0 +1,8 @@
+@use '../card-geometry' as geo;
+
+// Everything structural is in the shared mixin, so the demand and supply cards cannot drift apart.
+:host {
+  display: block;
+}
+
+@include geo.card-shell;

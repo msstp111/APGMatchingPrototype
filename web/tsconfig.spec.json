@@ -4,7 +4,10 @@
   "extends": "./tsconfig.json",
   "compilerOptions": {
     "types": [
-      "vitest/globals"
+      "vitest/globals",
+      // no-domain-arithmetic.spec.ts reads the matching screen's own sources off disk, the same way
+      // DomainPurityTests scans src/Apg.Domain. Test-only: the app tsconfig does not include this.
+      "node"
     ]
   },
   "include": [

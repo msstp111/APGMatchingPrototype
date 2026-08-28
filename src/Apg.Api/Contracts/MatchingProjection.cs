@@ -50,6 +50,44 @@ public static class MatchingProjection
             .ToList();
     }
 
+    /// <summary>
+    /// The week bands both columns are drawn on: every Sunday from the earliest record's week to the
+    /// latest, in order and with no gaps, and always including the current week.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>One list serves both columns.</b> A week that is empty on the demand side but busy on the
+    /// supply side still renders on both, so the two sides stay vertically comparable and requirement
+    /// 1.6's visible gaps are visible on the side that has the gap.
+    /// </para>
+    /// <para>
+    /// The current week is folded into the range whether or not a record falls in it. That is what lets
+    /// the client treat "the index of the current band" as a value that always exists — the carry-over
+    /// rule is expressed relative to it, and an absent current week would make every carry-over a
+    /// special case.
+    /// </para>
+    /// </remarks>
+    public static IReadOnlyList<WeekBandDto> WeekBands(WorkingSet set, TimeProvider clock)
+    {
+        var currentWeek = NzTime.CurrentWeekCommencing(clock);
+
+        var dates = set.Spaces.Select(s => s.DeliveryDate)
+            .Concat(set.Availabilities.Select(a => a.AvailableFrom))
+            .Append(currentWeek)
+            .ToList();
+
+        return NzTime.WeeksFrom(dates.Min(), dates.Max())
+            .Select(week => new WeekBandDto
+            {
+                WeekCommencing = week,
+                WeekCommencingLabel = NzTime.DateLabel(week),
+                WeekOfLabel = NzTime.ShortDateLabel(week),
+                IsCurrentWeek = week == currentWeek,
+                IsPastWeek = week < currentWeek,
+            })
+            .ToList();
+    }
+
     private static ProcessorSpaceDto ToDto(ProcessorSpace space, ProjectionContext context)
     {
         var matches = context.MatchesForSpace(space.Id);
@@ -99,6 +137,7 @@ public static class MatchingProjection
             FarmerMobile = farmer?.Mobile,
             AvailableFrom = availability.AvailableFrom,
             AvailableFromLabel = NzTime.DateLabel(availability.AvailableFrom),
+            AvailableFromShortLabel = NzTime.ShortDateLabel(availability.AvailableFrom),
             AvailabilityDetails = availability.AvailabilityDetails,
             TransactionType = availability.TransactionType,
             Notes = availability.Notes,

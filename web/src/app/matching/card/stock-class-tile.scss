@@ -1,0 +1,42 @@
+@use '../card-geometry' as geo;
+@use '../../../styles/lms-tokens' as lms;
+
+:host {
+  flex: 0 0 geo.$col-tile;
+  display: block;
+  width: geo.$col-tile;
+  height: geo.$col-tile;
+}
+
+.tile {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: geo.$col-tile;
+  height: geo.$col-tile;
+  background: lms.$lms-zebra;
+  color: lms.$lms-tile-ink;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: -0.2px;
+  line-height: geo.$col-tile;
+}
+
+.sheep {
+  border-radius: 50%;
+}
+
+.cattle {
+  border-radius: 2px;
+}
+
+// The tile rotates and the text counter-rotates, so the monogram stays upright inside a diamond.
+.deer {
+  border-radius: 2px;
+  transform: rotate(45deg);
+
+  .mono {
+    display: block;
+    transform: rotate(-45deg);
+  }
+}

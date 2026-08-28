@@ -204,6 +204,16 @@ public class DtoProjectionTests
     }
 
     /// <summary>
+    /// The carry-over card reads "since 24 Aug", so the prose form of the available-from date ships
+    /// alongside LMS's numeric one. Both are formatted in C#; the client supplies only the word.
+    /// </summary>
+    [Fact]
+    public void An_availability_record_carries_its_available_from_date_in_the_prose_form_too()
+    {
+        Assert.Equal("24 Aug", Availability().AvailableFromShortLabel);
+    }
+
+    /// <summary>
     /// The status on the wire is the <em>derived</em> one, not the stored column. Here the record is
     /// stored as Booked but has live matches, so it derives as Pending.
     /// </summary>
@@ -366,19 +376,169 @@ public class DtoProjectionTests
     }
 
     // ---------------------------------------------------------------------------------------------
+    // Week bands — the calendar scaffold both columns are drawn on
+    // ---------------------------------------------------------------------------------------------
+
+    /// <summary>Midday Thursday 27 August 2026, New Zealand: inside the pinned week.</summary>
+    private static FixedClock ClockInPinnedWeek() =>
+        new(new DateTimeOffset(2026, 8, 27, 12, 0, 0, TimeSpan.FromHours(12)));
+
+    private static IReadOnlyList<WeekBandDto> Bands(WorkingSet? set = null, TimeProvider? clock = null) =>
+        MatchingProjection.WeekBands(set ?? Fixture(), clock ?? ClockInPinnedWeek());
+
+    /// <summary>
+    /// The band list is derived from dates alone, so these two carry nothing but an id and a date. The
+    /// entities are plain classes rather than records, so there is no <c>with</c> to lean on.
+    /// </summary>
+    private static ProcessorSpace SpaceOn(int id, DateOnly deliveryDate) => new()
+    {
+        Id = id,
+        Processor = "ANZCO",
+        Plant = "Rangitikei",
+        StockClass = "Prime",
+        QuantityRequired = 10,
+        DeliveryDate = deliveryDate,
+    };
+
+    private static LivestockAvailability AvailabilityOn(int id, DateOnly availableFrom) => new()
+    {
+        Id = id,
+        StockClass = "Prime",
+        QuantityAvailable = 10,
+        LocationId = 7,
+        AvailableFrom = availableFrom,
+        TransactionType = TransactionType.Other,
+    };
+
+    [Fact]
+    public void The_band_list_spans_every_week_the_records_fall_in()
+    {
+        // A space in week 23-08 and an availability record three weeks earlier.
+        var set = Fixture();
+        var bands = Bands(
+            set with { Availabilities = [set.Availabilities[0], AvailabilityOn(2, Sunday.AddDays(-16))] });
+
+        Assert.Equal(
+            [
+                new DateOnly(2026, 8, 2),
+                new DateOnly(2026, 8, 9),
+                new DateOnly(2026, 8, 16),
+                new DateOnly(2026, 8, 23),
+            ],
+            bands.Select(b => b.WeekCommencing));
+    }
+
+    [Fact]
+    public void Every_band_is_a_Sunday_and_they_run_soonest_first_with_no_gaps()
+    {
+        var bands = Bands();
+
+        Assert.All(bands, band => Assert.Equal(DayOfWeek.Sunday, band.WeekCommencing.DayOfWeek));
+
+        for (var i = 1; i < bands.Count; i++)
+        {
+            Assert.Equal(bands[i - 1].WeekCommencing.AddDays(7), bands[i].WeekCommencing);
+        }
+    }
+
+    [Fact]
+    public void A_band_carries_both_its_numeric_label_and_its_prose_label()
+    {
+        var band = Bands().Single(b => b.WeekCommencing == Sunday);
+
+        Assert.Equal("23-08-26", band.WeekCommencingLabel);
+        Assert.Equal("23 Aug", band.WeekOfLabel);
+    }
+
+    [Fact]
+    public void Exactly_one_band_is_the_current_week_and_the_earlier_ones_are_past()
+    {
+        var set = Fixture();
+        var bands = Bands(
+            set with { Availabilities = [set.Availabilities[0], AvailabilityOn(2, Sunday.AddDays(-9))] });
+
+        Assert.Equal(Sunday, Assert.Single(bands, b => b.IsCurrentWeek).WeekCommencing);
+        Assert.Equal(
+            [new DateOnly(2026, 8, 9), new DateOnly(2026, 8, 16)],
+            bands.Where(b => b.IsPastWeek).Select(b => b.WeekCommencing));
+        Assert.DoesNotContain(bands, b => b.IsCurrentWeek && b.IsPastWeek);
+    }
+
+    /// <summary>
+    /// The client expresses the carry-over horizon relative to the current band's position, so that
+    /// band has to exist even in the week nothing happens to be booked.
+    /// </summary>
+    [Fact]
+    public void The_current_week_gets_a_band_even_when_no_record_falls_in_it()
+    {
+        var bands = Bands(
+            Fixture() with
+            {
+                Spaces = [SpaceOn(1, Sunday.AddDays(-10))],
+                Availabilities = [AvailabilityOn(1, Sunday.AddDays(-12))],
+            });
+
+        Assert.Equal(Sunday, bands[^1].WeekCommencing);
+        Assert.True(bands[^1].IsCurrentWeek);
+    }
+
+    [Fact]
+    public void A_current_week_earlier_than_every_record_still_opens_the_band_list()
+    {
+        // Nothing is dated in the past: the list must start at this week rather than at the first
+        // record's week, or the current band would be missing entirely. Both records sit in week 6 Sep,
+        // so week 30 Aug has nothing in it and must still get a band — requirement 1.6's visible gap.
+        var bands = Bands(
+            Fixture() with
+            {
+                Spaces = [SpaceOn(1, Sunday.AddDays(16))],
+                Availabilities = [AvailabilityOn(1, Sunday.AddDays(15))],
+            });
+
+        Assert.Equal(
+            [
+                new DateOnly(2026, 8, 23),
+                new DateOnly(2026, 8, 30),
+                new DateOnly(2026, 9, 6),
+            ],
+            bands.Select(b => b.WeekCommencing));
+        Assert.True(bands[0].IsCurrentWeek);
+        Assert.DoesNotContain(bands, b => b.IsPastWeek);
+    }
+
+    [Fact]
+    public void The_band_list_covers_every_week_the_real_seed_puts_a_record_in()
+    {
+        var set = SeedWorkingSet();
+        var bands = MatchingProjection.WeekBands(
+            set,
+            new FixedClock(new DateTimeOffset(2026, 8, 27, 12, 0, 0, TimeSpan.FromHours(12))));
+
+        var recordWeeks = MatchingProjection.ProcessorSpaces(set).Select(s => s.WeekCommencing)
+            .Concat(MatchingProjection.LivestockAvailability(set).Select(a => a.WeekCommencing))
+            .Distinct();
+
+        // Every record's week has a band. Without this the client would have a record it could not
+        // place, and a record it cannot place is a record the operator never sees.
+        Assert.All(recordWeeks, week => Assert.Contains(week, bands.Select(b => b.WeekCommencing)));
+        Assert.Single(bands, b => b.IsCurrentWeek);
+    }
+
+    // ---------------------------------------------------------------------------------------------
     // Against the real seed
     // ---------------------------------------------------------------------------------------------
+
+    private static WorkingSet SeedWorkingSet() => new(
+        SeedFixture.Data.ProcessorSpaces,
+        SeedFixture.Data.Availabilities,
+        SeedFixture.Data.Matches,
+        SeedFixture.Data.Locations,
+        SeedFixture.Data.Farmers);
 
     [Fact]
     public void Every_seeded_record_projects_with_its_computed_fields_agreeing_with_the_domain()
     {
-        var set = new WorkingSet(
-            SeedFixture.Data.ProcessorSpaces,
-            SeedFixture.Data.Availabilities,
-            SeedFixture.Data.Matches,
-            SeedFixture.Data.Locations,
-            SeedFixture.Data.Farmers);
-
+        var set = SeedWorkingSet();
         var spaces = MatchingProjection.ProcessorSpaces(set);
         var availabilities = MatchingProjection.LivestockAvailability(set);
 

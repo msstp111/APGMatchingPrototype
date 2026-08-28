@@ -376,6 +376,121 @@ public class NzTimeTests
         }
     }
 
+    [Fact]
+    public void A_short_date_label_is_the_prose_form_the_week_bands_and_carry_over_cards_read_in()
+    {
+        Assert.Equal("16 Aug", NzTime.ShortDateLabel(new DateOnly(2026, 8, 16)));
+        Assert.Equal("23 Aug", NzTime.ShortDateLabel(new DateOnly(2026, 8, 23)));
+    }
+
+    [Fact]
+    public void A_short_date_label_does_not_pad_a_single_digit_day()
+    {
+        // "1 Sep", not "01 Sep". The band header reads as a sentence, and a padded day reads as a
+        // table cell that has escaped into one.
+        Assert.Equal("1 Sep", NzTime.ShortDateLabel(new DateOnly(2026, 9, 1)));
+        Assert.Equal("6 Sep", NzTime.ShortDateLabel(new DateOnly(2026, 9, 6)));
+    }
+
+    [Fact]
+    public void Short_date_labels_do_not_change_with_the_machines_locale()
+    {
+        // The month name makes this sharper than the numeric label: a de-DE machine would emit
+        // "16 Aug." with a trailing stop, and a fr-FR one "16 août".
+        var original = CultureInfo.CurrentCulture;
+
+        try
+        {
+            CultureInfo.CurrentCulture = new CultureInfo("en-US");
+            Assert.Equal("16 Aug", NzTime.ShortDateLabel(new DateOnly(2026, 8, 16)));
+
+            CultureInfo.CurrentCulture = new CultureInfo("de-DE");
+            Assert.Equal("16 Aug", NzTime.ShortDateLabel(new DateOnly(2026, 8, 16)));
+
+            CultureInfo.CurrentCulture = new CultureInfo("fr-FR");
+            Assert.Equal("16 Aug", NzTime.ShortDateLabel(new DateOnly(2026, 8, 16)));
+        }
+        finally
+        {
+            CultureInfo.CurrentCulture = original;
+        }
+    }
+
+    [Fact]
+    public void Every_month_abbreviates_to_three_characters_so_the_band_rail_never_wraps_unexpectedly()
+    {
+        // The rail is 48px wide and its label wraps to two lines by design. A four-character month
+        // would wrap to three and push the "This week" tag out of the sticky block.
+        for (var month = 1; month <= 12; month++)
+        {
+            var label = NzTime.ShortDateLabel(new DateOnly(2026, month, 1));
+
+            Assert.Equal("1 ", label[..2]);
+            Assert.Equal(3, label[2..].Length);
+        }
+    }
+
+    // ---------------------------------------------------------------------------------------------
+    // Week sequences — the matching screen's band scaffold
+    // ---------------------------------------------------------------------------------------------
+
+    [Fact]
+    public void A_week_sequence_runs_from_the_first_Sunday_to_the_last_inclusive()
+    {
+        var weeks = NzTime.WeeksFrom(new DateOnly(2026, 8, 16), new DateOnly(2026, 9, 6));
+
+        Assert.Equal(
+            [
+                new DateOnly(2026, 8, 16),
+                new DateOnly(2026, 8, 23),
+                new DateOnly(2026, 8, 30),
+                new DateOnly(2026, 9, 6),
+            ],
+            weeks);
+    }
+
+    [Fact]
+    public void A_week_sequence_normalises_both_ends_to_their_Sunday()
+    {
+        // The caller passes record dates, not Sundays: the earliest delivery date and the latest
+        // available-from date. Both must land on the week that contains them.
+        var weeks = NzTime.WeeksFrom(new DateOnly(2026, 8, 19), new DateOnly(2026, 8, 27));
+
+        Assert.Equal([new DateOnly(2026, 8, 16), new DateOnly(2026, 8, 23)], weeks);
+    }
+
+    [Fact]
+    public void A_week_sequence_over_a_single_week_is_that_one_week()
+    {
+        var weeks = NzTime.WeeksFrom(new DateOnly(2026, 8, 25), new DateOnly(2026, 8, 27));
+
+        Assert.Equal([new DateOnly(2026, 8, 23)], weeks);
+    }
+
+    [Fact]
+    public void A_week_sequence_whose_end_precedes_its_start_is_empty_rather_than_throwing()
+    {
+        Assert.Empty(NzTime.WeeksFrom(new DateOnly(2026, 9, 6), new DateOnly(2026, 8, 16)));
+    }
+
+    [Fact]
+    public void A_week_sequence_is_every_Sunday_in_order_with_no_gaps_across_both_transitions()
+    {
+        // September 2026 and April 2027 both move the clocks on a Sunday, which is also the week
+        // boundary. A sequence built by adding seven days must not drift by an hour into Saturday.
+        var weeks = NzTime.WeeksFrom(new DateOnly(2026, 8, 1), new DateOnly(2027, 5, 1));
+
+        Assert.All(weeks, week => Assert.Equal(DayOfWeek.Sunday, week.DayOfWeek));
+
+        for (var i = 1; i < weeks.Count; i++)
+        {
+            Assert.Equal(weeks[i - 1].AddDays(7), weeks[i]);
+        }
+
+        Assert.Contains(new DateOnly(2026, 9, 27), weeks);
+        Assert.Contains(new DateOnly(2027, 4, 4), weeks);
+    }
+
     // ---------------------------------------------------------------------------------------------
     // Property test
     // ---------------------------------------------------------------------------------------------

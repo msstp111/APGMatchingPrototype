@@ -1,54 +1,26 @@
-<div class="matching-screen">
-  <h1>Matching</h1>
+<!--
+  Every value on this screen is read straight off the DTO. Nothing in this template or the ones below
+  it subtracts, sums, compares or formats a date: those answers arrive already computed, and working
+  one out again here is the drift the whole architecture exists to prevent.
 
+  Two exceptions exist and are named in no-domain-arithmetic.spec.ts: the fill meter's CSS widths and
+  the band header's roll-up totals.
+-->
+<div class="matching-screen">
   @if (error()) {
     <p class="error">{{ error() }}</p>
   }
 
   <!--
-    Every value below is read straight off the DTO. Nothing here subtracts, sums, compares or formats
-    a date: those answers arrive already computed, and working one out again in this template is the
-    drift the whole architecture exists to prevent.
+    Reserved for Phase 4's shared search field. Held open at 52px because the card density this design
+    is calculated against assumes it, and empty rather than filled with a dead control.
   -->
-  <div class="columns">
-    <section>
-      <h2>Processor Spaces ({{ spaces().length }})</h2>
-      <ul>
-        @for (space of spaces(); track space.id) {
-          <li>
-            <span class="week">wc {{ space.weekCommencingLabel }}</span>
-            {{ space.deliveryDateLabel }} — {{ space.processor }} / {{ space.plant }} —
-            {{ space.stockClass }} — {{ space.quantityRequired }} head —
-            matched {{ space.matchedInclDraft }} incl draft, {{ space.matchedExclDraft }} excl —
-            unmatched {{ space.unmatched }} ({{ space.quantityStateLabel }}) —
-            {{ space.status }}, {{ space.matches.length }} match(es)
-            @if (space.canConfirm) {
-              <span class="confirmable">confirmable</span>
-            }
-          </li>
-        } @empty {
-          <li>No processor spaces.</li>
-        }
-      </ul>
-    </section>
+  <div class="search-strip" aria-hidden="true"></div>
 
-    <section>
-      <h2>Livestock Availability ({{ availability().length }})</h2>
-      <ul>
-        @for (record of availability(); track record.id) {
-          <li>
-            <span class="week">wc {{ record.weekCommencingLabel }}</span>
-            {{ record.availableFromLabel }} — {{ record.stockClass }} —
-            {{ record.quantityAvailable }} head — {{ record.locationName ?? '-' }}
-            ({{ record.farmerName ?? '-' }}) —
-            matched {{ record.matchedInclDraft }} incl draft, {{ record.matchedExclDraft }} excl —
-            unmatched {{ record.unmatched }} ({{ record.quantityStateLabel }}) —
-            {{ record.status }}, {{ record.matches.length }} match(es)
-          </li>
-        } @empty {
-          <li>No availability records.</li>
-        }
-      </ul>
-    </section>
-  </div>
+  @if (ready()) {
+    <div class="columns">
+      <app-matching-column side="demand" [bands]="board().bands" />
+      <app-matching-column side="supply" [bands]="board().bands" />
+    </div>
+  }
 </div>

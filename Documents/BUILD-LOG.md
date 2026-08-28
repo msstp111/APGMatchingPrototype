@@ -833,3 +833,306 @@ No new packages and no changes to CLAUDE.md's command table. Three things worth 
   There is **no `python`** on this machine — use `node` for scripted text edits.
 - **Repo Markdown is CRLF.** A `node` string-replace script must normalise `\r\n` to `\n` on read or
   every multi-line anchor silently fails to match.
+
+---
+
+## Phase 3 — Card Lists & Week Bands
+
+**Completed:** 2026-08-28
+**Status:** Complete
+
+### What shipped
+
+The matching screen now renders both sides as week-banded card lists implementing `design-system.md`:
+52px cards with status spines, fill meters and monogram tiles, grouped into week bands with a sticky
+left rail, and carry-over cards repeating unmatched availability records into later weeks. Expand and
+collapse is the only interaction; the filter row and search strip are reserved but empty.
+
+A third endpoint, **`GET /api/week-bands`**, ships the calendar the bands are drawn on. Later phases
+can rely on: `buildBoard` as the seam filtering attaches to, `CardStateStore` for per-card UI state,
+`_card-geometry.scss` as the single home of every dimension, and `no-domain-arithmetic.spec.ts` as the
+client-side guard that the DTO contract is not being worked around.
+
+### Decisions made during the build
+
+1. **The week calendar became a server-computed artefact — `GET /api/week-bands`.** Requirement 1.6
+   says an empty week still renders its header, which means the client needs the *name of a week no
+   record falls in*. There is no way to produce that from the records without adding seven days to an
+   ISO string in TypeScript, which the roadmap forbids. So `MatchingProjection.WeekBands` returns an
+   ordered, gapless `WeekBandDto[]` — `weekCommencing`, `weekCommencingLabel`, `weekOfLabel`,
+   `isCurrentWeek`, `isPastWeek`.
+
+   This is the decision the whole phase turned on. Once the ordered array exists, **banding is string
+   equality on `weekCommencing` and carry-over placement is integer index comparison** — no `Date` is
+   ever constructed, so "no domain arithmetic in `web/`" is achievable rather than aspirational.
+
+   Two properties of it are deliberate and load-bearing:
+   - **The range always includes the current week**, whether or not a record falls in it. The
+     carry-over rule is expressed relative to the current band's index, so that index must always
+     exist; otherwise every carry-over becomes a special case.
+   - **It carries no record ids.** A record's week is already on the record. A second home for that
+     membership is precisely what would let a carry-over drift into being a copy.
+
+   **One band list serves both columns**, so a week that is empty on one side still renders there and
+   the two sides stay vertically comparable.
+
+2. **`NzTime.ShortDateLabel` (`d MMM`) and `NzTime.WeeksFrom`** — Phase 2's decision 2, discharged.
+   One formatter serves both `Week of 16 Aug` and `since 17 Aug`. **The C# formats only the date; the
+   words "Week of" and "since" are template text**, because the 48px rail stacks them on two lines and
+   a single preformatted sentence could not be split. `LivestockAvailabilityDto` gained
+   `availableFromShortLabel` alongside its existing `dd-MM-yy` label.
+
+3. **Carry-over horizon: `CARRY_OVER_HORIZON_WEEKS = 4`**, in
+   `web/src/app/matching/board/carry-over.ts`. Four weeks forward of the **current** week, not of the
+   record's home week — a record from three months ago and one from last week are equally relevant
+   *now*, and anchoring on the current week means a stale record cannot walk its own window forward
+   indefinitely. Past four weeks, a record still holding unmatched stock is a data-quality problem
+   rather than a matching opportunity, and repeating it further would bury the weeks that matter. Four
+   covers the seeded span and APG's booking window.
+
+   **`CARRY_OVER_EXPAND_LIMIT = 4`** in the same file: a band's carry-over group opens expanded at or
+   below four repeats and collapsed above it. This is also what makes Phase 2's two proposals one
+   component — Proposal B (a summary strip per band) is Proposal A (repeat every record) collapsed, so
+   Mark can compare them at runtime rather than in another design pass.
+
+4. **Three bounds on carry-over placement**, all in `addCarryOvers`: never in the record's own home
+   band (which has the full card), never before the current week (a record cannot carry over into the
+   past), never beyond the horizon. `record.unmatched > 0` is a *comparison* against a server-computed
+   figure, not a computation — when Phase 5's drag takes it to zero the repeats stop being produced,
+   which is the visible confirmation the drag worked.
+
+5. **`carryOver` holds the same object references as the home band's `availability` array.** Identity
+   by construction, not by convention — there is no clone, no id lookup and nothing to keep in sync, so
+   §4.5's "expanding one shows the same matches" is true because there is only one object and one
+   expansion component. `matching-board.spec.ts` asserts it with `Object.is`.
+
+6. **Expansion state is keyed per card instance, not per record**: `side:recordId@bandWeek` in
+   `CardStateStore` (root-provided, so it survives navigating away and back — "remembered while the
+   session lasts", §5.1; nothing is persisted to `localStorage`). Keying by record alone would expand
+   the home card too, and the home card growing would push everything below it — including the
+   carry-over the pointer is over — down the page, breaking §5.2. The *content* is still identical
+   because both cards read the same DTO object. The store also holds the carry-over group's collapse
+   state, per band and per column.
+
+7. **`buildBoard` returns `unplaced`, and a test asserts it is always empty.** The server derives the
+   band range from the same working set, so a record can never fall outside it — but reporting rather
+   than silently dropping means that if it ever does, a test says so instead of a record vanishing off
+   a screen APG commits livestock on.
+
+8. **Exactly two arithmetic sites exist in `web/`, both allow-listed by name in
+   `matching/no-domain-arithmetic.spec.ts` with the reason recorded in the test itself:**
+   - `card/fill-meter.ts` — segment widths as ratios, clamped to [0, 100]%. A CSS width is not a
+     displayed figure and the clamp is a design rule, so neither belongs in the wire format. Every
+     value the component actually *renders* — the numeral, the state, the label — arrives computed.
+   - `board/matching-board.ts` — the band header roll-ups. A presentation aggregate over a list, not a
+     domain rule, and it must be client-side because Phase 4's filters change which records are in the
+     band. A per-band total on the DTO would be right today and wrong under a filter.
+
+   **If a later phase needs a third such site, it is probably missing a DTO field.**
+
+9. **The band meta counts native records only.** A carried-over record is already counted in its home
+   band; counting it again in every later band would inflate every total on the screen. This is the one
+   plausible double-count in this design and it has its own test. The carry-over strip's own total is
+   **unmatched** head, not available head (Phase 2's correction) — what is left is the only figure that
+   matters this week.
+
+10. **`matching-screen` waits for the week bands before rendering the columns.** The three requests
+    land in any order, and with no bands `buildBoard` would correctly report every record as unplaced
+    and draw two empty columns for one round trip — which reads as an empty data set rather than a
+    pending one. Zero bands is unambiguous because the endpoint always includes the current week.
+
+11. **`density: -2` and a 4px dialog radius** in `web/src/styles.scss`, per `design-system.md` §1.1, so
+    Material's own controls land on LMS's proportions without a per-component override each. §2's
+    palette is appended to `_lms-tokens.scss` as SCSS variables **and** `:root` custom properties.
+    One colour the design document uses but §2 never tabulated, `#4A4A4A` for a carry-over's name, is
+    now the token `$lms-carry-name`.
+
+### How many carry-over instances the seed actually produces
+
+Measured against the running API with the seed anchored on Sunday 2026-08-23, which is the current week
+(band index 1 of 6, the bands running 16-08 to 20-09):
+
+| Band | Native records | Carry-over instances |
+| --- | --- | --- |
+| 2026-08-16 (past) | 9 | 0 |
+| 2026-08-23 (**current**) | 9 | 9 |
+| 2026-08-30 | 8 | 16 |
+| 2026-09-06 | 8 | 23 |
+| 2026-09-13 | 8 | 30 |
+| 2026-09-20 | 8 | 36 |
+
+**114 carry-over instances in total**, from 50 availability records of which 44 have unmatched stock
+and 36 have a later band to appear in. The nine into the current week match `design-system.md` §9.1's
+figure exactly, which is a useful cross-check that the placement rule matches the one Phase 2 designed
+against.
+
+**Consequence worth knowing: with the real seed, every carry-over group starts collapsed**, because the
+smallest is 9 and `CARRY_OVER_EXPAND_LIMIT` is 4. The expanded-by-default path is real and reachable
+(collapse a group and reopen it, or filter the list down in Phase 4) but the seeded screen does not
+show it on load. If Mark wants to see Proposal A on first paint, raise the constant — that is exactly
+what it is there for.
+
+### What Phases 4 to 7 attach to
+
+| Thing | Where | How a later phase uses it |
+| --- | --- | --- |
+| `buildBoard(weeks, spaces, availability)` | `board/matching-board.ts` | **Phase 4 filters the inputs and calls it again.** Do not filter inside it and do not reach into `BandView`; the band meta then reshapes for free. |
+| `BandView` / `BandMeta` / `BoardView` | same | `{ week, spaces, availability, carryOver, meta }`. `carryOver` is same-reference. |
+| `MatchSide = 'demand' \| 'supply'` | same | Not "left"/"right" — Phase 4 lets the columns swap position. |
+| `CARRY_OVER_EXPAND_LIMIT`, `CARRY_OVER_HORIZON_WEEKS` | `board/carry-over.ts` | Tune here, nowhere else. |
+| `CardStateStore` | `board/card-state.ts` | `isExpanded/toggleExpanded(side, recordId, bandWeek)` and `isCarryOverGroupOpen/toggleCarryOverGroup(side, bandWeek, count)`. Add Phase 4's flip state and Phase 5's drag state here rather than in a component. |
+| `<app-matching-column side bands [total]>` | `column/matching-column.ts` | `total` is the pre-filter count for `showing n of n`; it defaults to the shown count, so Phase 4 passes the unfiltered total. The empty 40px `.filters` div is where the chips go. |
+| `<app-week-band band side>` | `band/week-band.ts` | Rail, band header, carry-over group, "New this week", cards, empty row. |
+| `<app-space-card space bandWeek zebra>` | `card/space-card.ts` | Phase 5 makes `.card` the drag source; `cursor: grab` is already on it. Phase 6's Confirm button goes on line 2 — `canConfirm` is already on the DTO and deliberately unused. |
+| `<app-availability-card record bandWeek zebra>` | `card/availability-card.ts` | As above. |
+| `<app-carry-over-card record bandWeek>` | `card/carry-over-card.ts` | Same record object as the home card, so a drag from here needs no special case. |
+| `<app-card-expansion side [space] [availability]>` | `card/card-expansion.ts` | One component for all three cards. Phase 6's per-match actions go in the table's rows. |
+| `<app-fill-meter …>` | `card/fill-meter.ts` | Phase 5's drop preview can reuse it. |
+| `stockClassTile(stockClass)` | `card/stock-classes.ts` | The 16-row table plus fallback. Phase 7's form should read its class list from here. |
+| `_card-geometry.scss` | `matching/` | **Every dimension.** Do not hard-code a width in a card, band or column stylesheet. |
+| `testing/dto-fixtures.ts` | `matching/testing/` | `aSpace`/`anAvailability`/`aMatch`/`aWeek`/`weeks(currentIndex, count)` — defaults plus overrides. |
+
+### Deviations from the phase document
+
+- **Delivery-time ordering.** `design-system.md` §2.2 asks for delivery date *then delivery time*.
+  `SeedConfig.DeliveryTimes` is free text (`AM kill`, `Yard by 6:30am`, `Before midday`) and
+  alphabetical order is not chronological, so a secondary sort on it would be arbitrary rather than
+  helpful. **Server order stays `date, id`** (Phase 1's default) and the client does not re-sort.
+  Recorded rather than silently dropped; if Phase 4 wants true delivery-time ordering, the seed needs a
+  sortable time field, which is a data change and not a sort change.
+- **The `New this week` divider renders only when there are carry-overs *and* native cards.**
+  §9.3 says "only when carry-overs are present". With carry-overs but no native records, the literal
+  rule produces a `New this week (0)` heading over nothing. The stricter condition is a deliberate
+  refinement in the same spirit.
+- **The sticky rail label sits at `top: 28px`, not `top: 0`.** §8.5 says the rail label is
+  `sticky; top: 0` inside the band; §16.8 puts the 28px column header strip inside the same scroll
+  container at `sticky; top: 0`. Both cannot be right — `top: 0` parks the week label underneath the
+  strip. Rail label at `top: 28px` / `z-index: 1`, strip at `z-index: 3`. **If Phase 4 changes the
+  strip's height, this offset must change with it.**
+- **The carry-over dash is an `outline` at `outline-offset: -3px`, not a `border`.** §9.2 specifies the
+  outline; an outline takes no layout space, so the row stays exactly 40px and its cells stay level.
+  (The *placement* on the outer edge rather than the left edge is Phase 2's decision, not a deviation.)
+- **The band header label and the rail label both render** `Week of 16 Aug`, per §8.4 and §8.5
+  respectively. That is mildly redundant on screen. Implemented as specified rather than reconciled,
+  since only one of them sticks and Phase 4 may want the header one for its filtered counts.
+- **`showing n of n` is currently tautological.** Honest for a screen with no filtering, and the
+  `total` input is the seam.
+- **Everything Phase 4 to 7 owns is absent**, as required: no filter chips, no sort, no flip button, no
+  drag, no match dialogs, no add buttons, no Confirm-space button. The 40px filter row and 52px search
+  strip are reserved-and-empty rather than filled with disabled controls, which would promise an
+  interaction that does not exist.
+
+### Review findings
+
+One sonnet subagent reviewed the phase against the phase document, the roadmap and `design-system.md`.
+It reported no bugs in the carry-over placement, band construction or expansion keying — the phase's
+core risk — and confirmed the tests cover the edge cases. Disposition of what it did find:
+
+**Fixed — the two that mattered:**
+
+1. **`no-domain-arithmetic.spec.ts` never scanned the HTML templates.** It walked the tree collecting
+   only `.ts` files, so `{{ s.quantityRequired - s.matchedInclDraft }}` written straight into
+   `space-card.html` would have passed silently. Given this codebase's convention is that a card's
+   cells are plain DTO bindings *in the template*, that was the most likely place for a breach and the
+   one place the guard was blind. Templates are now scanned, HTML comments are stripped, and the file
+   count is asserted per extension so the same gap cannot reopen unnoticed.
+2. **The same spec excluded `+` entirely**, to avoid tripping over string concatenation — which meant
+   `records.reduce((total, r) => total + r.unmatched, 0)`, the single most likely way a domain sum gets
+   reimplemented, was invisible to it. `+` is now included; requiring the field name adjacent to the
+   operator is what keeps ordinary concatenation from matching. **The spec now contains two tests of
+   itself**: one asserting it catches four known breaches, one asserting it does not fire on the
+   bindings these templates are full of. A purity test that passes everything is worse than none, and
+   this one had two ways of doing that.
+
+**Fixed — design-system fidelity.** All confirmed against the document, all mine:
+
+3. Header strip was `#F0F0F0` on a `#BDBDBD` rule; §6.1 says `#FAFAFA` on `#E0E0E0`.
+4. The week rail was `#F0F0F0` for every week; §8.5/§8.6 want `#FAFAFA` future, `#E8F1F6` current,
+   `#F0F0F0` past. I had the future and past cases inverted.
+5. The `Past` tag did not exist, and the current week's rail label was never petrol bold (§8.6).
+6. The band's rule was on the bottom, so the current week's 2px petrol rule closed the previous band
+   instead of opening its own (§8.4).
+7. The rail's dotted petrol leader line (§8.5) was missing entirely.
+8. The empty-band text read `No spaces this week`; §8.4 specifies `- no processor spaces this week` and
+   `- no livestock availability this week`.
+9. The carry-over row was missing its carry glyph in **both** places §9.2/§9.3 ask for it — the row and
+   the group sub-header — and its name was weight 500 `#212121` rather than weight 400 `#4A4A4A`, so
+   the repeat was not visually demoted at all. Its origin label was `#757575` and italic; §9.2 says
+   `#9E9E9E` and says nothing about italics.
+10. The carry-over row sat on card white; §9.2 says `#FAFAFA`.
+11. The supply column's lead glyph was a paddock; §6.3 says a location pin.
+
+**Fixed — code quality:**
+
+12. **Each card component declared a `computed` with the same name as the helper it calls**
+    (`readonly spineClass = computed(() => spineClass(...))`). Correct — a bare identifier in a class
+    field initialiser resolves to the module import — but it reads as self-recursion, and a later
+    "simplification" to `this.spineClass(...)` would break it silently. Renamed to `spine`,
+    `statusGlyph`, `matchesLabel`, `transactionType`, `matchGlyph`, `transactionTypeText`.
+13. **Two empty columns rendered for one round trip** when `/api/week-bands` resolved last — decision
+    10 above.
+
+**Recorded, not fixed:**
+
+14. The reviewer questioned whether the band header label duplicating the rail label is intentional. It
+    is what §8.4 and §8.5 each specify; noted under deviations rather than reconciled unilaterally.
+15. The reviewer flagged `showsNewThisWeek`'s stricter condition as a literal deviation from §9.3 while
+    agreeing it is the better outcome. Recorded under deviations so a future reader does not "fix" it
+    back from the document text alone.
+
+### Watch out for
+
+- **The sticky rail is the most fragile thing in this layout.** Three numbers have to agree: the
+  strip's 28px height, the rail label's `top: 28px`, and the `z-index` ordering (strip 3, rail label 1,
+  cards 0). Change the strip's height in `_card-geometry.scss` and the rail label must follow. It is
+  also unverified under real layout — see the next point.
+- **On-screen card density and sticky behaviour are unverified.** jsdom has no layout engine, so no
+  test in this phase can observe a sticky element, a real card height, or how many cards fit at 768px.
+  The geometry is set explicitly and adds up arithmetically
+  (`768 − 52 − 52 − 12 − 40 − 40 − 28 = 544`, ÷ 52 = 10.4 cards before band chrome), but **the 8–10
+  card target and the rail's behaviour on a long band need eyeballing in a browser.** I have flagged
+  this rather than claimed it.
+- **A record can be drawn up to five times in one column** (once native, four times carried over), and
+  every drawing is the same object. Anything that iterates cards to build a total, a count or a
+  selection **must** decide whether it means records or cards. `buildBoard`'s band meta means records.
+- **`@for` track expressions are per-block, not per-column.** The native cards and the carry-over cards
+  are separate `@for` blocks in `week-band.html`, so both tracking `record.id` is safe today. Merging
+  them into one list would collide immediately.
+- **Seeded Processor Space #1 is over-filled 354 against 49 required** (`unmatched: -305`). The fill
+  meter clamps to 100% and draws the over-run cap, so it renders sanely, and it is what makes the
+  `-305` four-character numeral case real — Phase 2 widened the numeral column to 40px for exactly
+  this. But a 7× over-fill looks like a seeder artefact rather than an intended demonstration. **Phase
+  5 must cap the drag against unmatched quantity regardless**, and should not treat this record as
+  evidence of what a realistic over-fill looks like.
+- **Two spaces are over-filled, not one.** The acceptance criterion says "the over-filled space";
+  #1 and #5 (Alliance Group, 209/190) both render blue with `Over-filled`. No availability record is
+  over-committed, so **the pink `Over-committed` state is unreachable with the seed** and unverified
+  against real data — which is correct, since pink is a bug flag.
+- **`/api/week-bands` is derived from the same working set as the records**, so it moves when the seed
+  moves. Nothing may assume six bands or that the current week is index 1.
+- **`WeekBandDto` carries no record ids and must not gain any.** The moment band membership lives in
+  two places, a carry-over can become a copy.
+- **The API still locks `Apg.Domain.dll`.** It bit three times in this phase. `dotnet run` instances
+  were running from *other tool sessions* on this machine, so killing one is not enough — check with
+  `Get-CimInstance Win32_Process -Filter "Name='Apg.Api.exe'"`. Stopping the `Apg.Api.exe` child is
+  sufficient; its `dotnet run` host exits with it. **The Angular dev server holds no lock and can stay
+  up.** This is now in CLAUDE.md.
+- **`$home` is a read-only variable in PowerShell.** A scratch script using it as a loop variable
+  silently produces wrong numbers rather than failing, which cost real time here. Also
+  `$x = @(Invoke-RestMethod …)` does not reliably flatten to an array — assign first, then wrap.
+- **The repo now has commits** (`da173b8` Phase 0, `0474c2c` Phase 1, `e4de1b4` Phase 2), overturning
+  Phase 2's closing note that it had none. Phase 3's work is uncommitted in the working tree.
+
+### New commands, dependencies, conventions
+
+- **New dependency: `@types/node`** (dev only), plus `"node"` added to `tsconfig.spec.json`'s `types`.
+  `no-domain-arithmetic.spec.ts` reads source files off disk, the way `DomainPurityTests` scans
+  `src/Apg.Domain`. The app's own tsconfig does not include it, so nothing in the bundle can reach
+  Node APIs.
+- **New endpoint: `GET /api/week-bands`.** Hand-check with
+  `(Invoke-RestMethod http://localhost:5286/api/week-bands) | Format-Table -AutoSize`.
+- **Run the Angular tests with `npm test` (`ng test`), never `npx vitest run`** — the latter bypasses
+  Angular's harness and fails with `describe is not defined`.
+- **Conventions now enforced by tests rather than by discipline:** no dates and no quantity arithmetic
+  anywhere under `web/src/app/matching/` outside two named files
+  (`matching/no-domain-arithmetic.spec.ts`); every dimension in `_card-geometry.scss`.

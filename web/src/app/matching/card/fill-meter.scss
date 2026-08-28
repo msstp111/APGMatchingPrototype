@@ -1,0 +1,118 @@
+@use '../card-geometry' as geo;
+@use '../../../styles/lms-tokens' as lms;
+
+// The block stays at 112px however it is split internally: the header strip's Unmatched cell is 112
+// and the two must not drift (design-system.md 4).
+:host {
+  flex: 0 0 geo.$col-meter-block;
+  display: block;
+}
+
+.meter {
+  display: flex;
+  align-items: center;
+  gap: geo.$meter-gap;
+}
+
+.track {
+  position: relative;
+  flex: 0 0 geo.$meter-track-width;
+  width: geo.$meter-track-width;
+  height: geo.$meter-track-height;
+  border-radius: 1px;
+  background: lms.$q-track;
+  overflow: hidden;
+}
+
+.seg {
+  position: absolute;
+  top: 0;
+  left: 0;
+  height: 100%;
+  border-radius: 1px;
+}
+
+// Alpha is a third channel belonging to neither colour system, which is why the draft delta is not
+// hatched — hatching is Pending's.
+.incl {
+  opacity: 0.45;
+}
+
+.numeral {
+  flex: 0 0 geo.$meter-numeral-width;
+  width: geo.$meter-numeral-width;
+  font-size: 15px;
+  font-weight: 600;
+  line-height: 16px;
+  text-align: right;
+  @include geo.numerals;
+}
+
+// --- past 100%: drawn, not measured (design-system.md 4.2) ---
+.over .track {
+  overflow: visible;
+  box-shadow: inset 0 0 0 1px currentcolor;
+}
+
+.over-run {
+  position: absolute;
+  top: -2px;
+  right: -6px;
+  width: 3px;
+  height: 12px;
+  border-radius: 1px;
+  background: currentcolor;
+}
+
+// --- the ramp: `-bar` fills the meter, `-ink` inks the numeral ---
+// `currentcolor` above resolves to the bar colour, so the outline and the over-run cap follow the
+// state without repeating a hex.
+.q-under {
+  color: lms.$q-under-bar;
+
+  .seg {
+    background: lms.$q-under-bar;
+  }
+
+  .numeral {
+    color: lms.$q-under-ink;
+  }
+}
+
+.q-exact {
+  color: lms.$q-exact-bar;
+
+  .seg {
+    background: lms.$q-exact-bar;
+  }
+
+  .numeral {
+    color: lms.$q-exact-ink;
+  }
+}
+
+// Processor Space only: over-filling demand is permitted and expected.
+.q-over {
+  color: lms.$q-over-bar;
+
+  .seg {
+    background: lms.$q-over-bar;
+  }
+
+  .numeral {
+    color: lms.$q-over-ink;
+  }
+}
+
+// Availability only, and a bug flag: supply is hard-capped at the drag, so this should be unreachable.
+.q-pink {
+  color: lms.$q-pink-bar;
+
+  .seg {
+    background: lms.$q-pink-bar;
+  }
+
+  .numeral {
+    color: lms.$q-pink-ink;
+  }
+}

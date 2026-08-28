@@ -73,6 +73,31 @@ export interface MatchDto {
   readonly availableFromLabel: string;
 }
 
+/**
+ * One week of the banded timeline both columns are drawn on.
+ *
+ * This arrives from the server for the same reason every other date does: an empty week still renders
+ * its header, and a week with no records in it cannot supply its own name. Building the sequence here
+ * would mean adding seven days to an ISO string. With the ordered array in hand, banding is string
+ * equality on `weekCommencing` and carry-over placement is a comparison of positions in it — no `Date`
+ * is ever constructed and no day arithmetic is ever done.
+ *
+ * It deliberately carries no record ids: a record's week is on the record, and a second home for that
+ * membership is exactly what would let a carry-over become a copy rather than the same record.
+ */
+export interface WeekBandDto {
+  /** ISO `yyyy-MM-dd` Sunday, and the band's identity. Compare as a string; never parse it. */
+  readonly weekCommencing: string;
+  /** LMS's `dd-MM-yy` form. */
+  readonly weekCommencingLabel: string;
+  /** The prose form — `16 Aug`. The header renders `Week of {{ weekOfLabel }}`. */
+  readonly weekOfLabel: string;
+  /** Exactly one band in the list has this set; the range always includes the current week. */
+  readonly isCurrentWeek: boolean;
+  /** Before the current week. De-emphasised, never hidden. */
+  readonly isPastWeek: boolean;
+}
+
 /** A meatworks' committed slot: the demand side. */
 export interface ProcessorSpaceDto {
   readonly id: number;
@@ -119,6 +144,8 @@ export interface LivestockAvailabilityDto {
   /** ISO `yyyy-MM-dd`. Render `availableFromLabel` instead. */
   readonly availableFrom: string;
   readonly availableFromLabel: string;
+  /** The prose form — `17 Aug`. The carry-over card reads `since {{ availableFromShortLabel }}`. */
+  readonly availableFromShortLabel: string;
   readonly availabilityDetails: string | null;
   readonly transactionType: TransactionType;
   readonly notes: string | null;

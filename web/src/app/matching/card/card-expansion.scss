@@ -1,0 +1,139 @@
+@use '../card-geometry' as geo;
+@use '../../../styles/lms-tokens' as lms;
+
+// Indented by the rail plus the spine so the expansion's content aligns with the card body above it.
+:host {
+  display: block;
+  padding-left: geo.$leading-offset;
+  background: lms.$lms-card;
+  border-bottom: 1px solid lms.$lms-divider;
+}
+
+// --- 1. the field row ---
+.fields {
+  display: flex;
+  gap: 24px;
+  padding: 8px 10px 6px;
+  border-bottom: 1px solid lms.$lms-rule-soft;
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+// Notes and availability details flex and wrap; they are the only values allowed to, and only in
+// here (design-system.md 13).
+.grow {
+  flex: 1 1 auto;
+}
+
+.right {
+  margin-left: auto;
+  text-align: right;
+}
+
+.label {
+  @include geo.micro-caps;
+}
+
+.value {
+  font-size: 12.5px;
+  line-height: 16px;
+  color: lms.$lms-text;
+}
+
+.num {
+  @include geo.numerals;
+}
+
+.ink {
+  font-weight: 500;
+}
+
+.state {
+  margin-left: 6px;
+  font-weight: 400;
+  color: lms.$lms-text-muted;
+}
+
+// --- 2. the sums row ---
+.sums {
+  display: flex;
+  gap: 24px;
+  padding: 8px 10px;
+  background: lms.$lms-surface;
+  border-bottom: 1px solid lms.$lms-divider;
+}
+
+.sum {
+  font-size: 14px;
+  font-weight: 500;
+  @include geo.numerals;
+}
+
+// --- 3. the match table: an actual LMS table ---
+.table-wrap {
+  overflow-x: auto;
+}
+
+.matches {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12.5px;
+  text-align: left;
+}
+
+.matches th {
+  height: 26px;
+  padding: 0 8px;
+  border-bottom: 1px solid lms.$lms-divider;
+  white-space: nowrap;
+  @include geo.micro-caps;
+}
+
+.matches td {
+  height: 30px;
+  padding: 0 8px;
+  border-bottom: 1px solid lms.$lms-rule-soft;
+  color: lms.$lms-text;
+  vertical-align: middle;
+}
+
+.matches tbody tr:nth-child(even) td {
+  background: lms.$lms-card-zebra;
+}
+
+.matches .num {
+  text-align: right;
+  @include geo.numerals;
+}
+
+// The second half of a two-part cell — the plant under the processor, the location under the farmer.
+.sub {
+  margin-left: 6px;
+  color: lms.$lms-text-muted;
+}
+
+.muted {
+  color: lms.$lms-text-muted;
+}
+
+.faint {
+  color: lms.$lms-faint;
+}
+
+// No hue on a match status: design-system.md 3 names this cell explicitly.
+.mstat {
+  font-size: 14px;
+  vertical-align: -2px;
+  color: lms.$lms-text-muted;
+}
+
+// Deliberately empty, not broken.
+.empty {
+  color: lms.$lms-faint;
+  font-size: 12px;
+}

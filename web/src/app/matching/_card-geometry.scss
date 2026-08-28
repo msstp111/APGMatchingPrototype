@@ -1,0 +1,336 @@
+// The matching screen's geometry, in one file because it has to agree in several.
+//
+// design-system.md 6.1 requires the line-1 column widths to be IDENTICAL on both sides and the
+// micro-cap header strip to match them EXACTLY. That is three templates (space card, availability
+// card, header strip) plus the carry-over row, and a width duplicated four times is a width that
+// drifts. Everything dimensional lives here; the cards only decide what goes in each column.
+//
+// Two numbers are load-bearing and appear in more than one place on purpose:
+//   * the 112px meter block equals the header strip's Unmatched cell — if they differ the columns
+//     stop lining up (design-system.md 4, 16.10);
+//   * the 54px leading offset is 48px rail + 6px spine, so a card's tile sits under its own header
+//     cell. There is a 6px variant for a card shown outside a band; Phase 3 never needs it
+//     (design-system.md 16.9).
+
+@use '../../styles/lms-tokens' as lms;
+
+// --- the pieces the whole screen is measured from ---
+$rail-width: 48px;
+$spine-width: 6px;
+$spine-width-booked: 3px;
+$card-height: 52px; // including its 1px bottom rule
+$carry-over-height: 40px;
+$header-strip-height: 28px;
+$band-header-height: 30px;
+$carry-over-sub-header-height: 32px;
+$new-this-week-height: 26px;
+$column-header-height: 40px;
+$filter-row-height: 40px; // reserved by Phase 3, filled by Phase 4
+$search-strip-height: 52px; // likewise
+$empty-band-height: 44px;
+$leading-offset: $rail-width + $spine-width; // 54px
+
+// --- line 1's columns (design-system.md 6.1) ---
+$col-gap: 8px;
+$col-tile: 20px;
+$col-stock-class: 96px;
+$col-date: 50px;
+$col-quantity: 40px;
+$col-meter-block: 112px; // 66 meter + 6 gap + 40 numeral
+$col-chevron: 24px;
+$col-carry-origin: 82px; // replaces the date column on a carry-over row
+
+// --- the meter's own parts ---
+$meter-track-width: 66px;
+$meter-track-height: 8px;
+$meter-numeral-width: 40px;
+$meter-gap: 6px;
+
+// ---------------------------------------------------------------------------------------------
+// Type — design-system.md 5.1. Every quantity, price and date is tabular: this screen is columns
+// of digits, and proportional digits do not line up.
+// ---------------------------------------------------------------------------------------------
+
+@mixin card-primary {
+  font-size: 13px;
+  font-weight: 500;
+  line-height: 16px;
+  color: lms.$lms-text;
+}
+
+@mixin card-meta {
+  font-size: 11.5px;
+  font-weight: 400;
+  line-height: 14px;
+  color: lms.$lms-text-muted;
+}
+
+@mixin numerals {
+  font-variant-numeric: tabular-nums;
+}
+
+@mixin micro-caps {
+  font-size: 10.5px;
+  font-weight: 500;
+  line-height: 12px;
+  letter-spacing: 0.7px;
+  text-transform: uppercase;
+  color: lms.$lms-text-muted;
+}
+
+@mixin truncate {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+// ---------------------------------------------------------------------------------------------
+// Line 1, shared by both cards and by the header strip
+// ---------------------------------------------------------------------------------------------
+
+@mixin line-1 {
+  display: flex;
+  align-items: center;
+  gap: $col-gap;
+  min-width: 0;
+}
+
+// The name column is the only one that flexes, so it absorbs the difference between the 518px card
+// at 1366px and anything wider. It truncates rather than wrapping: a card must never grow a third
+// line (design-system.md 6.1).
+@mixin col-name {
+  flex: 1 1 auto;
+  min-width: 0;
+  @include truncate;
+}
+
+@mixin col-fixed($width, $align: left) {
+  flex: 0 0 $width;
+  text-align: $align;
+  @include truncate;
+}
+
+// ---------------------------------------------------------------------------------------------
+// Status spines — design-system.md 3.1
+//
+// Status carries NO HUE. Weight, pattern, icon and word carry it instead, because hue is committed
+// to the quantity meter. Note that weight alone separates Booked (3px) from everything else (6px),
+// so "nothing has happened yet" reads before the pattern resolves.
+//
+// The one petrol here is the Confirmed spine. That is the brand colour reading as "locked", not a
+// member of the quantity ramp — see design-system.md 3's acknowledged overlap.
+// ---------------------------------------------------------------------------------------------
+
+@mixin spine-base {
+  flex: 0 0 auto;
+  align-self: stretch;
+}
+
+@mixin spines {
+  .spine {
+    @include spine-base;
+  }
+
+  .sp-booked {
+    width: $spine-width-booked;
+    background: lms.$lms-divider;
+  }
+
+  .sp-pending {
+    width: $spine-width;
+    background: repeating-linear-gradient(
+      45deg,
+      lms.$lms-rule-strong 0 2px,
+      lms.$lms-white 2px 4px
+    );
+  }
+
+  .sp-confirmed {
+    width: $spine-width;
+    background: lms.$lms-petrol;
+  }
+
+  .sp-cancelled {
+    width: $spine-width;
+    background: repeating-linear-gradient(
+      180deg,
+      lms.$lms-faint 0 6px,
+      transparent 6px 10px
+    );
+  }
+}
+
+// Cancelled is the one card-level treatment status owns, and it *removes* colour rather than adding
+// any (design-system.md 3).
+@mixin cancelled-card {
+  filter: grayscale(1);
+  opacity: 0.62;
+
+  .name {
+    text-decoration: line-through;
+  }
+}
+
+// ---------------------------------------------------------------------------------------------
+// The chevron
+//
+// design-system.md 1.2 asks for a mat-icon-button; 6.1 gives the chevron a 24px column. Material's
+// icon button is 40px at density 0 and 32px at -2, so it needs pinning to 24 or the card's trailing
+// edge stops matching the header strip's (design-system.md 16.10). A 24px target is acceptable
+// because a mouse is assumed available at all times (resolved question 14).
+// ---------------------------------------------------------------------------------------------
+
+@mixin chevron-button {
+  flex: 0 0 $col-chevron;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: $col-chevron;
+  height: $col-chevron;
+  padding: 0;
+  color: lms.$lms-text-muted;
+
+  --mat-icon-button-state-layer-size: #{$col-chevron};
+  --mdc-icon-button-state-layer-size: #{$col-chevron};
+
+  .material-symbols-outlined {
+    font-size: 18px;
+  }
+}
+
+// ---------------------------------------------------------------------------------------------
+// The whole 52px card row, shared by both sides
+//
+// The two cards differ only in which DTO field goes in which cell. Everything structural is here so
+// the two columns cannot drift apart — which design-system.md 6.1 requires and which is otherwise
+// unenforceable across two templates and two stylesheets.
+// ---------------------------------------------------------------------------------------------
+
+@mixin card-shell {
+  @include spines;
+
+  // The height is explicit, not summed from padding: 17 + 3 + 14 = 34px of content centred in a 51px
+  // box, and the 1px bottom rule makes 52. A card derived from its padding means a 1px change
+  // anywhere moves the density target (design-system.md 6.1, 16.11).
+  .card {
+    display: flex;
+    height: $card-height;
+    background: lms.$lms-card;
+    border-bottom: 1px solid lms.$lms-divider;
+    box-sizing: border-box;
+  }
+
+  // Positional striping, one step lighter than LMS's own #EEEEEE (design-system.md 3.2).
+  .card.zebra {
+    background: lms.$lms-card-zebra;
+  }
+
+  // Nothing resizes on hover: a growing row makes a list of ten cards jitter under the pointer.
+  // `cursor: grab` is here because Phase 5 makes the body a drag handle and the affordance should not
+  // arrive later than the gesture reads.
+  .card:hover {
+    background: lms.$lms-hover;
+    box-shadow: 0 1px 2px rgb(0 0 0 / 10%);
+    cursor: grab;
+  }
+
+  .card.cancelled {
+    @include cancelled-card;
+  }
+
+  .cbody {
+    flex: 1 1 auto;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    gap: 3px;
+    padding: 0 8px;
+  }
+
+  .l1 {
+    @include line-1;
+    height: 17px;
+    @include card-primary;
+  }
+
+  .l2 {
+    @include line-1;
+    height: 14px;
+    @include card-meta;
+  }
+
+  // --- line 1's cells, in the order they appear ---
+  .name {
+    @include col-name;
+  }
+
+  .sclass {
+    @include col-fixed($col-stock-class);
+    color: lms.$lms-text-muted;
+  }
+
+  .date {
+    @include col-fixed($col-date);
+    @include numerals;
+  }
+
+  .qty {
+    @include col-fixed($col-quantity, right);
+    @include numerals;
+  }
+
+  // --- line 2 ---
+  // The left-hand meta is the only item that truncates; everything to its right is present or absent.
+  .meta {
+    @include col-name;
+  }
+
+  .over {
+    flex: 0 0 auto;
+    font-weight: 500;
+  }
+
+  .mcount {
+    flex: 0 0 auto;
+  }
+
+  .status {
+    flex: 0 0 auto;
+    display: inline-flex;
+    align-items: center;
+    gap: 3px;
+    white-space: nowrap;
+  }
+
+  .sicon {
+    font-size: 14px;
+  }
+
+  // Confirmed's tick is the filled variant; everything else stays outline, as LMS's icons are.
+  .sicon.filled {
+    font-variation-settings: 'FILL' 1;
+  }
+
+  .chev {
+    @include chevron-button;
+    align-self: center;
+  }
+
+  // The over-state ink, for line 2's literal label. Hue here is the quantity ramp's, not status's.
+  .q-under {
+    color: lms.$q-under-ink;
+  }
+
+  .q-exact {
+    color: lms.$q-exact-ink;
+  }
+
+  .q-over {
+    color: lms.$q-over-ink;
+  }
+
+  .q-pink {
+    color: lms.$q-pink-ink;
+  }
+}

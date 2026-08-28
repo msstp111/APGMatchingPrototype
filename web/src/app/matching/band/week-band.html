@@ -1,0 +1,98 @@
+<!--
+  The rail is a persistent 48px gutter down the whole column, and its label sticks while the band
+  scrolls: on a screen about weeks, "which week am I looking at" must never require scrolling back up.
+
+  "Week of" and "16 Aug" are on separate lines because the rail is 48px wide. The date is the server's
+  weekOfLabel; only the words are template text.
+-->
+<section class="band" [class.current]="band().week.isCurrentWeek" [class.past]="band().week.isPastWeek">
+  <div class="rail">
+    <div class="rail-label">
+      <span class="wk">Week of</span>
+      <span class="dt">{{ band().week.weekOfLabel }}</span>
+      @if (band().week.isCurrentWeek) {
+        <span class="tag now">This week</span>
+      } @else if (band().week.isPastWeek) {
+        <span class="tag gone">Past</span>
+      }
+    </div>
+
+    <!-- Shows how far the band extends, so a tall band does not lose its left edge. -->
+    <div class="leader" aria-hidden="true"></div>
+  </div>
+
+  <div class="body">
+    <!--
+      Band meta counts the band's OWN records only. A carried-over record is already counted in its
+      home band, and counting it again here would inflate every total on the screen — the one plausible
+      double-count on this design.
+    -->
+    <header class="bhead">
+      <span class="blabel">Week of {{ band().week.weekOfLabel }}</span>
+
+      @if (isDemand()) {
+        <span class="totals">
+          {{ band().meta.spaceCount }}
+          {{ band().meta.spaceCount === 1 ? 'space' : 'spaces' }}
+          ·
+          {{ band().meta.spaceHead | number }} head
+        </span>
+      } @else {
+        <span class="totals">
+          {{ band().meta.availabilityCount }}
+          {{ band().meta.availabilityCount === 1 ? 'record' : 'records' }}
+          ·
+          {{ band().meta.availabilityHead | number }} head
+        </span>
+      }
+    </header>
+
+    @if (carryOver().length > 0) {
+      <!--
+        The strip's total is UNMATCHED head, not available head. What is left is the only figure that
+        matters this week; the original quantity is history by now.
+      -->
+      <button class="cohead" type="button" (click)="toggleCarryOver()" [attr.aria-expanded]="carryOverOpen()">
+        <span class="material-symbols-outlined coch" aria-hidden="true">{{
+          carryOverOpen() ? 'expand_more' : 'chevron_right'
+        }}</span>
+        <span class="material-symbols-outlined carry-glyph" aria-hidden="true">keyboard_return</span>
+        <span class="colabel">
+          Carried over ({{ band().meta.carryOverCount }}) ·
+          {{ band().meta.carryOverHead | number }} head unmatched
+        </span>
+      </button>
+
+      @if (carryOverOpen()) {
+        @for (record of carryOver(); track record.id) {
+          <app-carry-over-card [record]="record" [bandWeek]="band().week.weekCommencing" />
+        }
+      }
+    }
+
+    @if (showsNewThisWeek()) {
+      <div class="newthis">New this week ({{ nativeCount() }})</div>
+    }
+
+    @if (isDemand()) {
+      @for (space of band().spaces; track space.id; let i = $index) {
+        <app-space-card [space]="space" [bandWeek]="band().week.weekCommencing" [zebra]="i % 2 === 1" />
+      }
+    } @else {
+      @for (record of band().availability; track record.id; let i = $index) {
+        <app-availability-card
+          [record]="record"
+          [bandWeek]="band().week.weekCommencing"
+          [zebra]="i % 2 === 1"
+        />
+      }
+    }
+
+    <!-- Deliberately empty, and it says so: a blank band is otherwise indistinguishable from a bug. -->
+    @if (isEmpty()) {
+      <div class="none">
+        {{ isDemand() ? '- no processor spaces this week' : '- no livestock availability this week' }}
+      </div>
+    }
+  </div>
+</section>

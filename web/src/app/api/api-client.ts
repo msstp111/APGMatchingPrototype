@@ -1,7 +1,7 @@
 import { HttpClient } from '@angular/common/http';
 import { Injectable, inject } from '@angular/core';
 import { Observable } from 'rxjs';
-import { LivestockAvailabilityDto, ProcessorSpaceDto } from './models';
+import { LivestockAvailabilityDto, ProcessorSpaceDto, WeekBandDto } from './models';
 
 /**
  * Calls the API on a same-origin `/api` path. In development the Angular dev server proxies that to
@@ -23,5 +23,13 @@ export class ApiClient {
 
   livestockAvailability(): Observable<LivestockAvailabilityDto[]> {
     return this.http.get<LivestockAvailabilityDto[]>('/api/livestock-availability');
+  }
+
+  /**
+   * The week bands both columns are drawn on, soonest first and with no gaps. A calendar rather than a
+   * record set, which is why it is its own endpoint.
+   */
+  weekBands(): Observable<WeekBandDto[]> {
+    return this.http.get<WeekBandDto[]>('/api/week-bands');
   }
 }

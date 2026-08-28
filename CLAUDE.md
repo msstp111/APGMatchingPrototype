@@ -8,7 +8,9 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Current state
 
-Phases 0 and 1 are complete: the solution, the Angular app, EF Core + SQLite and the deterministic seeder are in place, the LMS shell (top bar + sidebar) is built, and every computed quantity, status and date rule now lives in `Apg.Domain` and reaches the client on the DTO contract. Phases 2–8 are still to come — see `Documents/BUILD-LOG.md` for what each finished phase actually did.
+Phases 0 to 3 are complete: the solution, the Angular app, EF Core + SQLite and the deterministic seeder are in place, the LMS shell (top bar + sidebar) is built, every computed quantity, status and date rule lives in `Apg.Domain` and reaches the client on the DTO contract, Phase 2 settled the visual language in `Documents/design-system.md`, and Phase 3 built the matching screen's two week-banded card lists with carry-over cards and expand/collapse. Phases 4–8 are still to come — see `Documents/BUILD-LOG.md` for what each finished phase actually did.
+
+**The matching screen is read-only.** Filtering and sorting are Phase 4, drag-and-drop is Phase 5, the match dialogs are Phase 6. Expanding and collapsing a card is the only interaction that exists.
 
 ### Layout
 
@@ -46,18 +48,23 @@ Run from the repo root unless stated.
 
 `dotnet` and `node` are installed at `C:\Program Files\dotnet` and `C:\Program Files\nodejs`; if a fresh shell cannot find them, the machine `PATH` has not been re-read yet.
 
+**Stop any running `Apg.Api` before building.** It holds `Apg.Domain.dll` open and `dotnet build` fails with `MSB3027` / `MSB3021`. This has bitten every phase so far. `Get-CimInstance Win32_Process -Filter "Name='Apg.Api.exe'"` finds it; stopping the `Apg.Api.exe` child is enough, as its `dotnet run` host exits with it. Note the Angular dev server holds no lock and can stay up.
+
 ### Wiring
 
 - The Angular dev server proxies `/api` to `http://localhost:5286` (`web/proxy.conf.json`, wired into `angular.json`'s `serve` options), so the client only ever calls same-origin paths. CORS for `http://localhost:4200` is configured in the API as a fallback for running without the proxy.
 - SQLite lives at `src/Apg.Api/apg.db`, gitignored. The schema is created with `EnsureCreated` — there are no migrations, deliberately. Deleting the file and restarting reproduces identical seed data.
 - `POST /api/dev/reset-database` drops, recreates and re-seeds. Phase 8 adds the button that calls it.
-- The two read endpoints are `GET /api/processor-spaces` and `GET /api/livestock-availability`. Since Phase 1 they return the **DTO contract** — `src/Apg.Api/Contracts/Dtos.cs`, mirrored field for field in `web/src/app/api/models.ts` — carrying every computed field. The raw-record shapes Phase 0 returned are gone.
+- The three read endpoints are `GET /api/processor-spaces`, `GET /api/livestock-availability` and `GET /api/week-bands`. Since Phase 1 they return the **DTO contract** — `src/Apg.Api/Contracts/Dtos.cs`, mirrored field for field in `web/src/app/api/models.ts` — carrying every computed field. The raw-record shapes Phase 0 returned are gone.
+- **`GET /api/week-bands`** (Phase 3) returns an ordered, gapless `WeekBandDto[]`: every Sunday from the earliest record's week to the latest, always including the current week, each with `weekCommencingLabel` (`23-08-26`), `weekOfLabel` (`23 Aug`), `isCurrentWeek` and `isPastWeek`. It exists because requirement 1.6 wants a header on a week **no record falls in**, and the client cannot name such a week without doing date arithmetic. It is a calendar, not a record set: it carries no record ids, deliberately. One list serves both columns so the two sides stay vertically comparable.
 
 ### Conventions
 
 - The seeder is deterministic: an explicit mulberry32 PRNG (`src/Apg.Api/Seeding/Mulberry32.cs`), never `System.Random`. Every date is an offset from the Sunday of the current **New Zealand** week.
 - Every invented list (processors, plants, carriers, stock classes, farmer names) lives in `src/Apg.Api/Seeding/SeedConfig.cs` so APG's real values are a one-file swap.
-- LMS colours and metrics live in `web/src/styles/_lms-tokens.scss`, sampled from the screenshots. The Material palettes in `web/src/styles/_theme-colors.scss` were generated from `#00567E`. Do not re-sample; the values are recorded in the build log.
+- LMS colours and metrics live in `web/src/styles/_lms-tokens.scss`, sampled from the screenshots, with Phase 2's matching-screen palette appended (surfaces, rules, the quantity ramp, semantics) as both SCSS variables and `:root` custom properties. The Material palettes in `web/src/styles/_theme-colors.scss` were generated from `#00567E`. Do not re-sample; the values are recorded in the build log.
+- The Material theme runs at `density: -2` with dialogs overridden to a 4px radius (`web/src/styles.scss`), so Material's own controls land on LMS's proportions without a per-component override each.
+- Every dimension on the matching screen lives in `web/src/app/matching/_card-geometry.scss`. Do not hard-code a width, height or padding in a card, band or column stylesheet.
 
 Supporting choices are recorded in `Documents/ROADMAP.md`: EF Core + SQLite for persistence, xUnit for the domain tests, Angular CDK `DragDrop` for the matching interaction, SCSS for styling.
 
@@ -68,10 +75,37 @@ Domain rules live in C# in `Apg.Domain` (no EF, no ASP.NET) and reach the client
 
 - **`src/Apg.Domain/Matching/`** — `MatchQuantities` (both sums, `Tally`, `ForSpace`, `ForAvailability`), `QuantityTally` (`Unmatched`, `State`), `QuantityState` / `MatchSide` / `QuantityStateLabels`, `AvailabilityStatus.Derive`, `ProcessorSpaceRules.CanConfirm`, `MatchCreation` (`Propose`, `DefaultMatchQuantity`, `MaxMatchQuantity`, `NoUnmatchedQuantity`), `RecordCancellation`.
 - **`src/Apg.Domain/Pricing/PriceTable.cs`** — `DefaultPricePerKg`, keyed on the Processor Space stock class.
-- **`src/Apg.Domain/Time/NzTime.cs`** — the *only* home for date rules: `WeekCommencing`, `ToNzDate`, `Today(TimeProvider)`, `CurrentWeekCommencing(TimeProvider)`, `DateLabel`, `WeekLabel`, `AtNzTime`. Extend this file; never start a second one.
+- **`src/Apg.Domain/Time/NzTime.cs`** — the *only* home for date rules: `WeekCommencing`, `ToNzDate`, `Today(TimeProvider)`, `CurrentWeekCommencing(TimeProvider)`, `DateLabel`, `WeekLabel`, `AtNzTime`, and from Phase 3 `ShortDateLabel` / `ShortDateLabelFormat` (`d MMM` → `16 Aug`, `1 Sep`) and `WeeksFrom(first, last)` (contiguous inclusive Sundays, both ends normalised). Extend this file; never start a second one.
 - **`src/Apg.Api/Contracts/`** — `Dtos.cs`, `MatchingProjection` (computes nothing; calls the domain for every value), `WorkingSetLoader`, `ApiJson` (the wire format, shared with the tests).
 
-**Dates on the wire:** every business date is a `DateOnly` serialising as `yyyy-MM-dd`, and **always ships alongside a preformatted label** in LMS's `dd-MM-yy` (`23-08-26`). The client renders the label and must never construct a JavaScript `Date` from the ISO value. Change the format in `NzTime.DateLabelFormat`, nowhere else.
+**Dates on the wire:** every business date is a `DateOnly` serialising as `yyyy-MM-dd`, and **always ships alongside a preformatted label** in LMS's `dd-MM-yy` (`23-08-26`). Where a date appears in prose rather than in a column it also ships a short label in `d MMM` (`16 Aug`) — `WeekBandDto.WeekOfLabel` and `LivestockAvailabilityDto.AvailableFromShortLabel`; the client supplies only the surrounding word ("Week of", "since"), because the week rail stacks them on separate lines. The client renders the label and must never construct a JavaScript `Date` from the ISO value. Change the formats in `NzTime.DateLabelFormat` / `NzTime.ShortDateLabelFormat`, nowhere else.
+
+### The matching screen (Phase 3)
+
+Under `web/src/app/matching/`. `matching-screen` loads three streams and renders two `matching-column`s; everything below is presentation over already-computed values.
+
+```
+_card-geometry.scss   ALL dimensions + the card-shell/spines/line-1 mixins. Both columns @use it,
+                      so design-system.md 6.1's "identical on both sides" is enforced, not hoped for.
+board/matching-board.ts   buildBoard(bands, spaces, availability) → BandView[] + unplaced. Pure.
+board/carry-over.ts       CARRY_OVER_EXPAND_LIMIT = 4, CARRY_OVER_HORIZON_WEEKS = 4
+board/card-state.ts       root CardStateStore — expansion + carry-over group collapse
+column/matching-column.ts header, reserved 40px filter row, sticky 28px strip, scrolling .list
+band/week-band.ts         sticky rail, carry-over group, "New this week", natives, empty-band row
+card/space-card.ts, card/availability-card.ts     the 52px rows
+card/carry-over-card.ts                           the 40px repeat
+card/card-expansion.ts    fields + both sums + the match table. Shared by all three cards.
+card/fill-meter.ts, card/stock-class-tile.ts, card/stock-classes.ts, card/card-chrome.ts
+testing/dto-fixtures.ts   DTO builders for the specs only
+```
+
+**Phase 4 attaches to `buildBoard`'s inputs, not its output** — filter the lists and call it again, and the band meta totals reshape for free.
+
+**Carry-over cards.** An availability record appears in full in its home band and reappears as a 40px row at the top of every later band while `unmatched > 0`, bounded by `CARRY_OVER_HORIZON_WEEKS` forward of the *current* week and never placed before it. `carryOver` holds **the same object references** as the home band's array, so a repeat cannot diverge from its original. Expansion is keyed per card instance (`side:recordId@bandWeek`), not per record, so expanding a repeat does not also expand the home card and shove the clicked row down the page.
+
+**Arithmetic in `web/` is limited to two files, both allow-listed by name in `matching/no-domain-arithmetic.spec.ts`:** `card/fill-meter.ts` (CSS segment widths, clamped — a bar width is not a displayed figure) and `board/matching-board.ts` (band header roll-ups, which must be client-side because Phase 4's filters change what is in the band). That spec is the client analogue of `DomainPurityTests`: it scans `matching/**/*.ts` and fails on `new Date`, `Date.parse`, `Date.now`, `toLocaleDate*`, `Intl.DateTimeFormat`, `getTime()`, or an arithmetic operator next to a quantity field. **If you need a third such site, you are probably missing a DTO field.**
+
+**Hue is committed to the quantity meter and nothing else.** Status is carried by spine weight, pattern, icon and word; stock class by a monogram tile whose *shape* is the species. `Data/stock-class-configs.csv`'s colour column is deliberately unused (resolved question 16 overrides Phase 8 §3.1).
 
 **No domain code reads the real clock.** Take a `TimeProvider`. `DomainPurityTests.No_domain_source_file_reads_the_real_clock` scans `src/Apg.Domain/**/*.cs` and fails on `DateTime.Now`, `.Today`, `.UtcNow` or `TimeProvider.System`.
 

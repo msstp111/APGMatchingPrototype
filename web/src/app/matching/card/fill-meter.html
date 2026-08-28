@@ -1,0 +1,16 @@
+<!--
+  Both segments start at the left edge and the solid one is drawn OVER the alpha one, so the visible
+  alpha band is exactly the draft delta.
+-->
+<div class="meter" [class]="rampClass()" [class.over]="isOver()" [title]="hoverTitle()">
+  <div class="track">
+    <div class="seg incl" [style.width]="inclWidth()"></div>
+    <div class="seg excl" [style.width]="exactWidth()"></div>
+    @if (isOver()) {
+      <div class="over-run"></div>
+    }
+  </div>
+
+  <!-- The numeral is the DTO's unmatched figure, printed as given: negative when over. -->
+  <span class="numeral">{{ unmatched() }}</span>
+</div>

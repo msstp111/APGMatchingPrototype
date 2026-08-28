@@ -39,6 +39,14 @@ public static class NzTime
     /// </summary>
     public const string DateLabelFormat = "dd-MM-yy";
 
+    /// <summary>
+    /// The friendlier form the matching screen's week bands and carry-over cards read in — <c>16 Aug</c>,
+    /// <c>1 Sep</c>. LMS's own <see cref="DateLabelFormat"/> is right for a table of dates but wrong for
+    /// prose, and the band header and carry-over card are both prose: "Week of 16 Aug", "since 17 Aug".
+    /// One format serves both, so there is still exactly one place either string's date is formatted.
+    /// </summary>
+    public const string ShortDateLabelFormat = "d MMM";
+
     private static readonly TimeZoneInfo Zone = TimeZoneInfo.FindSystemTimeZoneById(TimeZoneId);
 
     /// <summary>The New Zealand time zone, resolved exactly once.</summary>
@@ -90,6 +98,47 @@ public static class NzTime
     /// formatted here so no phase formats one in TypeScript.
     /// </summary>
     public static string WeekLabel(DateOnly date) => DateLabel(WeekCommencing(date));
+
+    /// <summary>
+    /// A business date in the short prose form — <c>16 Aug</c>. The client puts the surrounding words
+    /// there ("Week of", "since"), because the week rail stacks them on separate lines and a single
+    /// preformatted sentence could not be split.
+    /// </summary>
+    public static string ShortDateLabel(DateOnly date) =>
+        date.ToString(ShortDateLabelFormat, CultureInfo.InvariantCulture);
+
+    /// <summary>
+    /// Every Sunday from <paramref name="first"/>'s week to <paramref name="last"/>'s week inclusive,
+    /// in order and with no gaps.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// This is the matching screen's week banding, and the reason it lives here rather than in the
+    /// client is requirement 1.6: a week with no records in it still renders its header, so the screen
+    /// needs the name of a week that no record can supply. Working that out in the browser would mean
+    /// adding seven days to an ISO string — the one thing the date rules exist to keep out of
+    /// TypeScript.
+    /// </para>
+    /// <para>
+    /// Both ends are normalised through <see cref="WeekCommencing"/>, so a caller may pass any date in
+    /// the week it means. A <paramref name="last"/> before <paramref name="first"/> yields an empty
+    /// sequence rather than throwing: the caller composing a range out of min and max cannot produce
+    /// that case, and an empty band list renders as an empty screen rather than a failed request.
+    /// </para>
+    /// </remarks>
+    public static IReadOnlyList<DateOnly> WeeksFrom(DateOnly first, DateOnly last)
+    {
+        var start = WeekCommencing(first);
+        var end = WeekCommencing(last);
+        var weeks = new List<DateOnly>();
+
+        for (var week = start; week <= end; week = week.AddDays(7))
+        {
+            weeks.Add(week);
+        }
+
+        return weeks;
+    }
 
     /// <summary>
     /// A New Zealand wall-clock time on a business date, as an instant. Used for seeded audit

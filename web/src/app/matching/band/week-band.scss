@@ -1,0 +1,216 @@
+@use '../card-geometry' as geo;
+@use '../../../styles/lms-tokens' as lms;
+
+:host {
+  display: block;
+}
+
+// The rule is on the TOP, so the current week's 2px petrol rule opens its band rather than closing
+// the one above it (design-system.md 8.4).
+.band {
+  display: flex;
+  align-items: stretch;
+  border-top: 1px solid lms.$lms-divider;
+}
+
+.band.current {
+  border-top: 2px solid lms.$lms-petrol;
+}
+
+// --- the rail ---
+// A persistent gutter, not a header: it gives every band a fixed left margin, which is what stops the
+// cards below from looking like they belong to a different list.
+.rail {
+  position: relative;
+  flex: 0 0 geo.$rail-width;
+  width: geo.$rail-width;
+  padding: 8px 6px;
+  background: lms.$lms-surface;
+  border-right: 1px solid lms.$lms-divider;
+  box-sizing: border-box;
+}
+
+// Sticky at 28px, NOT 0: the column's micro-cap header strip occupies the first 28px of the scroll
+// container, and top: 0 would park the week label underneath it. design-system.md 8.5 and 16.8
+// disagree on this; the strip wins because it is the more specific statement about the scroll
+// container. z-index 1 keeps the label over the cards and under the strip (which is 3).
+.rail-label {
+  position: sticky;
+  top: geo.$header-strip-height;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  background: inherit;
+}
+
+.wk {
+  font-size: 10px;
+  line-height: 13px;
+  letter-spacing: 0.4px;
+  text-transform: uppercase;
+  color: lms.$lms-text-muted;
+}
+
+.dt {
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 14px;
+  color: lms.$lms-text;
+}
+
+.tag {
+  margin-top: 4px;
+  font-size: 8.5px;
+  font-weight: 700;
+  line-height: 11px;
+  letter-spacing: 0.3px;
+  text-transform: uppercase;
+}
+
+.now {
+  color: lms.$lms-petrol;
+}
+
+.gone {
+  color: lms.$lms-faint;
+}
+
+// Runs from below the label to the band's end, showing how far the band extends. Behind the sticky
+// label, so the label always wins where they overlap.
+.leader {
+  position: absolute;
+  top: 44px;
+  bottom: 0;
+  left: 50%;
+  z-index: 0;
+  border-left: 1px dotted lms.$lms-petrol;
+  opacity: 0.45;
+}
+
+// --- current and past ---
+// De-emphasis sits on the band chrome and NEVER on the cards: fading a past card would collide with
+// Cancelled's desaturation, and a past week's records are still live and still matchable.
+.band.current .rail {
+  background: lms.$lms-petrol-tint;
+}
+
+.band.current .dt,
+.band.current .wk {
+  color: lms.$lms-petrol;
+  font-weight: 700;
+}
+
+.band.past .rail {
+  background: lms.$lms-band;
+}
+
+.band.past .dt,
+.band.past .wk {
+  color: lms.$lms-faint;
+}
+
+.band.past .leader {
+  display: none;
+}
+
+// --- the body ---
+.body {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.bhead {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  height: geo.$band-header-height;
+  padding: 0 10px;
+  background: lms.$lms-band;
+  border-bottom: 1px solid lms.$lms-divider;
+}
+
+.band.current .bhead {
+  background: lms.$lms-petrol-tint;
+}
+
+.blabel {
+  @include geo.micro-caps;
+  font-size: 12px;
+  line-height: 14px;
+}
+
+.band.current .blabel {
+  color: lms.$lms-petrol;
+}
+
+.band.past .blabel,
+.band.past .totals {
+  color: lms.$lms-faint;
+}
+
+// Pushed right, opposite its label.
+.totals {
+  margin-left: auto;
+  font-size: 11px;
+  line-height: 14px;
+  color: lms.$lms-text-muted;
+  @include geo.numerals;
+}
+
+// --- the carry-over group ---
+.cohead {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  width: 100%;
+  height: geo.$carry-over-sub-header-height;
+  padding: 0 10px;
+  border: 0;
+  border-bottom: 1px solid lms.$lms-divider;
+  background: lms.$lms-surface;
+  cursor: pointer;
+  text-align: left;
+}
+
+.cohead:hover {
+  background: lms.$lms-hover;
+}
+
+.coch {
+  font-size: 16px;
+  color: lms.$lms-text-muted;
+}
+
+// The same glyph the carry-over rows themselves carry, so the group and its contents read as one idea.
+.carry-glyph {
+  font-size: 13px;
+  color: lms.$lms-faint;
+}
+
+.colabel {
+  @include geo.micro-caps;
+  @include geo.numerals;
+}
+
+// --- the divider between the repeats and the week's own work ---
+.newthis {
+  display: flex;
+  align-items: center;
+  height: geo.$new-this-week-height;
+  padding: 0 10px;
+  background: lms.$lms-surface;
+  border-bottom: 1px solid lms.$lms-divider;
+  @include geo.micro-caps;
+}
+
+// --- an empty band ---
+.none {
+  display: flex;
+  align-items: center;
+  height: geo.$empty-band-height;
+  padding: 0 10px;
+  background: lms.$lms-surface;
+  color: lms.$lms-faint;
+  font-size: 12px;
+}

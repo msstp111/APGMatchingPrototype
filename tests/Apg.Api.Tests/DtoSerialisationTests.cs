@@ -101,6 +101,30 @@ public class DtoSerialisationTests
 
         AssertDateWithLabel(json, "availableFrom", "availableFromLabel");
         AssertDateWithLabel(json, "weekCommencing", "weekCommencingLabel");
+        AssertDateWithShortLabel(json, "availableFrom", "availableFromShortLabel");
+    }
+
+    [Fact]
+    public void A_week_band_ships_its_Sunday_with_both_of_its_labels()
+    {
+        var json = Serialise(SeededBands().First());
+
+        AssertDateWithLabel(json, "weekCommencing", "weekCommencingLabel");
+        AssertDateWithShortLabel(json, "weekCommencing", "weekOfLabel");
+        AssertHasAll(json, "isCurrentWeek", "isPastWeek");
+    }
+
+    /// <summary>
+    /// The prose labels are the ones Phase 3's band header and carry-over card render, so a client
+    /// tempted to build "Week of 16 Aug" out of an ISO string has no excuse: the string is on the wire.
+    /// </summary>
+    [Fact]
+    public void The_prose_labels_carry_an_unpadded_day_and_a_three_letter_month()
+    {
+        var labels = SeededBands().Select(b => b.WeekOfLabel)
+            .Append(SeededAvailability().AvailableFromShortLabel);
+
+        Assert.All(labels, label => Assert.Matches("^[0-9]{1,2} [A-Z][a-z]{2}$", label));
     }
 
     [Fact]
@@ -149,6 +173,7 @@ public class DtoSerialisationTests
             "quantityStateLabel",
             "weekCommencing",
             "weekCommencingLabel",
+            "availableFromShortLabel",
             "farmerId",
             "farmerName",
             "farmerMobile",
@@ -178,6 +203,19 @@ public class DtoSerialisationTests
         Assert.Equal(NzTime.DateLabel(DateOnly.Parse(date)), label);
     }
 
+    private static void AssertDateWithShortLabel(
+        JsonElement json,
+        string dateProperty,
+        string labelProperty)
+    {
+        var date = json.GetProperty(dateProperty).GetString();
+        var label = json.GetProperty(labelProperty).GetString();
+
+        Assert.NotNull(date);
+        Assert.NotNull(label);
+        Assert.Equal(NzTime.ShortDateLabel(DateOnly.Parse(date)), label);
+    }
+
     private static void AssertHasAll(JsonElement json, params string[] properties)
     {
         var missing = properties.Where(p => !json.TryGetProperty(p, out _)).ToList();
@@ -191,6 +229,11 @@ public class DtoSerialisationTests
 
     private static LivestockAvailabilityDto SeededAvailability() =>
         MatchingProjection.LivestockAvailability(Set()).First(a => a.Matches.Count > 0);
+
+    private static IReadOnlyList<WeekBandDto> SeededBands() =>
+        MatchingProjection.WeekBands(
+            Set(),
+            new FixedClock(new DateTimeOffset(2026, 8, 27, 12, 0, 0, TimeSpan.FromHours(12))));
 
     private static WorkingSet Set() => new(
         SeedFixture.Data.ProcessorSpaces,

@@ -1,56 +1,40 @@
-// Intentionally minimal: Phase 2 designs this content area and Phase 3 builds it.
+@use 'card-geometry' as geo;
+@use '../../styles/lms-tokens' as lms;
+
+// The screen fills the shell's content area and does not scroll itself: each column scrolls
+// independently, so the two sides can be at different weeks at once. That is the point of the layout
+// — the operator matches a space in one week against stock that became available in another.
+:host {
+  display: block;
+  height: 100%;
+  min-height: 0;
+}
+
 .matching-screen {
-  padding: 20px 24px 32px;
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 0;
+  gap: 12px;
 }
 
-h1 {
-  margin: 0 0 4px;
-  font-size: 20px;
-  font-weight: 500;
-}
-
-h2 {
-  margin: 0 0 8px;
-  font-size: 12px;
-  font-weight: 500;
-  letter-spacing: 0.6px;
-  text-transform: uppercase;
-  color: var(--lms-text-muted);
+.search-strip {
+  flex: 0 0 auto;
+  height: geo.$search-strip-height;
 }
 
 .columns {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 24px;
-  margin-top: 16px;
-}
-
-ul {
-  margin: 0;
-  padding: 0;
-  list-style: none;
-}
-
-li {
-  padding: 6px 8px;
-  font-size: 13px;
-
-  &:nth-child(odd) {
-    background: var(--lms-zebra);
-  }
-}
-
-.week {
-  display: inline-block;
-  min-width: 76px;
-  color: var(--lms-text-muted);
-}
-
-.confirmable {
-  color: var(--lms-petrol);
-  font-weight: 500;
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  gap: 12px;
 }
 
 .error {
-  color: #b00020;
+  margin: 0;
+  padding: 8px 10px;
+  border: 1px solid lms.$lms-error;
+  border-radius: 4px;
+  color: lms.$lms-error;
+  font-size: 13px;
 }

@@ -105,6 +105,12 @@ public sealed record LivestockAvailabilityDto
     /// <summary>The same date preformatted for display, in LMS's <c>dd-MM-yy</c>.</summary>
     public required string AvailableFromLabel { get; init; }
 
+    /// <summary>
+    /// The same date again in the prose form — <c>17 Aug</c>. The carry-over card reads "since 17 Aug",
+    /// so the client supplies the word and this supplies the date.
+    /// </summary>
+    public required string AvailableFromShortLabel { get; init; }
+
     public required string? AvailabilityDetails { get; init; }
 
     public required TransactionType TransactionType { get; init; }
@@ -142,6 +148,51 @@ public sealed record LivestockAvailabilityDto
 
     /// <summary>Live matches only — cancelled ones are excluded (resolved question 4).</summary>
     public required IReadOnlyList<MatchDto> Matches { get; init; }
+}
+
+/// <summary>
+/// One week of the matching screen's banded timeline.
+/// </summary>
+/// <remarks>
+/// <para>
+/// The band list is a <b>calendar scaffold</b>, and it exists because an empty week still has to
+/// render its header. A week with no records in it cannot supply its own name, so if the client built
+/// the sequence it would have to add seven days to an ISO string — the exact date arithmetic that
+/// belongs on the server. With the ordered list in hand the client bands records by string equality on
+/// <c>weekCommencing</c> and places carry-overs by comparing positions in this array, so no date is
+/// ever parsed or advanced in TypeScript.
+/// </para>
+/// <para>
+/// It deliberately carries <b>no record ids</b>. A record's week is already on the record, and putting
+/// the membership here as well would create a second place a record's identity lives — which is the
+/// one thing the carry-over card cannot afford, since it is the same record rendered twice.
+/// </para>
+/// </remarks>
+public sealed record WeekBandDto
+{
+    /// <summary>The Sunday the week commences. ISO <c>yyyy-MM-dd</c>, and the band's identity.</summary>
+    public required DateOnly WeekCommencing { get; init; }
+
+    /// <summary>LMS's <c>dd-MM-yy</c> form, for anywhere the band appears as a value.</summary>
+    public required string WeekCommencingLabel { get; init; }
+
+    /// <summary>
+    /// The prose form — <c>16 Aug</c>. The band header and the week rail put "Week of" in front of it
+    /// themselves, because the rail stacks the two on separate lines.
+    /// </summary>
+    public required string WeekOfLabel { get; init; }
+
+    /// <summary>
+    /// The week containing today in New Zealand. Exactly one band in the list has this set: the range
+    /// always includes the current week, even when no record falls in it.
+    /// </summary>
+    public required bool IsCurrentWeek { get; init; }
+
+    /// <summary>
+    /// Before the current week. Past weeks are de-emphasised, never hidden — their records are still
+    /// live and still matchable.
+    /// </summary>
+    public required bool IsPastWeek { get; init; }
 }
 
 /// <summary>

@@ -1,0 +1,64 @@
+<!--
+  Line 1 aligns to the column's micro-cap header strip, cell for cell — that alignment is what makes
+  a list of cards read as a table. Its widths live in _card-geometry.scss, shared with the strip and
+  with the supply card, because a width duplicated is a width that drifts.
+
+  Line 2 is unlabelled meta. When it runs out of room it drops from the right — match count first,
+  then the over-state label — and the status icon and its word are the last things standing.
+-->
+<div class="card" [class.zebra]="zebra()" [class.cancelled]="isCancelled()">
+  <span class="spine" [class]="spine()"></span>
+
+  <div class="cbody">
+    <div class="l1">
+      <app-stock-class-tile [stockClass]="space().stockClass" />
+      <span class="name" [title]="space().processor">{{ space().processor }}</span>
+      <span class="sclass" [title]="space().stockClass">{{ space().stockClass }}</span>
+      <span class="date">{{ space().deliveryDateLabel }}</span>
+      <span class="qty">{{ space().quantityRequired }}</span>
+
+      <app-fill-meter
+        [original]="space().quantityRequired"
+        [matchedInclDraft]="space().matchedInclDraft"
+        [matchedExclDraft]="space().matchedExclDraft"
+        [unmatched]="space().unmatched"
+        [quantityState]="space().quantityState"
+        [quantityStateLabel]="space().quantityStateLabel"
+        side="demand"
+      />
+    </div>
+
+    <div class="l2">
+      <span class="meta">{{ space().plant }} · {{ space().deliveryTime || '-' }}</span>
+
+      @if (isOver()) {
+        <!-- The wording is the DTO's quantityStateLabel — "Over-filled" — never composed here. -->
+        <span class="over" [class]="overInk()">{{ space().quantityStateLabel }}</span>
+      }
+
+      <span class="mcount">{{ matchesLabel() }}</span>
+
+      <span class="status">
+        <span class="material-symbols-outlined sicon" [class.filled]="statusFilled()">{{
+          statusGlyph()
+        }}</span>
+        {{ space().status }}
+      </span>
+    </div>
+  </div>
+
+  <button
+    matIconButton
+    class="chev"
+    type="button"
+    [attr.aria-expanded]="expanded()"
+    [attr.aria-label]="expanded() ? 'Collapse' : 'Expand'"
+    (click)="toggle()"
+  >
+    <span class="material-symbols-outlined">{{ expanded() ? 'expand_less' : 'expand_more' }}</span>
+  </button>
+</div>
+
+@if (expanded()) {
+  <app-card-expansion side="demand" [space]="space()" />
+}

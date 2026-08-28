@@ -1,0 +1,180 @@
+<!--
+  Every value below is read straight off the DTO. Nothing here sums, subtracts, compares or formats a
+  date: the labels beside each date are the server's, and the two sums arrive computed.
+
+  APG-facing wording throughout — "Quantity Matched", never `matchedExclDraft` (design-system.md 15).
+-->
+<div class="expansion">
+  @if (space(); as s) {
+    <div class="fields">
+      <div class="field grow">
+        <span class="label">Notes</span>
+        <span class="value">{{ s.notes || '-' }}</span>
+      </div>
+
+      <div class="field right">
+        <span class="label">Quantity required</span>
+        <span class="value num">{{ s.quantityRequired }}</span>
+      </div>
+
+      <div class="field right">
+        <span class="label">Quantity unmatched</span>
+        <span class="value num">
+          <span class="ink" [class]="quantityInk(s)">{{ s.unmatched }}</span>
+          <span class="state">{{ s.quantityStateLabel }}</span>
+        </span>
+      </div>
+    </div>
+
+    <div class="sums">
+      <div class="field">
+        <span class="label">Quantity Matched incl. Draft</span>
+        <span class="value sum">{{ s.matchedInclDraft }}</span>
+      </div>
+
+      <div class="field">
+        <span class="label">Quantity Matched</span>
+        <span class="value sum">{{ s.matchedExclDraft }}</span>
+      </div>
+    </div>
+
+    <!-- overflow-x so a long farmer-and-location value scrolls rather than widening the card. -->
+    <div class="table-wrap">
+      <table class="matches">
+        <thead>
+          <tr>
+            <th class="num">Qty</th>
+            <th>Farmer &amp; location</th>
+            <th>Stock class</th>
+            <th>Match status</th>
+            <th class="num">$/kg</th>
+            <th>Transport</th>
+          </tr>
+        </thead>
+        <tbody>
+          @for (m of s.matches; track m.id) {
+            <tr>
+              <td class="num">{{ m.quantityMatched }}</td>
+              <td>{{ m.farmerName || '-' }}<span class="sub">{{ m.locationName || '-' }}</span></td>
+              <!-- The counterparty's class: the two vocabularies do not map, and that is the point. -->
+              <td class="muted">{{ m.availabilityStockClass }}</td>
+              <td>
+                <span class="material-symbols-outlined mstat">{{ matchGlyph(m.status) }}</span>
+                {{ m.status }}
+              </td>
+              <td class="num">
+                @if (m.pricePerKg !== null) {
+                  ${{ m.pricePerKg | number: '1.2-2' }}
+                } @else {
+                  <span class="faint">no default price</span>
+                }
+              </td>
+              <td>{{ m.transportCompany || '-' }}</td>
+            </tr>
+          } @empty {
+            <tr>
+              <td class="empty" colspan="6">
+                No matches yet — drag a livestock availability record onto this space.
+              </td>
+            </tr>
+          }
+        </tbody>
+      </table>
+    </div>
+  }
+
+  @if (availability(); as a) {
+    <div class="fields">
+      <div class="field grow">
+        <span class="label">Availability details</span>
+        <span class="value">{{ a.availabilityDetails || '-' }}</span>
+      </div>
+
+      <div class="field">
+        <span class="label">Transaction type</span>
+        <span class="value">{{ transactionTypeText(a.transactionType) }}</span>
+      </div>
+
+      <div class="field grow">
+        <span class="label">Notes</span>
+        <span class="value">{{ a.notes || '-' }}</span>
+      </div>
+
+      <div class="field right">
+        <span class="label">Quantity available</span>
+        <span class="value num">{{ a.quantityAvailable }}</span>
+      </div>
+
+      <div class="field right">
+        <span class="label">Quantity unmatched</span>
+        <span class="value num">
+          <span class="ink" [class]="quantityInk(a)">{{ a.unmatched }}</span>
+          <span class="state">{{ a.quantityStateLabel }}</span>
+        </span>
+      </div>
+    </div>
+
+    <div class="sums">
+      <div class="field">
+        <span class="label">Quantity Matched incl. Draft</span>
+        <span class="value sum">{{ a.matchedInclDraft }}</span>
+      </div>
+
+      <div class="field">
+        <span class="label">Quantity Matched</span>
+        <span class="value sum">{{ a.matchedExclDraft }}</span>
+      </div>
+    </div>
+
+    <div class="table-wrap">
+      <table class="matches">
+        <thead>
+          <tr>
+            <th class="num">Qty</th>
+            <th>Processor &amp; plant</th>
+            <th>Stock class</th>
+            <th class="num">Delivery</th>
+            <th>Match status</th>
+            <th class="num">$/kg</th>
+            <th>Transport</th>
+          </tr>
+        </thead>
+        <tbody>
+          @for (m of a.matches; track m.id) {
+            <tr>
+              <td class="num">{{ m.quantityMatched }}</td>
+              <td>{{ m.processor }}<span class="sub">{{ m.plant }}</span></td>
+              <td class="muted">{{ m.spaceStockClass }}</td>
+              <!-- The delivery time rides in this cell rather than taking a column: seven fit, eight
+                   do not (design-system.md 6.2). -->
+              <td class="num">
+                {{ m.deliveryDateLabel }}
+                @if (m.deliveryTime) {
+                  <span class="muted">{{ m.deliveryTime }}</span>
+                }
+              </td>
+              <td>
+                <span class="material-symbols-outlined mstat">{{ matchGlyph(m.status) }}</span>
+                {{ m.status }}
+              </td>
+              <td class="num">
+                @if (m.pricePerKg !== null) {
+                  ${{ m.pricePerKg | number: '1.2-2' }}
+                } @else {
+                  <span class="faint">no default price</span>
+                }
+              </td>
+              <td>{{ m.transportCompany || '-' }}</td>
+            </tr>
+          } @empty {
+            <tr>
+              <td class="empty" colspan="7">
+                No matches yet — drag this record onto a processor space.
+              </td>
+            </tr>
+          }
+        </tbody>
+      </table>
+    </div>
+  }
+</div>

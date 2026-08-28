@@ -46,6 +46,15 @@ app.MapGet("/api/processor-spaces", async (WorkingSetLoader loader, Cancellation
 app.MapGet("/api/livestock-availability", async (WorkingSetLoader loader, CancellationToken cancellation) =>
     MatchingProjection.LivestockAvailability(await loader.LoadAsync(cancellation)));
 
+// The week bands both columns are drawn on. Separate from the two record endpoints because it is a
+// calendar, not a record set: an empty week still renders its header, so the client needs the name of
+// a week no record can supply, and deriving it in the browser would mean advancing an ISO date there.
+app.MapGet("/api/week-bands", async (
+        WorkingSetLoader loader,
+        TimeProvider clock,
+        CancellationToken cancellation) =>
+    MatchingProjection.WeekBands(await loader.LoadAsync(cancellation), clock));
+
 app.MapPost("/api/dev/reset-database", async (DatabaseSeeder seeder) =>
 {
     await seeder.ResetAsync();

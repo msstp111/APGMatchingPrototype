@@ -1,0 +1,9 @@
+@use '../card-geometry' as geo;
+
+// Identical geometry to the demand card, from the same mixin. The two sides differ only in which DTO
+// field lands in which cell — see design-system.md 6.1's column table.
+:host {
+  display: block;
+}
+
+@include geo.card-shell;

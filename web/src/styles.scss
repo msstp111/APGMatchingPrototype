@@ -21,9 +21,18 @@ html {
         tertiary: lms-palettes.$tertiary-palette,
       ),
       typography: Roboto,
-      density: 0,
+      // -2, not 0. At 0 a mat-form-field is 56px tall and a mat-chip 32px; the matching screen's
+      // filter row is 40px and its chips 26px. Density gets Material's own controls to LMS's
+      // proportions without a per-component override for each one.
+      density: -2,
     )
   );
+}
+
+// M3 defaults a dialog to a 28px radius, which reads as a different product beside LMS's
+// square-cornered tables. 4px, matching the buttons and snack bars (design-system.md 1.1).
+.mat-mdc-dialog-surface {
+  border-radius: 4px !important;
 }
 
 body {
