@@ -559,3 +559,277 @@ Test counts at close: `Apg.Domain.Tests` 113, `Apg.Api.Tests` 65, Angular 7.
 - The whole date matrix: `dotnet test --filter "FullyQualifiedName~NzTimeTests"`
 - One Angular spec:
   `npx ng test --watch=false --include=src/app/matching/matching-screen.spec.ts` in `web/`
+
+---
+
+## Phase 2 — Design Pass
+
+**Completed:** 2026-08-28
+**Status:** Complete
+
+### What shipped
+
+A ten-artboard design canvas and `Documents/design-system.md`, which is the document Phases 3–8
+implement from. **No application code was touched** — `git status` shows nothing under `src/`,
+`tests/` or `web/`.
+
+**Canvas Artifact URL:** https://claude.ai/code/artifact/1cc1dd73-911d-4f74-be93-c672d8606d33
+
+Artboards: `Main` (the matching screen in the LMS shell at 1366×768), `SpaceCard`,
+`AvailabilityCard`, `CarryOver`, `WeekBands`, `DragStates`, `QuantityPrompt`, `MatchModal`,
+`FilterBar`, `EdgeStates`. Every artboard uses **real seeded records by id**, harvested from the two
+read endpoints; nothing is placeholder text.
+
+The canvas source lives in the session scratchpad, not the repo: `canvas/*.js` are the working
+modules (`css.js`, `lib.js`, `exp.js`, `data.js`, `ab1..ab10.js`) and `build.mjs` emits the ten
+`.dc.html` artboards plus `canvas.json`. **A later phase wanting to edit the canvas does not need
+them** — the `design` skill can extract the artboards back out of the published artifact. If the
+design needs re-cutting from scratch, it is faster to re-author than to hunt for the scratchpad.
+
+### The design thesis, in one line
+
+**A card is a table row that has grown a status spine, a fill meter and an expand chevron.** Each
+column keeps LMS's sticky micro-cap header strip and every card's line 1 aligns to those columns;
+cards are flat, square, zebra-striped and 52px; expanding one reveals an actual LMS table of its
+matches. That is the answer to "make two columns of cards feel native to a table application", and it
+is held to arithmetic rather than taste — see the density figures below.
+
+### Sampled hex values and the Material theme
+
+Phase 0's sampled values were **reused verbatim, not re-sampled** (petrol `#00567E`, dev flag
+`#CCD457`, surface `#FAFAFA`, nav-active `#F6F6F6`, zebra `#EEEEEE`, sidebar footer `#EBEBEB`,
+divider `#E0E0E0`, text `#212121`, muted `#757575`; sidebar 190, top bar 52, nav 48, row 44). The
+standing split holds: **shell chrome paints with the sampled hex; only Material components take the
+generated palette** (tone 40 is `#1D648D`, not `#00567E`).
+
+**Two theme changes Phase 3 must make in `web/src/styles.scss`:**
+
+1. `density: -2` (currently `0`) — at `0` a `mat-form-field` is 56px and a `mat-chip` 32px; this
+   design's filter row is 40px and its chips 26px.
+2. `.mat-mdc-dialog-surface { border-radius: 4px !important; }` — M3's default 28px dialog radius
+   reads as a different product beside LMS's square tables.
+
+**All form fields use `appearance="fill"`, never `"outline"`.** LMS is an
+underline-with-floating-label app; outlined fields would be the most obvious tell that this is
+something else.
+
+### The status left-edge scheme, as shipped
+
+| Status | Left edge | Icon | Card |
+| --- | --- | --- | --- |
+| Booked | **3px** solid `#E0E0E0` | `radio_button_unchecked` | normal |
+| Pending | **6px** 45° hatch `#BDBDBD` on white, 4px period | `schedule` | normal |
+| Confirmed | **6px** solid `#00567E` | `check_circle` (`FILL 1`) | normal |
+| Cancelled | **6px** dashed `#9E9E9E`, 6/4 | `block` | `grayscale(1) opacity(.62)`, title struck |
+
+Weight alone separates Booked (3px) from everything else (6px), so "nothing has happened yet" reads
+before the pattern is resolved. Processor Space has no Pending (resolved question 6) — three statuses
+is its complete set, not an omission.
+
+### The fill meter, as shipped
+
+66 × 8px track, `#E0E0E0`, 1px radius. **Two segments:** solid = `matchedExclDraft`, a 45%-alpha
+extension runs on to `matchedInclDraft`. Alpha is a third channel belonging to neither colour system,
+which is why the draft delta is not hatched. Numeral 40px right-aligned, 15px/600 tabular. **Block
+total 112px (66 + 6 + 40), and the header strip's Unmatched cell is also 112 — they must not drift.**
+
+Over 100%: both segments at 100%, the track outlined in the bar colour, a 3 × 12px over-run cap at
+`top:-2px; right:-6px`, a negative numeral, and the literal `Over-filled` / `Over-committed` label.
+
+Quantity ramp — literal tokens, **not** M3 palette entries:
+`$q-under-bar #E8820C` / `$q-under-ink #A85B00`; `$q-exact-bar #2E7D32` / `$q-exact-ink #1B5E20`;
+`$q-over-bar #1565C0` / `$q-over-ink #0D47A1` (**space only**); `$q-pink-bar #D81B60` /
+`$q-pink-ink #AD1457` (**availability only**); `$q-track #E0E0E0`.
+
+New non-quantity tokens: `$lms-card #FFFFFF`, `$lms-card-zebra #F5F5F5`, `$lms-band #F0F0F0`,
+`$lms-petrol-tint #E8F1F6`, `$lms-hover #F5F9FB`, `$lms-column-wash #F6FAFC`,
+`$lms-rule-strong #BDBDBD`, `$lms-rule-soft #EFEFEF`, `$lms-faint #9E9E9E`,
+`$lms-tile-ink #5C5F62`, `$lms-supply-ink #37393C`, `$lms-error #BA1A1A`,
+`$lms-attention-ink #5C5F62`, `$lms-attention-bg #F5F5F5`. All mirrored as `--` custom properties.
+
+### The carry-over treatment settled on, and the alternative
+
+**Proposal A** (as specced): repeat every carried-over record as a 40px one-line card at the top of
+each later band. **Proposal B**: no repetition, one 32px summary strip per band.
+
+**Shipped answer: they are the same component in two states** — B *is* A collapsed, same sub-header
+and chevron. One component, a collapse toggle persisted per band and per column, and the **opening**
+state chosen by count:
+
+- `CARRY_OVER_EXPAND_LIMIT = 4` — expanded at or below four carried-over records, collapsed above.
+- `CARRY_OVER_HORIZON_WEEKS = 4` forward of the current week, and **never in a band before the
+  current week** — a record cannot be carried over into the past.
+
+Both are named constants Phase 3 must export. The threshold is the one design change made *after* the
+plan was approved, and the money shot is what forced it: **nine seeded records really do carry over
+from week 16 Aug into week 23 Aug**, and expanded that is 360px of repeats pushing the week's own work
+off a 544px list. It also lets Mark A/B the two proposals at runtime rather than in another design
+pass, which is the point — this is the display he expects to iterate on.
+
+**The carry-over card does NOT use a dashed left edge**, despite the roadmap's "muted, dashed"
+wording. A dashed left edge is already the Cancelled spine, and a carry-over must keep showing its own
+true status — seeded record #37 carries over while Pending. The dash moved to a real outer border on
+three sides (top/right/bottom, `1px dashed #BDBDBD`), leaving the left edge to the status spine. This
+is applying the roadmap's scheme faithfully, not departing from it.
+
+### Decisions a later phase is bound by
+
+1. **Stock class carries no hue.** `Data/stock-class-configs.csv`'s `icon` column informs species
+   grouping; its **`color` column is not used on the matching screen**. This contradicts **Phase 8
+   §3.1**, which asks for the hex colours — but resolved question 16 commits hue exclusively to the
+   quantity meter and the roadmap's resolved questions outrank a phase document. Twenty-two saturated
+   swatches would destroy the three-colour ramp the whole screen is scanned for. **Phase 8 inherits
+   this decision rather than re-deciding it.** Instead: a 20px monogram tile, `#EEEEEE` fill,
+   `#5C5F62` 11px/600 two-letter monogram, with **shape carrying species** — circle sheep, square
+   cattle, diamond deer. Unmapped class → square tile, first two characters. Full 16-row table in
+   `design-system.md` §7.
+2. **Phase 3 must add a second `NzTime` date formatter** and ship it on the DTO. The band header wants
+   `Week of 23 Aug` and the carry-over card wants `since 17 Aug`; the DTO's existing labels are
+   `dd-MM-yy`. One formatter serves both. **Do not format a date in TypeScript and never construct a
+   JavaScript `Date` from an ISO value.**
+3. **Phase 3 must reserve the 40px filter row** even though Phase 4 fills it, so the density it
+   measures is the density that ships.
+4. **The header strip has two leading offsets.** Inside a week band a card's tile sits at 54px from the
+   column edge (48 rail + 6 spine), so the strip's pad is 54px. Phase 3 only ever needs that form. The
+   canvas also carries a 6px variant for the standalone card sheets, which have no rail.
+5. **Warning affordances use no amber.** Every usable amber lands on `$q-under-ink` (`#A85B00`) and
+   smuggles the quantity ramp's orange into meanings that are not quantities. Consequential warnings
+   use `$lms-error`; "away from default" uses the hueless `$lms-attention-ink`.
+6. **Both match tables carry a Transport column** and sit in an `overflow-x: auto` wrapper. On the
+   supply side the delivery time rides inside the Delivery cell in muted text rather than taking a
+   column — seven columns fit 508px, eight do not.
+7. **Debug "+ Add" controls deliberately do not reuse LMS's create FAB.** They are 26px stroked
+   buttons in the column header, so they read as tooling rather than as the product's create action.
+
+### Density and width, the numbers Phase 3 is held to
+
+Width at 1366: `1366 − 190 sidebar − 24 padding − 16 gutter = 1136`, ÷2 = 568 per column,
+`− 2 border − 48 rail = 518px of card`. **The artboards are drawn at 508px, deliberately 10px
+conservative** — the only column that changes is the flexing name column (114px real, 104px drawn).
+
+Density at 768: `768 − 52 top bar − 52 search strip − 12 padding − 40 column header − 40 filter row
+− 28 header strip = 544px of list`. Band chrome shares that, so the honest figure is **8–10 cards per
+column, 16–20 across both**, against LMS's ~20 rows. If Phase 3 ends up at four cards per column the
+design has failed and the card must shrink, not the target.
+
+### Deviations from the phase document
+
+- All ten required artboards exist and `design-system.md` covers every item the phase document's own
+  list demands. Nothing was descoped.
+- The stock-class colour decision (1 above) departs from Phase 8 §3.1, with the reason recorded.
+- The carry-over dash placement departs from the roadmap's literal wording, with the reason recorded.
+- The carry-over expand **threshold** is an addition beyond the approved plan's "expanded by default
+  with a toggle". It is a refinement of the same component, not a new mechanism.
+
+### Review findings
+
+Two sonnet subagents ran: one over the canvas source modules for arithmetic, colour discipline,
+pattern collision and dead code; one over `design-system.md` against the Phase 3 requirements and the
+four screenshots. Both reported rather than applied. Disposition:
+
+**Fixed — canvas:**
+
+1. **Four band head-totals were wrong** (23 Aug demand 1,674→1,774; 23 Aug supply 2,539→2,519;
+   30 Aug demand 4,153→3,533; 30 Aug supply "6 records · 2,135"→"5 records · 2,019"). Found by my own
+   check before the reviewer's, and independently confirmed. The supply-side one mattered: the band
+   meta must count what is **visible after the default filter**, and availability #3 is excluded by
+   `Unmatched > 0`. That rule is now stated.
+2. **Carry-over strips were quoting available head, not unmatched head** — corrected, and the label
+   now reads "head unmatched".
+3. **The header strip did not align with the card in the standalone card sheets** — a 48px error, in
+   exactly the artboards meant to demonstrate that alignment. Fixed with the two-offset variant
+   (decision 4). The most serious finding of either review, because it undercut the design's own
+   thesis.
+4. **`#A85B00` — literally `$q-under-ink` — was reused on three warning affordances.** Fixed
+   (decision 5). Exactly the drift the colour rule exists to prevent, appearing inside the phase that
+   wrote the rule.
+5. **`ab4` rendered four cards under a "New this week (7)" header** — now renders all seven, so
+   Proposals A and B compare honestly.
+6. **The unmatched numeral column was 34px**, too narrow for the four-character over-run case
+   (`-305`) — widened to 40px, meter narrowed to 66px, block total unchanged at 112px.
+7. **The card height did not add up** — `7 + 17 + 3 + 14 + 7 = 48`, not 52. Now an explicit
+   `height: 52px` with the lines vertically centred, so a 1px change cannot quietly move the density
+   target.
+8. **`.dt` lacked the truncation guards its siblings had**; the match table could widen the card with
+   no scroll affordance. Both fixed.
+9. Dead imports across seven modules, a no-op `box-shadow`, and an unused `let x` in `build.mjs` —
+   removed. A comment claiming a price was "read off match 12" named a match that does not exist;
+   corrected to Processor Space #8's own seeded match.
+
+**Fixed — document:**
+
+10. **The carry-over card's expanded state was unspecified**, blocking Phase 3 §4.5. Now stated: it is
+    *identical* to a full card's expansion, because it is the same record. Its own line-1 column table
+    was also missing and is now given.
+11. **The supply-side match table was missing Transport**, which Phase 3 §3.4 requires.
+12. **Two self-contradictions**: card radius (§0 "2px at most" vs §5.3 "0") and chip radius (2px vs
+    13px). Resolved to 0 and 13px.
+13. **The search-strip breakdown didn't sum** (8+36+6 = 50, not 52). Restated.
+14. **The density claim ignored band chrome.** Now a table: 10 cards with no chrome visible, 8 with
+    two band headers and both carry-over sub-headers. The honest range is 8–10.
+15. **Whether Phase 3 reserves the Phase 4 filter row was unstated** — now decision 3.
+16. **No CSS custom properties block**, which Phase 2's own requirements demand. Added.
+17. **The carry-over date form was left open** between `since 17-08-26` and Phase 3 §4.3's own
+    "available since 10 Aug" example. Decided: the friendlier form, via decision 2.
+18. **The empty-band string existed only for the demand side**; line-2 overflow priority was
+    unstated. Both added.
+19. **Petrol `#00567E` is shared by the Confirmed spine and the demand column's identity rule**, which
+    the colour section policed for the quantity ramp but never acknowledged for itself. Now stated
+    explicitly, with the resolution if it ever confuses: move the *column rule* to a neutral, never
+    the spine.
+
+**Recorded, not fixed:**
+
+20. The documentation reviewer's Question 2 identified four ways this design visibly differs from the
+    screenshots: the status spine has no LMS precedent at all; the filter chrome is ~100px against
+    LMS's ~190–200px; chips are an idiom LMS never uses; the column header strip has a fill, a rule
+    and sticky behaviour where LMS's headers are plain text. **All four are deliberate and all four
+    are now written into `design-system.md` §16a**, so Phase 8's "does it look at home" check has a
+    baseline instead of rediscovering them as bugs. The spine is sanctioned by resolved question 16;
+    the filter compression buys two cards per column.
+21. The reviewer suggested the true density will run below the advertised figure. Correct, and now
+    quantified as a range rather than softened.
+
+### Watch out for
+
+- **`design-system.md` §16 lists eleven things the canvas shows but does not explain.** Read it
+  before building; it is where the sharp edges are.
+- **The band meta counts what is visible after the default filter**, not every record in the week.
+  Easy to get wrong, and it looks right either way.
+- **`quantityState` is semantic, not a colour, and `Over` means opposite things by side** — permitted
+  and expected on a space (blue), a bug indicator on an availability record (pink). The mapping is
+  keyed on the state **and** the side.
+- **The seed groups processors by week** (16-08 all ANZCO, 23-08 all Alliance, 30-08 all SFF). That is
+  a seeder artefact, not a design intention. Do not build anything that assumes it.
+- **The seed contains only `Booked` Processor Spaces** (all 40) and no cancelled availability records,
+  so the Confirmed and Cancelled card variants on artboards 2 and 3 are constructed from real records
+  and labelled as such. Phase 3 cannot verify those two states against seeded data.
+- **The current week in every artboard is w/c Sunday 2026-08-23**, bands 16-08 through 20-09. A reseed
+  moves the bands; the geometry does not move.
+- **The 112px meter block and the header strip's 112px Unmatched cell are one number in two places.**
+  Change one and the columns stop lining up.
+- **The API locks `Apg.Domain.dll` while it runs** — unchanged from Phases 0 and 1, and it bit again
+  here: an `Apg.Api` instance was **already running** on the machine when this phase started, so
+  `dotnet run` failed with MSB3027 and the seed JSON came from that pre-existing instance rather than
+  one this phase started. The data is deterministic and was cross-checked for self-consistency (all
+  46 records used: `unmatched`, `quantityState` sign, `matchedExclDraft ≤ matchedInclDraft`, and every
+  match bundle summing to its parent). That process was not started or stopped by this phase.
+- **The machine now has the .NET 10 SDK** (`dotnet --version` → 10.0.400), not the 9.0.317 Phase 0
+  recorded. The projects still target `net9.0` and built fine under it. Worth knowing before blaming
+  a future build failure on something else.
+- **`Documents/build-plan.html`'s pre-existing working-copy modification is gone.** Phases 0 and 1
+  both flagged it; the working tree was clean at the start of this phase. Phase 2 did not touch it.
+- **The repo still has no commits.** The working tree holds everything.
+
+### New commands, dependencies, conventions
+
+No new packages and no changes to CLAUDE.md's command table. Three things worth recording:
+
+- **Harvesting real seed data for a design or a document:** start the API, then
+  `curl -s http://localhost:5286/api/processor-spaces` and
+  `curl -s http://localhost:5286/api/livestock-availability`. Stop the API before `dotnet build`.
+- **`node` is not on the Bash tool's `PATH`** by default in this environment; prefix with
+  `export PATH="/c/Program Files/nodejs:$PATH"`. Likewise `dotnet` at `/c/Program Files/dotnet`.
+  There is **no `python`** on this machine — use `node` for scripted text edits.
+- **Repo Markdown is CRLF.** A `node` string-replace script must normalise `\r\n` to `\n` on read or
+  every multi-line anchor silently fails to match.
