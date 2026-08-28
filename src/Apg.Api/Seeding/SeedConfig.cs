@@ -35,15 +35,16 @@ public static class SeedConfig
         ["GFNB ultra", "GFNB premium", "Prime", "Cow", "Sire Bull", "Bull", "Mixed Cattle", "Lamb", "Mutton"];
 
     /// <summary>
-    /// Invented plants, placed in each company's actual operating regions: ANZCO through Canterbury,
-    /// Rangitikei, Taranaki and Otago; Alliance through Southland, North Otago, Hawke's Bay and
-    /// Nelson; SFF through South Otago, Hawke's Bay, South Canterbury and the Waikato.
+    /// APG's real plant names, transcribed from <c>Data/Plants.csv</c>. That file uses the code
+    /// <c>AGL</c> where this module uses <c>Alliance Group</c>, and it spells Alliance's Nelson plant
+    /// "Nelxon"; both are reconciled here. The CSV remains the source of record — if APG revise the
+    /// list, edit it there and re-transcribe.
     /// </summary>
     public static readonly (string Processor, string[] Plants)[] PlantsByProcessor =
     [
-        ("ANZCO", ["Rakaia Plains", "Marton Junction", "Waitara North", "Kaiapoi Works"]),
-        ("Alliance Group", ["Wallacetown", "Gore South", "Oamaru Downs", "Waipukurau", "Richmond Valley"]),
-        ("SFF", ["Balclutha East", "Waipawa", "Timaru South", "Morrinsville"]),
+        ("ANZCO", ["Canterbury", "Eltham", "Kokiri", "Manawatu", "Marlborough", "Rakaia", "Rangitikei"]),
+        ("Alliance Group", ["Dannevirke", "Levin", "Lorneville", "Mataura", "Nelson", "Pukeuri", "Smithfield"]),
+        ("SFF", ["Belfast", "Finegand", "Pacific", "Pareora", "Waitane"]),
     ];
 
     /// <summary>Invented New Zealand livestock carriers.</summary>

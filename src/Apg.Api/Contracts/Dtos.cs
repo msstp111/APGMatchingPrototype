@@ -106,9 +106,13 @@ public sealed record LivestockAvailabilityDto
     public required string AvailableFromLabel { get; init; }
 
     /// <summary>
-    /// The same date again in the prose form — <c>17 Aug</c>. The carry-over card reads "since 17 Aug",
-    /// so the client supplies the word and this supplies the date.
+    /// The same date again in the prose form — <c>17 Aug</c>.
     /// </summary>
+    /// <remarks>
+    /// Nothing on the client renders it since Phase 3b, which removed the one row that did. Kept on the
+    /// contract deliberately — dropping it is a wire-format change for no gain, and a compact date is
+    /// what a Phase 4 filter chip would want.
+    /// </remarks>
     public required string AvailableFromShortLabel { get; init; }
 
     public required string? AvailabilityDetails { get; init; }
@@ -159,13 +163,13 @@ public sealed record LivestockAvailabilityDto
 /// render its header. A week with no records in it cannot supply its own name, so if the client built
 /// the sequence it would have to add seven days to an ISO string — the exact date arithmetic that
 /// belongs on the server. With the ordered list in hand the client bands records by string equality on
-/// <c>weekCommencing</c> and places carry-overs by comparing positions in this array, so no date is
-/// ever parsed or advanced in TypeScript.
+/// <c>weekCommencing</c> and trims each column's leading empty weeks by slicing this array, so no
+/// date is ever parsed or advanced in TypeScript.
 /// </para>
 /// <para>
 /// It deliberately carries <b>no record ids</b>. A record's week is already on the record, and putting
-/// the membership here as well would create a second place a record's identity lives — which is the
-/// one thing the carry-over card cannot afford, since it is the same record rendered twice.
+/// the membership here as well would create a second place a record's identity lives. Band membership
+/// is a property of the record, and exactly one band draws it.
 /// </para>
 /// </remarks>
 public sealed record WeekBandDto

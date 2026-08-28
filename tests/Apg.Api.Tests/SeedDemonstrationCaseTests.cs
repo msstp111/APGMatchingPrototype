@@ -149,15 +149,16 @@ public class SeedDemonstrationCaseTests
     [Fact]
     public void Several_early_availability_records_stay_completely_unmatched()
     {
-        // Phase 3 renders these as muted, dashed carry-over cards at the top of every later week.
-        var carriedOver = SeedFixture.Data.Availabilities
+        // These are the backlog: records above the current week with stock still to allocate. They
+        // sit in their own band and are found by scrolling up, never reprinted into later weeks.
+        var backlog = SeedFixture.Data.Availabilities
             .Where(a => a.AvailableFrom < SeedFixture.Anchor)
             .Where(a => SeedFixture.MatchesForAvailability(a.Id).Count == 0)
             .ToList();
 
         Assert.True(
-            carriedOver.Count >= SeedDataGenerator.CarryOverAvailabilityCount,
-            $"Expected at least {SeedDataGenerator.CarryOverAvailabilityCount} unmatched early records; found {carriedOver.Count}.");
+            backlog.Count >= SeedDataGenerator.BacklogAvailabilityCount,
+            $"Expected at least {SeedDataGenerator.BacklogAvailabilityCount} unmatched early records; found {backlog.Count}.");
     }
 
     [Fact]

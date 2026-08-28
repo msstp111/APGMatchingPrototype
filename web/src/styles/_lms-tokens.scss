@@ -29,21 +29,19 @@ $lms-row-height: 44px;
 // --- surfaces ---
 $lms-card: #ffffff; // a card's own background
 $lms-card-zebra: #f5f5f5; // alternate card — one step lighter than LMS's #EEEEEE, because a card
-// carries a patterned spine, a dashed carry-over border and a desaturated
-// Cancelled state, and #EEEEEE under all three muddies them
+// carries a patterned spine and a desaturated Cancelled state, and
+// #EEEEEE under both muddies them
 $lms-band: #f0f0f0; // week band header, past-week rail
 $lms-petrol-tint: #e8f1f6; // current-week band, valid drop target, info panels
 $lms-hover: #f5f9fb; // card hover
 $lms-column-wash: #f6fafc; // the opposite column during a drag
 
 // --- lines and text ---
-$lms-rule-strong: #bdbdbd; // form-field underline, hatch stroke, carry-over border
+$lms-rule-strong: #bdbdbd; // form-field underline, Pending hatch stroke
 $lms-rule-soft: #efefef; // rules inside an expanded card
 $lms-faint: #9e9e9e; // tertiary text, empty-state text, cancelled spine
 $lms-tile-ink: #5c5f62; // stock-class monogram
 $lms-supply-ink: #37393c; // the supply column's identity tone
-$lms-carry-name: #4a4a4a; // a carry-over row's name — between $lms-text and $lms-text-muted, so the
-// repeat reads as demoted without becoming secondary text
 
 // --- the quantity ramp: HUE LIVES HERE AND NOWHERE ELSE ---
 // Prescribed by the requirements, not taken from the M3 palette, and never to be replaced with
@@ -94,7 +92,6 @@ $lms-attention-bg: #f5f5f5; // the panel behind a consequential warning
   --lms-faint: #{$lms-faint};
   --lms-tile-ink: #{$lms-tile-ink};
   --lms-supply-ink: #{$lms-supply-ink};
-  --lms-carry-name: #{$lms-carry-name};
   --q-under-bar: #{$q-under-bar};
   --q-under-ink: #{$q-under-ink};
   --q-exact-bar: #{$q-exact-bar};

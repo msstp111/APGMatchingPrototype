@@ -8,7 +8,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Current state
 
-Phases 0 to 3 are complete: the solution, the Angular app, EF Core + SQLite and the deterministic seeder are in place, the LMS shell (top bar + sidebar) is built, every computed quantity, status and date rule lives in `Apg.Domain` and reaches the client on the DTO contract, Phase 2 settled the visual language in `Documents/design-system.md`, and Phase 3 built the matching screen's two week-banded card lists with carry-over cards and expand/collapse. Phases 4–8 are still to come — see `Documents/BUILD-LOG.md` for what each finished phase actually did.
+Phases 0 to 3b are complete: the solution, the Angular app, EF Core + SQLite and the deterministic seeder are in place, the LMS shell (top bar + sidebar) is built, every computed quantity, status and date rule lives in `Apg.Domain` and reaches the client on the DTO contract, Phase 2 settled the visual language in `Documents/design-system.md`, Phase 3 built the matching screen's two week-banded card lists with expand/collapse, and Phase 3b removed the carry-over cards it had shipped and replaced them with the trimmed backlog (resolved question 17). Phases 4–8 are still to come — see `Documents/BUILD-LOG.md` for what each finished phase actually did.
 
 **The matching screen is read-only.** Filtering and sorting are Phase 4, drag-and-drop is Phase 5, the match dialogs are Phase 6. Expanding and collapsing a card is the only interaction that exists.
 
@@ -56,7 +56,7 @@ Run from the repo root unless stated.
 - SQLite lives at `src/Apg.Api/apg.db`, gitignored. The schema is created with `EnsureCreated` — there are no migrations, deliberately. Deleting the file and restarting reproduces identical seed data.
 - `POST /api/dev/reset-database` drops, recreates and re-seeds. Phase 8 adds the button that calls it.
 - The three read endpoints are `GET /api/processor-spaces`, `GET /api/livestock-availability` and `GET /api/week-bands`. Since Phase 1 they return the **DTO contract** — `src/Apg.Api/Contracts/Dtos.cs`, mirrored field for field in `web/src/app/api/models.ts` — carrying every computed field. The raw-record shapes Phase 0 returned are gone.
-- **`GET /api/week-bands`** (Phase 3) returns an ordered, gapless `WeekBandDto[]`: every Sunday from the earliest record's week to the latest, always including the current week, each with `weekCommencingLabel` (`23-08-26`), `weekOfLabel` (`23 Aug`), `isCurrentWeek` and `isPastWeek`. It exists because requirement 1.6 wants a header on a week **no record falls in**, and the client cannot name such a week without doing date arithmetic. It is a calendar, not a record set: it carries no record ids, deliberately. One list serves both columns so the two sides stay vertically comparable.
+- **`GET /api/week-bands`** (Phase 3) returns an ordered, gapless `WeekBandDto[]`: every Sunday from the earliest record's week to the latest, always including the current week, each with `weekCommencingLabel` (`23-08-26`), `weekOfLabel` (`23 Aug`), `isCurrentWeek` and `isPastWeek`. It exists because requirement 1.6 wants a header on a week **no record falls in**, and the client cannot name such a week without doing date arithmetic. It is a calendar, not a record set: it carries no record ids, deliberately. The server ships one full list and **the client trims it per column** (Phase 3b) — each column starts at the week of its own earliest record, so the endpoint must keep returning the whole run.
 
 ### Conventions
 
@@ -75,33 +75,32 @@ Domain rules live in C# in `Apg.Domain` (no EF, no ASP.NET) and reach the client
 
 - **`src/Apg.Domain/Matching/`** — `MatchQuantities` (both sums, `Tally`, `ForSpace`, `ForAvailability`), `QuantityTally` (`Unmatched`, `State`), `QuantityState` / `MatchSide` / `QuantityStateLabels`, `AvailabilityStatus.Derive`, `ProcessorSpaceRules.CanConfirm`, `MatchCreation` (`Propose`, `DefaultMatchQuantity`, `MaxMatchQuantity`, `NoUnmatchedQuantity`), `RecordCancellation`.
 - **`src/Apg.Domain/Pricing/PriceTable.cs`** — `DefaultPricePerKg`, keyed on the Processor Space stock class.
-- **`src/Apg.Domain/Time/NzTime.cs`** — the *only* home for date rules: `WeekCommencing`, `ToNzDate`, `Today(TimeProvider)`, `CurrentWeekCommencing(TimeProvider)`, `DateLabel`, `WeekLabel`, `AtNzTime`, and from Phase 3 `ShortDateLabel` / `ShortDateLabelFormat` (`d MMM` → `16 Aug`, `1 Sep`) and `WeeksFrom(first, last)` (contiguous inclusive Sundays, both ends normalised). Extend this file; never start a second one.
+- **`src/Apg.Domain/Time/NzTime.cs`** — the *only* home for date rules: `WeekCommencing`, `ToNzDate`, `Today(TimeProvider)`, `CurrentWeekCommencing(TimeProvider)`, `DateLabel`, `WeekLabel`, `AtNzTime`, and from Phase 3 `ShortDateLabel` / `ShortDateLabelFormat` (`d MMM` → `16 Aug`, `1 Sep`) and `WeeksFrom(first, last)` (contiguous inclusive Sundays, both ends normalised — still the source of `/api/week-bands`). Extend this file; never start a second one.
 - **`src/Apg.Api/Contracts/`** — `Dtos.cs`, `MatchingProjection` (computes nothing; calls the domain for every value), `WorkingSetLoader`, `ApiJson` (the wire format, shared with the tests).
 
 **Dates on the wire:** every business date is a `DateOnly` serialising as `yyyy-MM-dd`, and **always ships alongside a preformatted label** in LMS's `dd-MM-yy` (`23-08-26`). Where a date appears in prose rather than in a column it also ships a short label in `d MMM` (`16 Aug`) — `WeekBandDto.WeekOfLabel` and `LivestockAvailabilityDto.AvailableFromShortLabel`; the client supplies only the surrounding word ("Week of", "since"), because the week rail stacks them on separate lines. The client renders the label and must never construct a JavaScript `Date` from the ISO value. Change the formats in `NzTime.DateLabelFormat` / `NzTime.ShortDateLabelFormat`, nowhere else.
 
-### The matching screen (Phase 3)
+### The matching screen (Phases 3 and 3b)
 
 Under `web/src/app/matching/`. `matching-screen` loads three streams and renders two `matching-column`s; everything below is presentation over already-computed values.
 
 ```
 _card-geometry.scss   ALL dimensions + the card-shell/spines/line-1 mixins. Both columns @use it,
                       so design-system.md 6.1's "identical on both sides" is enforced, not hoped for.
-board/matching-board.ts   buildBoard(bands, spaces, availability) → BandView[] + unplaced. Pure.
-board/carry-over.ts       CARRY_OVER_EXPAND_LIMIT = 4, CARRY_OVER_HORIZON_WEEKS = 4
-board/card-state.ts       root CardStateStore — expansion + carry-over group collapse
+board/matching-board.ts   buildBoard(weeks, spaces, availability) → { demand, supply, unplaced }.
+                          Pure. The two band runs are trimmed slices of one array.
+board/card-state.ts       root CardStateStore — which cards are expanded
 column/matching-column.ts header, reserved 40px filter row, sticky 28px strip, scrolling .list
-band/week-band.ts         sticky rail, carry-over group, "New this week", natives, empty-band row
+band/week-band.ts         sticky rail, band header, the band's cards, empty-band row
 card/space-card.ts, card/availability-card.ts     the 52px rows
-card/carry-over-card.ts                           the 40px repeat
-card/card-expansion.ts    fields + both sums + the match table. Shared by all three cards.
+card/card-expansion.ts    fields + both sums + the match table. Shared by both cards.
 card/fill-meter.ts, card/stock-class-tile.ts, card/stock-classes.ts, card/card-chrome.ts
 testing/dto-fixtures.ts   DTO builders for the specs only
 ```
 
-**Phase 4 attaches to `buildBoard`'s inputs, not its output** — filter the lists and call it again, and the band meta totals reshape for free.
+**Phase 4 attaches to `buildBoard`'s inputs, not its output** — filter the lists and call it again, and the band meta totals *and the per-column trim* reshape for free.
 
-**Carry-over cards.** An availability record appears in full in its home band and reappears as a 40px row at the top of every later band while `unmatched > 0`, bounded by `CARRY_OVER_HORIZON_WEEKS` forward of the *current* week and never placed before it. `carryOver` holds **the same object references** as the home band's array, so a repeat cannot diverge from its original. Expansion is keyed per card instance (`side:recordId@bandWeek`), not per record, so expanding a repeat does not also expand the home card and shove the clicked row down the page.
+**The backlog, and the per-column trim (Phase 3b).** Every record is drawn **exactly once**, in the band of its own date — nothing is reprinted into a later week. Supply still unmatched from an earlier week is found by scrolling up, which works because `buildBoard` drops each column's **leading** run of empty bands: `board.demand` starts at the week of the earliest space, `board.supply` at the week of the earliest availability record, and the two often differ. Only the leading run goes — an interior empty week keeps its header — and a column with no records at all starts at the current week. The trim is recomputed on every call, never cached. **Do not add scroll synchronisation** because the rails disagree; that is the design. Expansion is keyed `side:recordId`.
 
 **Arithmetic in `web/` is limited to two files, both allow-listed by name in `matching/no-domain-arithmetic.spec.ts`:** `card/fill-meter.ts` (CSS segment widths, clamped — a bar width is not a displayed figure) and `board/matching-board.ts` (band header roll-ups, which must be client-side because Phase 4's filters change what is in the band). That spec is the client analogue of `DomainPurityTests`: it scans `matching/**/*.ts` and fails on `new Date`, `Date.parse`, `Date.now`, `toLocaleDate*`, `Intl.DateTimeFormat`, `getTime()`, or an arithmetic operator next to a quantity field. **If you need a third such site, you are probably missing a DTO field.**
 

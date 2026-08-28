@@ -115,8 +115,8 @@ public class DtoSerialisationTests
     }
 
     /// <summary>
-    /// The prose labels are the ones Phase 3's band header and carry-over card render, so a client
-    /// tempted to build "Week of 16 Aug" out of an ISO string has no excuse: the string is on the wire.
+    /// The prose labels are the ones the band header renders, so a client tempted to build
+    /// "Week of 16 Aug" out of an ISO string has no excuse: the string is on the wire.
     /// </summary>
     [Fact]
     public void The_prose_labels_carry_an_unpadded_day_and_a_three_letter_month()

@@ -1136,3 +1136,317 @@ core risk — and confirmed the tests cover the edge cases. Disposition of what 
 - **Conventions now enforced by tests rather than by discipline:** no dates and no quantity arithmetic
   anywhere under `web/src/app/matching/` outside two named files
   (`matching/no-domain-arithmetic.spec.ts`); every dimension in `_card-geometry.scss`.
+
+---
+
+## Interstitial — Real plant names
+
+**Completed:** 2026-08-28
+**Status:** Complete
+**Not a phase.** A small out-of-band change made between Phase 3 and Phase 3b, recorded here because
+it altered seeded data and every later phase will see the difference.
+
+### What changed
+
+Mark added `Data/Plants.csv` with APG's real plant names. `SeedConfig.PlantsByProcessor` previously
+held invented ones; it now holds the real list, transcribed:
+
+| Processor | Plants | Count |
+| --- | --- | --- |
+| ANZCO | Canterbury, Eltham, Kokiri, Manawatu, Marlborough, Rakaia, Rangitikei | 7 |
+| Alliance Group | Dannevirke, Levin, Lorneville, Mataura, Nelson, Pukeuri, Smithfield | 7 |
+| SFF | Belfast, Finegand, Pacific, Pareora, Waitane | 5 |
+
+### Three reconciliations between the CSV and the codebase
+
+1. **`AGL` → `Alliance Group`.** The CSV uses the company's initials; the spec, the stock-class lists
+   and every other part of the seeder use the full name.
+2. **"Nelxon" → "Nelson".** A typo in the CSV. Alliance's plant is Nelson. Corrected in
+   `SeedConfig.cs` and flagged to Mark, who can revert it in one word if the misspelling is wanted.
+3. **The CSV is not read at runtime.** The list is transcribed into `SeedConfig.cs`, which the roadmap
+   designates as the single home for these lists. Reading it would mean handling a UTF-8 BOM (the
+   file starts `EF BB BF`, so the first record parses as `﻿AGL`), a missing header row, and a
+   filename cased `Plants.csv` where `locations.csv` is lower — three failure modes for nineteen
+   static rows. `Data/Plants.csv` remains the source of record; if APG revise it, edit there and
+   re-transcribe. The doc comment on `PlantsByProcessor` says so.
+
+### Why this did not go through a phase
+
+It is the one-file swap `SeedConfig.cs` was built for. Folding it into Phase 4 would have mixed seed
+data into a filter-logic diff and made that phase's review reason about both; putting it in Phase 3b
+would have muddied a remediation phase. It is small, independent of both, and better done before
+either — Phase 4 filters by plant, and 3b's screenshots are worth taking against real names.
+
+### Effect on the seed
+
+**The shape is unchanged.** Plant selection is a single PRNG draw indexed into the array, so a longer
+array consumes the same number of draws and every downstream value stays aligned. Only the `Plant`
+field on Processor Space records differs. Confirmed by the suite: the determinism test, the golden
+mulberry32 values and `The_generated_counts_are_the_ones_the_build_log_records` all still pass, so
+Phase 0's recorded counts remain true.
+
+### Tests
+
+- `Every_processor_has_three_to_five_plants_and_at_least_fifteen_carriers_exist` **failed** on the new
+  data — the 3-to-5 bound described the invented list. Renamed to
+  `Every_processor_has_plants_and_at_least_fifteen_carriers_exist` and the bound widened to 3–10, with
+  a comment saying why.
+- Added `The_plants_are_the_real_ones_from_the_data_folder`, asserting all three lists exactly. If
+  APG revise `Plants.csv`, this test is what fails and points at the transcription.
+- `dotnet test`: **198 passing** (122 domain, 76 API), none skipped.
+
+### Watch out for
+
+- **`src/Apg.Api/apg.db` was deleted** so the next API start reseeds with the real names. Anyone
+  holding a database from before this change still has the invented plants; delete the file or
+  `POST /api/dev/reset-database`.
+- **`DtoProjectionTests` uses the literals `"Rangitikei"` and `"Finegand"`** in its fixtures. Both
+  happen to be real plants, and both are hand-built fixture strings rather than reads from
+  `SeedConfig`, so they were left alone — but they are not guaranteed to stay valid if APG revise the
+  list.
+- **The API locks `Apg.Domain.dll` while running**, so `dotnet test` fails with MSB3027 until it is
+  stopped. It had to be stopped to verify this change; restart with `.\dev.ps1`.
+- **`Documents/build-plan.html`'s domain diagram said "ANZCO · Pareora".** Pareora is an **SFF** plant,
+  not ANZCO — the invented data had hidden the error. Corrected to ANZCO · Rangitikei. Worth a general
+  caution: examples written against invented plants may be wrong now, and a wrong plant in front of
+  APG is more noticeable than an invented one.
+
+---
+
+## Phase 3b — Remove Carry-Over, Build the Backlog
+
+**Completed:** 2026-08-28
+**Status:** Complete
+
+### What this entry overturns
+
+**This entry overturns Phase 3's decisions 1, 3, 4 and 5, and the `$lms-carry-name` token from its
+decision 11.** Specifically:
+
+- **Decision 1's last sentence** — "One band list serves both columns, so a week that is empty on one
+  side still renders there and the two sides stay vertically comparable." Gone. The server still
+  returns one ordered, gapless calendar, but **each column now trims its own leading empty bands** and
+  the two columns therefore often start at different weeks. The rest of decision 1 — that
+  `GET /api/week-bands` exists, is server-computed, is gapless, always includes the current week, and
+  carries no record ids — stands unchanged.
+- **Decision 3** (`CARRY_OVER_HORIZON_WEEKS = 4`, `CARRY_OVER_EXPAND_LIMIT = 4`) — both constants and
+  the file holding them are deleted.
+- **Decision 4** (the three bounds on carry-over placement) — the placement function is deleted.
+- **Decision 5** (`carryOver` holds the same object references as the home band) — `BandView.carryOver`
+  no longer exists, so there is nothing to hold references to.
+- **Decision 11's `$lms-carry-name` (`#4A4A4A`)** — deleted from `_lms-tokens.scss`, SCSS variable and
+  custom property both. The rest of decision 11 (`density: -2`, the 4px dialog radius, the §2 palette)
+  stands.
+
+Decisions 2, 6, 7, 8, 9 and 10 survive, two of them in altered form: **decision 6**'s expansion key
+loses its band component (below), and **decision 9**'s "band meta counts native records only" is now
+vacuous — every record is native, so there is nothing to exclude.
+
+The cause is **resolved question 17** (2026-08-28), which replaced carry-over cards with a burn-down
+backlog after Phase 3 had been built, reviewed and logged. Phase 3 was not wrong; the design it
+implemented was superseded.
+
+### What shipped
+
+Carry-over is gone from the repository: `board/carry-over.ts`, `card/carry-over-card.*`,
+`BandView.carryOver`, the band's carry-over group and its "New this week" divider, the group-collapse
+state, the `$lms-carry-name` token, four geometry variables and every associated test. Every record is
+now drawn **exactly once**, in the band of its own date.
+
+In its place, `buildBoard` returns **two trimmed band runs instead of one shared list** —
+`{ demand, supply, unplaced }` — each starting at the week of that column's own earliest record. What
+sits above the current week is the backlog, found by scrolling up; both columns open at the top,
+which needs no code because nothing ever scrolled them.
+
+### How the per-column trim works, and where it lives
+
+All of it is in `web/src/app/matching/board/matching-board.ts`, in one 20-line `trim()` function.
+`buildBoard` still places records into a single array of `BandView`s, then returns two **slices of
+that same array**:
+
+```ts
+return {
+  demand: trim(view, weeks, (band) => band.spaces.length > 0),
+  supply: trim(view, weeks, (band) => band.availability.length > 0),
+  unplaced,
+};
+```
+
+Consequences worth knowing:
+
+- **Both columns hold the same `BandView` objects.** The trim is `Array.prototype.slice`, not a
+  rebuild, so nothing can drift between the two columns and the cost is one index scan per side. A
+  spec asserts `Object.is(board.demand[0], board.supply[0])` when both start at the same week.
+- **`start` is `bands.findIndex(hasRecordsForThisSide)`.** Only the *leading* run goes. An interior
+  empty week keeps its header, and trailing empty weeks are untouched — both have their own tests.
+- **A column with no records at all starts at the current week.** This case is not in the phase
+  document and is a decision made during the build (see below).
+- **Nothing is cached.** `buildBoard` is called inside a `computed` on the screen; Phase 4 filters the
+  input lists and calls it again, and the first band moves forward on its own.
+- **No date arithmetic.** Trimming is an index into an array the server ordered. `no-domain-arithmetic.spec.ts`
+  still passes unchanged, and its allow-list is still exactly two files.
+
+`matching-screen.html` binds `[bands]="board().demand"` and `[bands]="board().supply"`.
+`MatchingColumn` is unchanged: its `shown` count sums the bands it was handed, and a trimmed band held
+none of that side's records by definition.
+
+### Which week each column starts at, against the current seed
+
+Measured against the running API on 2026-08-28 (current week Sunday **2026-08-23**, bands 16-08
+through 20-09):
+
+| | Records | Weeks they fall in | Column starts at |
+| --- | --- | --- | --- |
+| Processor Spaces | 40 | 16-08: 7 · 23-08: 7 · 30-08: 7 · 06-09: 7 · 13-09: 6 · 20-09: 6 | **2026-08-16** |
+| Livestock Availability | 50 | 16-08: 9 · 23-08: 9 · 30-08: 8 · 06-09: 8 · 13-09: 8 · 20-09: 8 | **2026-08-16** |
+
+**Say this plainly: against the current seed the trim removes nothing.** Both sides have records in
+the earliest band, so both columns start there, and the screen looks the same as it would without the
+trim. That stays true under Phase 4's default filters — all 40 spaces are `Booked`, and 44 of the 50
+availability records are `Booked`/`Pending` with `unmatched > 0`, the earliest of them still in week
+16-08. The trim earns its place the moment a filter, an edit or a reseed empties a leading week on one
+side only, and its correctness is carried by the specs rather than by the seeded screen. **Do not
+conclude from the demo that it does nothing.**
+
+For scale: Phase 3 drew **114 carry-over instances** against this seed. It now draws none.
+
+### Decisions made during the build
+
+1. **No filtering in this phase, confirmed with Mark before building.** PHASE-3B's "Out of scope"
+   says filters are Phase 4; the rewritten PHASE-3 §4.1 says this phase "applies the same defaults as
+   its starting state". They conflict. 3b's own scope statement won. **Consequence: the region above
+   the current week is not yet a true backlog** — it still shows Confirmed and fully-allocated
+   records, because nothing is filtered out. Phase 4 completes the picture, and until it does, the
+   backlog is structurally right and semantically incomplete.
+2. **Expansion is keyed `side:recordId`, not `side:recordId@bandWeek`, and `bandWeek` is off both
+   card components.** Also confirmed with Mark. Phase 3's decision 6 keyed the band in so a repeat
+   could expand independently of its home card; with each record drawn once, the band component could
+   never vary. **This changes two component signatures Phase 3's build log advertised** —
+   `<app-space-card space zebra>` and `<app-availability-card record zebra>` — and
+   `CardStateStore.isExpanded/toggleExpanded` now take two arguments.
+3. **A column with no records at all starts at the current week**, rather than rendering no bands.
+   The phase document does not cover the case. Rendering nothing would give a blank column, which
+   `design-system.md` §13 forbids; starting at the current week shows where "now" is and the
+   empty-band rows say each week is empty. The proper "Empty column" state (a glyph, a sentence, a
+   way out) is §13's and belongs to Phase 4/8.
+4. **`NzTime.WeeksFrom` stays.** Requirement 1.8 said to delete it *if genuinely nothing calls it* —
+   `MatchingProjection.WeekBands` still does, and requirement 2.4 keeps the server as the source of
+   the calendar. It is not dead. Its tests are untouched.
+5. **`LivestockAvailabilityDto.AvailableFromShortLabel` stays on the contract and is now unused by the
+   client** — requirement 1.8 said to keep it. It fed the removed row's "since 17 Aug". Both the C#
+   and TypeScript declarations now say plainly that nothing renders it and why it is kept, so a later
+   phase does not delete it as dead or assume something displays it. `NzTime.ShortDateLabel` is still
+   used, for the band header's `Week of 16 Aug`.
+6. **`SeedDataGenerator.CarryOverAvailabilityCount` → `BacklogAvailabilityCount`** (requirement 1.9).
+   Value 5, behaviour identical: the five earliest availability records are still locked out of
+   matching, and they are what puts unmatched supply above the current week. Two call sites updated.
+   **The generated data is unchanged** — `SeedDeterminismTests`, the golden mulberry32 values and
+   `The_generated_counts_are_the_ones_the_build_log_records` all pass, so Phase 0's recorded counts
+   stay true.
+7. **No file, symbol, token, style or test in the repository refers to carry-over any more**, and
+   that was taken literally: even the explanatory comments that would naturally have said "this fed
+   the carry-over row" are phrased without the term. The two deliberate exceptions are prose, not
+   code — `design-system.md` §9's stale-canvas note and `CLAUDE.md`'s one-line statement of what 3b
+   did — plus this log and the phase documents, which are history.
+
+### Deviations from the phase document
+
+- **Requirement 3 (open at the top) needed no code.** `.list` is the scroll container, content renders
+  from the top, and nothing in `web/` calls `scrollIntoView`, assigns `scrollTop`, or jumps to the
+  current week. With the leading trim there is no dead space above the first record. Verified by
+  inspection rather than by a test: jsdom has no layout engine, so a `scrollTop === 0` assertion would
+  prove nothing.
+- **One thing was fixed beyond the letter of the phase document:** `design-system.md` §12.2 listed an
+  `Available-from week (W.C.)` filter for the supply column, which resolved question 17 explicitly
+  forbids. Left alone it would have been a trap for Phase 4. Removed, with the reason stated inline.
+- Everything else in sections 1 to 4 was built as specified.
+
+### Review findings
+
+A sonnet subagent reviewed the phase against `PHASE-3B-remove-carry-over.md`, the roadmap and the
+diff (with the concurrent plant-names change excluded, so it reviewed this phase only). It reported
+rather than applied, and it ran the four commands itself rather than trusting my word for them.
+
+**No confirmed bugs.** Its verdict on the two things the phase turned on:
+
+- **The removal is complete.** It grepped the repository for `carry`, `Carry`, `CARRY_OVER`,
+  `New this week`, `4A4A4A` and `bandWeek` and found no true hits — every surviving match of "carry"
+  is ordinary prose ("carrying a date"). It confirmed the four files are deleted rather than emptied,
+  that no `xit`, `xdescribe` or `.skip` exists anywhere under `web/src/app/matching`, and that the
+  carry-over tests were deleted outright rather than disabled.
+- **The trim is correct.** Per column, from that column's own records, via one shared helper taking a
+  predicate rather than two copies. `findIndex` stops at the first populated band, so only the leading
+  run goes and an interior gap survives; `slice` means both columns hold the same band objects; and it
+  verified `board` is an Angular `computed()` rather than anything memoised, so Phase 4's
+  filter-and-rebuild will re-trim.
+- **Asked explicitly whether anything in `web/` now constructs or parses a `Date`: nothing does.** It
+  checked that `no-domain-arithmetic.spec.ts` still genuinely walks both `.ts` and `.html`, that its
+  two self-tests still fire, and that its allow-list is still exactly two files and honestly described.
+
+Two items raised, both uncertain rather than defects, and their disposition:
+
+1. **No test for both columns being empty at once** — **fixed.** A one-line case; the code path is the
+   same as the single-empty-column case that was already covered, but it costs nothing to pin.
+   `falls back to the current week for both columns when there is nothing at all`.
+2. **No Phase 3b build-log entry yet** — sequencing, not a gap. The reviewer runs at step 1 of the
+   roadmap's closing protocol and this entry is step 2. It is this.
+
+The reviewer also listed four things it correctly identified as later phases' work — the `Filtered`
+chip and `Reset`, the demand-only week filter, sort and flip (Phase 4); drag and drop, and watching a
+record fall out of the backlog as it is matched (Phase 5); and `showing n of n` staying tautological
+until Phase 4 supplies a real `total`. None of them were touched.
+
+### Watch out for
+
+- **The trim is invisible against the current seed** (see the table above). Do not read "nothing
+  changed on screen" as "the trim does not work" — nine specs say otherwise, and Phase 4's filters are
+  what will make it bite.
+- **The backlog is structurally complete and semantically incomplete until Phase 4.** Everything above
+  the current week is currently *every* record from those weeks, not just unfinished business,
+  because nothing is filtered. The roadmap's claim that "what remains above the current week is
+  therefore a backlog" becomes true when the default filters arrive, not before.
+- **Two component signatures changed** from what Phase 3's build log advertises:
+  `<app-space-card space zebra>` and `<app-availability-card record zebra>` — `bandWeek` is gone —
+  and `CardStateStore.isExpanded/toggleExpanded(side, recordId)` now take two arguments.
+- **`buildBoard` no longer returns `bands`.** It returns `{ demand, supply, unplaced }`. Phase 4 must
+  filter the *inputs* and call it again, exactly as before; what it must not do is reach into one
+  column's slice and expect the other's weeks to line up.
+- **The two rails legitimately disagree.** At the same vertical position the demand column may show
+  `Week of 16 Aug` and the supply column `Week of 30 Aug`. That is the design (requirement 2.3).
+  **Do not add scroll synchronisation** to "fix" it: locking two lists of different lengths together
+  makes one of them lie about which week the operator is in.
+- **The empty-column fallback is not the empty-column *state*.** A column with no records renders
+  bands from the current week with `- no processor spaces this week` in each. The proper empty state
+  `design-system.md` §13 specifies — a glyph, a sentence, a way out — does not exist yet and belongs
+  to Phase 4's filtered-empty case and Phase 8's polish.
+- **`design-system.md` §9 is now a different section under the same number.** Anything citing "§9" from
+  Phase 2 or Phase 3 means the carry-over section, which is gone; §9 is now the backlog, the trim and
+  the past-band treatment. The Phase 2 canvas artifact was **not** regenerated and still shows
+  carry-over rows on its `CarryOver`, `WeekBands` and `Main` artboards — the document says so at the
+  top of §9, and the document wins.
+- **On-screen verification was not done in this phase.** The Angular build and 42 specs pass, but no
+  browser was driven: card density, the sticky rail and the trimmed columns side by side have still
+  not been eyeballed at 1366 × 768. Phase 3's log flagged the same gap; it is still open, and it is
+  worth ten minutes before Phase 4 builds on top of the layout.
+- **An `Apg.Api` instance belonging to another session was running when this phase started.** It was
+  stopped to build (it holds `Apg.Domain.dll` open) and restarted afterwards. Unchanged advice:
+  `Get-CimInstance Win32_Process -Filter "Name='Apg.Api.exe'"`, stop the `Apg.Api.exe` child.
+- **A concurrent, unrelated change was in the working tree throughout this phase** — the real plant
+  names recorded in the Interstitial entry above, touching `SeedConfig.cs` and
+  `SeedConfigurationTests.cs`. Phase 3b did not make, review or test those two files, and they were
+  excluded from the diff the reviewer read. If the two changes need separating, that is the seam.
+
+### New commands, dependencies, conventions
+
+No new packages, no new commands, no change to CLAUDE.md's command table. Three conventions worth
+carrying forward:
+
+- **`buildBoard` is still the only seam.** Filter its inputs; never filter inside it, and never reach
+  into a `BandView`. The band meta *and* the per-column trim both reshape for free.
+- **Trimming is an index, never a date.** If a future phase needs a week the client cannot name, the
+  answer is another field on `WeekBandDto`, not `new Date`.
+- **The word "carry-over" is now absent from all code, styles, tests and `design-system.md`** (bar its
+  one stale-canvas note). It survives in this log and in the phase documents, which are history. If it
+  reappears in a component, something has gone backwards.
+
+Test counts at close: `Apg.Domain.Tests` 122, `Apg.Api.Tests` 76, Angular 42 across 5 files.

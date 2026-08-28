@@ -158,52 +158,6 @@
   @include geo.numerals;
 }
 
-// --- the carry-over group ---
-.cohead {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  width: 100%;
-  height: geo.$carry-over-sub-header-height;
-  padding: 0 10px;
-  border: 0;
-  border-bottom: 1px solid lms.$lms-divider;
-  background: lms.$lms-surface;
-  cursor: pointer;
-  text-align: left;
-}
-
-.cohead:hover {
-  background: lms.$lms-hover;
-}
-
-.coch {
-  font-size: 16px;
-  color: lms.$lms-text-muted;
-}
-
-// The same glyph the carry-over rows themselves carry, so the group and its contents read as one idea.
-.carry-glyph {
-  font-size: 13px;
-  color: lms.$lms-faint;
-}
-
-.colabel {
-  @include geo.micro-caps;
-  @include geo.numerals;
-}
-
-// --- the divider between the repeats and the week's own work ---
-.newthis {
-  display: flex;
-  align-items: center;
-  height: geo.$new-this-week-height;
-  padding: 0 10px;
-  background: lms.$lms-surface;
-  border-bottom: 1px solid lms.$lms-divider;
-  @include geo.micro-caps;
-}
-
 // --- an empty band ---
 .none {
   display: flex;

@@ -204,8 +204,8 @@ public class DtoProjectionTests
     }
 
     /// <summary>
-    /// The carry-over card reads "since 24 Aug", so the prose form of the available-from date ships
-    /// alongside LMS's numeric one. Both are formatted in C#; the client supplies only the word.
+    /// The prose form of the available-from date ships alongside LMS's numeric one. Both are formatted
+    /// in C#, so a client wanting a compact date never has to build one.
     /// </summary>
     [Fact]
     public void An_availability_record_carries_its_available_from_date_in_the_prose_form_too()
@@ -465,8 +465,8 @@ public class DtoProjectionTests
     }
 
     /// <summary>
-    /// The client expresses the carry-over horizon relative to the current band's position, so that
-    /// band has to exist even in the week nothing happens to be booked.
+    /// <c>isCurrentWeek</c> must always have somewhere to land: a column whose records are all in the
+    /// past still has to show where "now" is, so the band exists even in a week nothing is booked in.
     /// </summary>
     [Fact]
     public void The_current_week_gets_a_band_even_when_no_record_falls_in_it()

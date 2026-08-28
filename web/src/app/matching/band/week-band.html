@@ -23,9 +23,8 @@
 
   <div class="body">
     <!--
-      Band meta counts the band's OWN records only. A carried-over record is already counted in its
-      home band, and counting it again here would inflate every total on the screen — the one plausible
-      double-count on this design.
+      Band meta counts the band's own records, which is every card drawn in it: each record appears in
+      exactly one band, so there is nothing here that could be counted twice.
     -->
     <header class="bhead">
       <span class="blabel">Week of {{ band().week.weekOfLabel }}</span>
@@ -47,48 +46,21 @@
       }
     </header>
 
-    @if (carryOver().length > 0) {
-      <!--
-        The strip's total is UNMATCHED head, not available head. What is left is the only figure that
-        matters this week; the original quantity is history by now.
-      -->
-      <button class="cohead" type="button" (click)="toggleCarryOver()" [attr.aria-expanded]="carryOverOpen()">
-        <span class="material-symbols-outlined coch" aria-hidden="true">{{
-          carryOverOpen() ? 'expand_more' : 'chevron_right'
-        }}</span>
-        <span class="material-symbols-outlined carry-glyph" aria-hidden="true">keyboard_return</span>
-        <span class="colabel">
-          Carried over ({{ band().meta.carryOverCount }}) ·
-          {{ band().meta.carryOverHead | number }} head unmatched
-        </span>
-      </button>
-
-      @if (carryOverOpen()) {
-        @for (record of carryOver(); track record.id) {
-          <app-carry-over-card [record]="record" [bandWeek]="band().week.weekCommencing" />
-        }
-      }
-    }
-
-    @if (showsNewThisWeek()) {
-      <div class="newthis">New this week ({{ nativeCount() }})</div>
-    }
-
     @if (isDemand()) {
       @for (space of band().spaces; track space.id; let i = $index) {
-        <app-space-card [space]="space" [bandWeek]="band().week.weekCommencing" [zebra]="i % 2 === 1" />
+        <app-space-card [space]="space" [zebra]="i % 2 === 1" />
       }
     } @else {
       @for (record of band().availability; track record.id; let i = $index) {
-        <app-availability-card
-          [record]="record"
-          [bandWeek]="band().week.weekCommencing"
-          [zebra]="i % 2 === 1"
-        />
+        <app-availability-card [record]="record" [zebra]="i % 2 === 1" />
       }
     }
 
-    <!-- Deliberately empty, and it says so: a blank band is otherwise indistinguishable from a bug. -->
+    <!--
+      Deliberately empty, and it says so: a blank band is otherwise indistinguishable from a bug. An
+      interior empty week is real information — the leading run of them is trimmed off in buildBoard,
+      so this only ever appears between or after populated weeks.
+    -->
     @if (isEmpty()) {
       <div class="none">
         {{ isDemand() ? '- no processor spaces this week' : '- no livestock availability this week' }}

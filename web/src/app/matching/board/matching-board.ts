@@ -1,17 +1,16 @@
 import { LivestockAvailabilityDto, ProcessorSpaceDto, WeekBandDto } from '../../api/models';
-import { CARRY_OVER_HORIZON_WEEKS } from './carry-over';
 
 /**
  * Turns three flat lists from the API into the banded shape the screen renders.
  *
- * A pure function, deliberately: the whole of this phase's hard logic — which band a record belongs
- * to, and which later bands it reappears in — is testable without a DOM. It is also the seam Phase 4
- * attaches to. Filtering does not go inside this function; Phase 4 filters the *inputs* and calls it
- * again, and the band meta below then reflects the filtered set for free.
+ * A pure function, deliberately: which band a record belongs to, and where each column's list starts,
+ * are testable without a DOM. It is also the seam Phase 4 attaches to. Filtering does not go inside
+ * this function; Phase 4 filters the *inputs* and calls it again, and both the band meta and the
+ * per-column trim below then reflect the filtered set for free.
  *
  * **No date arithmetic happens here or anywhere else in `web/`.** Bands arrive from the server already
- * ordered, named and flagged, so placing a record is a `Map` lookup on an ISO string and placing a
- * carry-over is a comparison of positions in that array. Nothing parses a date; nothing constructs a
+ * ordered, named and flagged, so placing a record is a `Map` lookup on an ISO string and trimming is
+ * choosing where to start reading an ordered array. Nothing parses a date; nothing constructs a
  * `Date`.
  */
 
@@ -25,23 +24,15 @@ export interface BandView {
   /** Spaces whose delivery date falls in this week, in the server's soonest-first order. */
   readonly spaces: readonly ProcessorSpaceDto[];
 
-  /** Availability records whose available-from date falls in this week: their one full card. */
+  /**
+   * Availability records whose available-from date falls in this week.
+   *
+   * A record appears here and nowhere else. Supply still unmatched from an earlier week is found by
+   * scrolling up into the backlog, not by being reprinted in later weeks (resolved question 17).
+   */
   readonly availability: readonly LivestockAvailabilityDto[];
 
-  /**
-   * Records still holding unmatched stock from an earlier band.
-   *
-   * These are **the same objects** as in some earlier band's `availability` — not copies, not clones.
-   * Expanding a carry-over therefore shows the same matches by construction rather than by
-   * convention, and Phase 5's drag will hit the same record.
-   */
-  readonly carryOver: readonly LivestockAvailabilityDto[];
-
-  /**
-   * The band header's right-hand meta. Counts and sums the band's **native** records only — a
-   * carry-over is already counted in its home band, and counting it twice is the one arithmetic error
-   * on this screen that would look entirely plausible.
-   */
+  /** The band header's right-hand meta, over the records this band actually holds. */
   readonly meta: BandMeta;
 }
 
@@ -50,13 +41,19 @@ export interface BandMeta {
   readonly spaceHead: number;
   readonly availabilityCount: number;
   readonly availabilityHead: number;
-  readonly carryOverCount: number;
-  /** Unmatched head, not available head: what is left is the only figure that matters this week. */
-  readonly carryOverHead: number;
 }
 
 export interface BoardView {
-  readonly bands: readonly BandView[];
+  /** The demand column's bands, from the week of its own earliest space onward. */
+  readonly demand: readonly BandView[];
+
+  /**
+   * The supply column's bands, from the week of its own earliest record onward.
+   *
+   * Often a different week from `demand`'s, so the two rails legitimately show different weeks at the
+   * same height. They scroll independently and each trims to its own data.
+   */
+  readonly supply: readonly BandView[];
 
   /**
    * Records whose week has no band. Always empty — the server derives the band range from the same
@@ -71,7 +68,6 @@ interface BandBuilder {
   readonly week: WeekBandDto;
   readonly spaces: ProcessorSpaceDto[];
   readonly availability: LivestockAvailabilityDto[];
-  readonly carryOver: LivestockAvailabilityDto[];
 }
 
 export function buildBoard(
@@ -83,11 +79,9 @@ export function buildBoard(
     week,
     spaces: [],
     availability: [],
-    carryOver: [],
   }));
 
   const indexOfWeek = new Map(weeks.map((week, index) => [week.weekCommencing, index]));
-  const currentIndex = weeks.findIndex((week) => week.isCurrentWeek);
   const unplaced: (ProcessorSpaceDto | LivestockAvailabilityDto)[] = [];
 
   // A space belongs to exactly one band: the week of its delivery date. It is a slot on a day.
@@ -101,6 +95,7 @@ export function buildBoard(
     bands[home].spaces.push(space);
   }
 
+  // And so does an availability record, once — in the week its stock became available.
   for (const record of availability) {
     const home = indexOfWeek.get(record.weekCommencing);
     if (home === undefined) {
@@ -109,45 +104,47 @@ export function buildBoard(
     }
 
     bands[home].availability.push(record);
-    addCarryOvers(bands, record, home, currentIndex);
   }
 
+  const view = bands.map(freeze);
+
   return {
-    bands: bands.map(freeze),
+    demand: trim(view, weeks, (band) => band.spaces.length > 0),
+    supply: trim(view, weeks, (band) => band.availability.length > 0),
     unplaced,
   };
 }
 
 /**
- * A record becomes available on a date and stays available until it is used up, so it reappears at the
- * top of every later band while it still has unmatched stock.
+ * Drops the leading run of bands this column has nothing in, so the column starts at the week of its
+ * own earliest surviving record.
  *
- * Three bounds, all of them from design-system.md 9.3:
+ * **Each column trims from its own records only.** A shared start week would hide a past-dated space
+ * older than the earliest availability record, with nothing on screen to say it had — which is the
+ * whole reason one band list no longer serves both columns.
  *
- * - never in its own home band, which already has its full card;
- * - never before the current week — a record cannot be carried over into the past;
- * - never more than `CARRY_OVER_HORIZON_WEEKS` forward of the current week.
+ * Only the *leading* run goes. An empty week between two populated ones keeps its header, because a
+ * gap in the calendar is information, and trailing weeks are left alone.
  *
- * `unmatched > 0` is a comparison against a figure the server computed, not a computation. When a drag
- * in Phase 5 takes it to zero the carry-overs simply stop being produced, which is the visible
- * confirmation that the drag worked.
+ * Nothing is cached: Phase 4 filters the inputs and calls `buildBoard` again, and the first band has
+ * to move forward when a filter removes the oldest record.
  */
-function addCarryOvers(
-  bands: readonly BandBuilder[],
-  record: LivestockAvailabilityDto,
-  home: number,
-  currentIndex: number,
-): void {
-  if (record.unmatched <= 0 || currentIndex < 0) {
-    return;
+function trim(
+  bands: readonly BandView[],
+  weeks: readonly WeekBandDto[],
+  hasRecords: (band: BandView) => boolean,
+): readonly BandView[] {
+  const first = bands.findIndex(hasRecords);
+  if (first >= 0) {
+    return bands.slice(first);
   }
 
-  const from = Math.max(home + 1, currentIndex);
-  const to = Math.min(bands.length - 1, currentIndex + CARRY_OVER_HORIZON_WEEKS);
+  // Nothing in this column at all. Rather than render nothing, start at the current week so the
+  // operator still sees where "now" is; the empty-band rows then say the weeks are empty. The
+  // endpoint always includes the current week, so the -1 fallback is defensive only.
+  const current = weeks.findIndex((week) => week.isCurrentWeek);
 
-  for (let i = from; i <= to; i++) {
-    bands[i].carryOver.push(record);
-  }
+  return bands.slice(current >= 0 ? current : 0);
 }
 
 function freeze(band: BandBuilder): BandView {
@@ -155,14 +152,11 @@ function freeze(band: BandBuilder): BandView {
     week: band.week,
     spaces: band.spaces,
     availability: band.availability,
-    carryOver: band.carryOver,
     meta: {
       spaceCount: band.spaces.length,
       spaceHead: sum(band.spaces.map((s) => s.quantityRequired)),
       availabilityCount: band.availability.length,
       availabilityHead: sum(band.availability.map((a) => a.quantityAvailable)),
-      carryOverCount: band.carryOver.length,
-      carryOverHead: sum(band.carryOver.map((a) => a.unmatched)),
     },
   };
 }

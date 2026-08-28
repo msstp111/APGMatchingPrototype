@@ -18,11 +18,11 @@ public static partial class SeedDataGenerator
     {
         var context = new MatchContext(rng, anchor, spaces, availabilities, prices);
 
-        // Hold the earliest availability records out of matching entirely, so Phase 3's carry-over
-        // cards have stock that genuinely stays unmatched week after week.
+        // Hold the earliest availability records out of matching entirely, so the backlog above the
+        // current week has stock that genuinely stays unmatched week after week.
         foreach (var availability in availabilities
                      .Where(a => a.AvailableFrom < anchor)
-                     .Take(CarryOverAvailabilityCount))
+                     .Take(BacklogAvailabilityCount))
         {
             context.LockAvailability(availability.Id);
         }

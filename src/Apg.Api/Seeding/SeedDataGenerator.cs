@@ -36,9 +36,14 @@ public static partial class SeedDataGenerator
 
     /// <summary>
     /// Availability records held back from matching entirely, all dated in the week before the
-    /// current one, so Phase 3's carry-over cards have something to carry over.
+    /// current one, so the matching screen opens with a backlog: supply sitting above the current
+    /// week with stock still to allocate.
     /// </summary>
-    public const int CarryOverAvailabilityCount = 5;
+    /// <remarks>
+    /// This constant was renamed in Phase 3b. Its value and behaviour did not change — only the design
+    /// these records serve (resolved question 17) — so the seeded data is identical either side of it.
+    /// </remarks>
+    public const int BacklogAvailabilityCount = 5;
 
     private const int WeekCount = LastWeekOffset - FirstWeekOffset + 1;
 

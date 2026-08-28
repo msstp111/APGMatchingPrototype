@@ -35,7 +35,9 @@ const ALLOWED: ReadonlyMap<string, string> = new Map([
     'board/matching-board.ts',
     'Band header totals roll up DTO quantities over a band. A presentation aggregate over a list, ' +
       'not a domain rule, and it has to be here because Phase 4 filtering changes which records are ' +
-      'in the list — a per-band total on the DTO would be right today and wrong under a filter.',
+      'in the list — a per-band total on the DTO would be right today and wrong under a filter. The ' +
+      'per-column trim in the same file does no arithmetic at all: it is an index into an ordered ' +
+      'array the server sent.',
   ],
 ]);
 
@@ -127,8 +129,8 @@ describe('No domain arithmetic in the matching screen', () => {
     const offenders = sources.filter((file) => matches(file.text, DATE_PATTERNS));
 
     // Every business date arrives twice: an ISO value and a preformatted label. Render the label.
-    // Banding and carry-over placement compare the ISO strings for equality and compare positions in
-    // the server's ordered band array — no parsing required, which is the whole design.
+    // Banding compares the ISO strings for equality, and trimming a column's leading empty weeks is a
+    // slice of the server's ordered band array — no parsing required, which is the whole design.
     expect(offenders.map((f) => f.path)).toEqual([]);
   });
 

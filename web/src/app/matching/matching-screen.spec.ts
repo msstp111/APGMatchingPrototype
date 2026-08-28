@@ -4,7 +4,7 @@ import { of } from 'rxjs';
 import { ApiClient } from '../api/api-client';
 import { LivestockAvailabilityDto, ProcessorSpaceDto, WeekBandDto } from '../api/models';
 import { MatchingScreen } from './matching-screen';
-import { aMatch, anAvailability, aSpace, weeks } from './testing/dto-fixtures';
+import { anAvailability, aSpace, weeks } from './testing/dto-fixtures';
 
 /**
  * The client's half of the architectural rule: it renders what the DTO gives it.
@@ -80,6 +80,11 @@ describe('Matching screen', () => {
     return (await render()).textContent ?? '';
   }
 
+  /** The week a column starts at, read off the first rail label it renders. */
+  function firstRailLabel(column: Element): string {
+    return column.querySelector('app-week-band .rail-label .dt')?.textContent?.trim() ?? '';
+  }
+
   it('renders the space figures exactly as the DTO supplies them', async () => {
     const element = await render();
     const rendered = element.textContent ?? '';
@@ -120,16 +125,39 @@ describe('Matching screen', () => {
   });
 
   /**
-   * Requirement 1.6. The band scaffold is six weeks and only one has records in it, so five headers
-   * have to render anyway — a missing band would make two weeks look adjacent when they are not.
+   * Requirement 1.6 and 2.1 together. The band scaffold is six weeks; both fixture records sit in
+   * the fourth. The three empty weeks before it are the leading run and are trimmed away, while the
+   * two after it still render their headers — a missing band would make two weeks look adjacent
+   * when they are not.
    */
-  it('renders a band for every week, including the empty ones', async () => {
+  it('trims the leading empty weeks and keeps the later ones', async () => {
     const element = await render();
 
-    // Six bands per column, two columns.
-    expect(element.querySelectorAll('app-week-band')).toHaveLength(12);
+    // Three bands per column — the record's own week and the two after it — not six.
+    expect(element.querySelectorAll('app-week-band')).toHaveLength(6);
     expect(element.textContent).toContain('- no processor spaces this week');
     expect(element.textContent).toContain('- no livestock availability this week');
+  });
+
+  /**
+   * The reason the two columns no longer share one band list. The space is three weeks older than
+   * the availability record, and a shared start week would have hidden it with nothing on screen to
+   * say so.
+   */
+  it('starts each column at the week of its own earliest record', async () => {
+    TestBed.resetTestingModule();
+    await configure(
+      [aSpace({ weekCommencing: '2026-08-09' })],
+      [anAvailability({ weekCommencing: '2026-08-30' })],
+    );
+
+    const columns = (await render()).querySelectorAll('app-matching-column');
+
+    expect(firstRailLabel(columns[0])).toBe('of-2026-08-09');
+    expect(firstRailLabel(columns[1])).toBe('of-2026-08-30');
+
+    // And the older space is really on screen, not merely in a band that exists.
+    expect(columns[0].querySelectorAll('app-space-card')).toHaveLength(1);
   });
 
   it('reserves the search strip and the filter rows without putting controls in them', async () => {
@@ -172,72 +200,5 @@ describe('Matching screen', () => {
     }).compileComponents();
 
     expect(await text()).toContain('Could not reach the API');
-  });
-
-  // -------------------------------------------------------------------------------------------
-  // Carry-over cards — the same record, drawn twice
-  // -------------------------------------------------------------------------------------------
-
-  describe('carry-over cards', () => {
-    const match = aMatch({ id: 77, quantityMatched: 33, transportCompany: 'THE-CARRIER' });
-
-    const carried = anAvailability({
-      id: 5,
-      weekCommencing: '2026-08-16',
-      availableFromShortLabel: 'THE-ORIGIN',
-      unmatched: 40,
-      matches: [match],
-    });
-
-    beforeEach(async () => {
-      TestBed.resetTestingModule();
-      await configure([], [carried]);
-    });
-
-    it('draws the full card in its home band and a 40px repeat in the later ones', async () => {
-      const element = await render();
-
-      // One full card. Four repeats: the current week and three more, capped by the horizon.
-      expect(element.querySelectorAll('app-availability-card')).toHaveLength(1);
-      expect(element.querySelectorAll('app-carry-over-card')).toHaveLength(3);
-    });
-
-    it('labels the repeat with where it came from', async () => {
-      expect(await text()).toContain('since THE-ORIGIN');
-    });
-
-    /**
-     * The point of the identity guarantee: expanding a repeat shows the same match rows as the home
-     * card, because there is one object and one expansion component, not two of each.
-     */
-    it('shows the same match rows on a repeat as on the home card', async () => {
-      const fixture = await mount();
-      const element = fixture.nativeElement as HTMLElement;
-
-      element.querySelector<HTMLButtonElement>('app-carry-over-card .chev')!.click();
-      await fixture.whenStable();
-
-      const repeat = element.querySelector('app-carry-over-card app-card-expansion');
-
-      expect(repeat).not.toBeNull();
-      expect(repeat!.textContent).toContain('THE-CARRIER');
-      expect(repeat!.textContent).toContain('33');
-    });
-
-    /**
-     * Expansion is keyed per card, not per record. Expanding the repeat must not also expand the home
-     * card: that would grow the list above the pointer and shift the very row being clicked
-     * (Phase 3, 5.2).
-     */
-    it('expands only the card that was clicked, not every drawing of the record', async () => {
-      const fixture = await mount();
-      const element = fixture.nativeElement as HTMLElement;
-
-      element.querySelector<HTMLButtonElement>('app-carry-over-card .chev')!.click();
-      await fixture.whenStable();
-
-      expect(element.querySelectorAll('app-card-expansion')).toHaveLength(1);
-      expect(element.querySelector('app-availability-card app-card-expansion')).toBeNull();
-    });
   });
 });

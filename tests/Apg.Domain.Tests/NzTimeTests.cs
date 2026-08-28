@@ -377,7 +377,7 @@ public class NzTimeTests
     }
 
     [Fact]
-    public void A_short_date_label_is_the_prose_form_the_week_bands_and_carry_over_cards_read_in()
+    public void A_short_date_label_is_the_prose_form_the_week_bands_read_in()
     {
         Assert.Equal("16 Aug", NzTime.ShortDateLabel(new DateOnly(2026, 8, 16)));
         Assert.Equal("23 Aug", NzTime.ShortDateLabel(new DateOnly(2026, 8, 23)));

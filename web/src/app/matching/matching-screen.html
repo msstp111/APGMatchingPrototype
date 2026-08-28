@@ -19,8 +19,14 @@
 
   @if (ready()) {
     <div class="columns">
-      <app-matching-column side="demand" [bands]="board().bands" />
-      <app-matching-column side="supply" [bands]="board().bands" />
+      <!--
+        Each column gets its own trimmed run of bands, so each starts at the week of its own earliest
+        record. The two often differ, and their rails will show different weeks at the same height.
+        That is correct: the columns scroll independently and neither may be trimmed by the other's
+        data. Both open at the top, which is where the oldest outstanding record now sits.
+      -->
+      <app-matching-column side="demand" [bands]="board().demand" />
+      <app-matching-column side="supply" [bands]="board().supply" />
     </div>
   }
 </div>

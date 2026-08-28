@@ -144,7 +144,7 @@ $lms-hover:           #F5F9FB;  // card hover
 $lms-column-wash:    #F6FAFC;  // the opposite column during a drag
 
 // --- lines and text -------------------------------------------------------
-$lms-rule-strong:     #BDBDBD;  // form-field underline, hatch stroke, carry-over border
+$lms-rule-strong:     #BDBDBD;  // form-field underline, Pending hatch stroke
 $lms-rule-soft:       #EFEFEF;  // rules inside an expanded card
 $lms-faint:           #9E9E9E;  // tertiary text, empty-state text, cancelled spine
 $lms-tile-ink:        #5C5F62;  // stock-class monogram
@@ -267,13 +267,12 @@ monitors this will run on.
 ### 3.2 The zebra stripe
 
 Alternate cards take `$lms-card-zebra` (`#F5F5F5`) on white. LMS's own stripe is `#EEEEEE`; ours is
-one step lighter, because a card carries three things a table row does not — a patterned spine, a
-carry-over dashed border and a desaturated Cancelled state — and `#EEEEEE` under all three muddies
-them. `#F5F5F5` keeps the family resemblance and stays clear of the `#EEEEEE` used for blocked drop
-targets and drag placeholders.
+one step lighter, because a card carries two things a table row does not — a patterned spine and a
+desaturated Cancelled state — and `#EEEEEE` under both muddies them. `#F5F5F5` keeps the family
+resemblance and stays clear of the `#EEEEEE` used for blocked drop targets and drag placeholders.
 
-Striping is by **position in the rendered list within a band**, not by record id, and **carry-over
-cards are excluded from the alternation** (they have their own `#FAFAFA` fill).
+Striping is by **position in the rendered list within a band**, not by record id — every card in a
+band takes part, because every card in a band is one of that band's own records.
 
 ---
 
@@ -647,15 +646,16 @@ column that changes is the flexing name column (§6.1). Both columns must stay i
 = 544px of list
 ```
 
-544px is the list's *total*, and band chrome shares it. A realistic scroll position shows two or three
-band headers at 30px, sometimes a 32px carry-over sub-header and a 26px "new this week" divider — call
-it 60–120px of chrome. So the honest figure is:
+544px is the list's *total*, and band chrome shares it. Since every record is drawn once and there
+are no sub-headers, the only chrome inside the list is the 30px band headers — and, in a week with
+nothing in it, a 44px empty row. A realistic scroll position shows two or three headers, so 60–90px.
+The honest figure is:
 
 | Visible band chrome | Cards per column |
 | --- | --- |
 | none (one long band) | 10 |
 | two band headers (60px) | 9 |
-| two headers + both carry-over sub-headers (118px) | 8 |
+| three headers, or two plus an empty week (90px+) | 8 |
 
 **8 to 10 cards per column, so 16 to 20 across both** — against LMS's ~20 rows. That is the family
 resemblance, and it is checkable: **if Phase 3 ends up showing four cards per column, the design has
@@ -716,133 +716,108 @@ records are still live and still matchable. Past weeks are de-emphasised, not hi
 
 ---
 
-## 9. Carry-over cards
+## 9. The backlog — past bands, and where each column begins
+
+> **The Phase 2 canvas is stale on this section and was not regenerated.** Its `CarryOver` artboard,
+> and the carry-over rows visible on `WeekBands` and `Main`, show a design that no longer exists.
+> Phase 3b removed it (resolved question 17) and rewrote this section; where the canvas and this
+> document disagree, this document wins — as §0 says it always does. Nothing else on the canvas is
+> affected: the card, the meter, the spines, the strip and the geometry are unchanged.
 
 ### 9.1 The problem
 
 A Processor Space belongs to one day. An Availability record becomes available on a date and stays
 available until it is used up — so a record from three weeks ago with unmatched quantity is still
-matchable *this* week, and an operator working this week's band has to be able to see and drag it.
-Nine seeded records carry over from week 16 Aug into week 23 Aug alone.
+matchable *this* week, and an operator working this week has to be able to find it.
 
-### 9.2 Card treatment
+An earlier draft answered that by **reprinting** the record, muted, at the top of every later week.
+That was rejected: it duplicated records on screen so every total needed a double-counting guard, it
+made dragging ambiguous about which instance was picked up, and scattering one record across five
+weeks made the amount of outstanding supply impossible to read at a glance. **Do not reintroduce
+it.**
 
-A carry-over is **one line, 40px** — it is a repeat, and the full detail lives in its home band.
+### 9.2 The answer: every record once, and a backlog you scroll up into
 
-| Property | Value |
+**Every record appears exactly once**, in the band of its own date. Nothing is reprinted, echoed or
+summarised into a later week. Three things make carried-over supply findable anyway:
+
+1. **The default filters hide finished work** (§12.2) — spaces `Status = Booked`; availability
+   `Status ∈ {Booked, Pending}` with `unmatched > 0`. So whatever sits **above the current week** is
+   a genuine backlog of unfinished business rather than a history.
+2. **The leading empty bands are trimmed** (§9.3), so the top of the column is immediately
+   meaningful.
+3. **Each column opens scrolled to the top**, so the oldest outstanding record is the first thing an
+   operator sees. The list reads as a priority order before it reads as a calendar, and nothing
+   scrolls to "today".
+
+The **height of the region above the current week is the signal**: it shows at a glance how much
+unfinished supply has accumulated. As records are matched and confirmed they fall out of the default
+filter, and the backlog burns down.
+
+Two consequences, both deliberate — do not "fix" either:
+
+- **There is no horizon cap.** A record never matched and never cancelled stays at the top
+  indefinitely and the column grows upward without limit. Outstanding supply *should* nag; cancelling
+  the record is the intended remedy. No cut-off, no "archive older than N weeks".
+- **The `unmatched > 0` clause stays.** It drops more than Confirmed records: a `Pending` record with
+  all its supply allocated but some matches unconfirmed also leaves the column. On a *matching*
+  screen that is right — there is nothing left to match. The backlog means "supply still to
+  allocate", not "everything unfinished".
+
+### 9.3 Where the list begins — trimmed per column
+
+**Each column starts at the week of its own earliest surviving record.** The leading run of bands
+with nothing in *that* column is not rendered.
+
+| Rule | Why |
 | --- | --- |
-| Height | 40px |
-| Background | `#FAFAFA` |
-| Border | 1px **dashed** `#BDBDBD` as an `outline` at `outline-offset: -3px`, inset inside the row |
-| Left edge | **its own true status spine, unchanged** (§3.1) |
-| Lead glyph | a carry/return arrow in `#9E9E9E`, before the stock-class tile |
-| Name | 13px weight **400** (not 500), `#4A4A4A` |
-| Date column | `since 17-08-26`, 11.5px `#9E9E9E`, `flex: 0 0 82px` — replaces the available-from column |
-| Meter | the same 112px block, unchanged |
-| Zebra | excluded from the alternation |
+| Each column trims **independently** | A shared start week hides a past-dated Booked space older than the earliest availability record, with nothing on screen to say so. Neither column's start may be decided by the other's data. |
+| Only the **leading** run goes | An empty week *between* two populated weeks still renders its header (§8.4): a gap in the calendar is information. Trailing weeks are left alone. |
+| The run always reaches the **current week** | The band range includes it whether or not a record falls in it, so a column whose records are all in the past still shows where "now" is. |
+| A column with **no records at all** starts at the current week | Rather than render nothing. The empty-band rows (§8.4) then say each week is empty. |
+| The trim is **recomputed, never cached** | Phase 4 filters the record lists and rebuilds the board; the first band must move forward when a filter removes the oldest record. |
 
-**The dash is on the outer border, not the left edge.** The roadmap says "muted, dashed", but a dashed
-left edge is already the Cancelled spine, and a carry-over must keep showing its own true status —
-Availability #37 carries over while Pending and must still read as Pending. This is applying the
-roadmap's scheme faithfully, not departing from it.
+**The two columns will often start at different weeks, and their rails will show different weeks at
+the same vertical position.** That is expected and correct — they scroll independently and each trims
+to its own data. **Do not add scroll synchronisation to compensate**; locking two lists of different
+lengths together would make one of them lie about which week the operator is in.
 
-**Its line 1, in full** — same 40px row, `gap: 8px`, and it deliberately does *not* align to the
-header strip, because it is not one of the band's own rows:
+The calendar itself still comes from the server (`GET /api/week-bands`): an ordered, gapless, labelled
+run of Sundays. Trimming is choosing where to start reading that array — an index, not date
+arithmetic — so no `Date` is constructed in TypeScript. Week generation must not move into the
+client.
 
-| Column | Width | Content |
-| --- | --- | --- |
-| Carry glyph | `0 0 auto` | return arrow, `#9E9E9E`, 13px |
-| Stock-class tile | `0 0 20px` | as §7 |
-| Location | `1 1 auto`, `min-width: 0` | `locationName`, 13px weight **400**, `#4A4A4A` |
-| Stock class | `0 0 96px` | `stockClass`, `#757575` |
-| Origin | `0 0 82px` | `since 17 Aug`, 11.5px, `#9E9E9E` |
-| Meter block | `0 0 112px` | §4, unchanged |
-| Chevron | `0 0 24px` | 16px glyph |
+### 9.4 A past week band
 
-There is **no line 2** and no quantity-available column: the farmer, the transaction type, the status
-word and the total available are all in the record's home band. What survives is what makes the
-decision *this* week — what it is, where from, how long it has been sitting there, and how much is
-left.
+Past bands are **de-emphasised but fully usable**. They hold live, draggable records — that is the
+entire point of the backlog — and must never read as disabled, greyed out or archived.
 
-**Expanded, a carry-over is identical to a full card expanded** (§6.2) — the same field row, the same
-sums row, the same match table, because it is the same record (§9.4). The only difference is that the
-collapsed row above the expansion is the 40px carry-over row rather than the 52px card. Do not build a
-second, reduced expansion for it.
+| Element | Past | Current | Future |
+| --- | --- | --- | --- |
+| Band top rule | 1px `#E0E0E0` | **2px `#00567E`** | 1px `#E0E0E0` |
+| Band header fill | `#F0F0F0` | `#E8F1F6` | `#F0F0F0` |
+| Band header label and meta | `#9E9E9E` | petrol, and the rail label bold | `#757575` |
+| Rail | `#F0F0F0` | `#E8F1F6` | `#FAFAFA` |
+| Rail tag | `Past` in `#9E9E9E` | `This week` in petrol | none |
+| Rail leader line | not drawn | dotted petrol | dotted petrol |
+| **The cards themselves** | **unchanged** | unchanged | unchanged |
 
-**The date label is `since 17 Aug`, not `since 17-08-26`.** Phase 3 §4.3's own example is
-"available since 10 Aug" and the band header needs the same friendlier form (§8.4), so it is one
-`NzTime` formatter serving both, shipped on the DTO. Never formatted in TypeScript.
+**De-emphasis sits on the band chrome and never on the cards** (§8.6). Fading a past card would
+collide with Cancelled's desaturation — the one treatment that legitimately drains a card — and would
+suggest the record is no longer actionable when it is the most actionable thing on the screen.
 
-### 9.3 Grouping, and the recommendation
+There is no separate "backlog" heading, divider or summary strip. The `Past` tag on the rail and the
+2px petrol rule opening the current week are the only markers, and they are enough: everything above
+that rule is the backlog.
 
-Carry-overs are grouped at the top of the band under their own sub-header, above the band's native
-cards (Phase 3, 4.7):
+### 9.5 Under filters (Phase 4)
 
-```
-┌ 32px ─────────────────────────────────────────────────────────┐
-│ ▸ ↩ CARRIED OVER (9) — still available from earlier weeks, …  │  #FAFAFA
-├───────────────────────────────────────────────────────────────┤
-│ …carry-over cards, when expanded…                             │
-├ 26px ─────────────────────────────────────────────────────────┤
-│ NEW THIS WEEK (7)                                             │  #FAFAFA
-├───────────────────────────────────────────────────────────────┤
-│ …the band's own cards…                                        │
-└───────────────────────────────────────────────────────────────┘
-```
-
-Sub-header: 32px, `#FAFAFA`, 1px `#E0E0E0` bottom rule, chevron + carry glyph + micro-caps count.
-`New this week` divider: 26px, same treatment, count only, and it renders **only when carry-overs are
-present** — otherwise the band's cards start straight after the band header.
-
-**The proposal, and the better answer.** The phase document asks for the concept as a proposal with
-reasoning, and for any alternative found while designing. Both are on artboard 4:
-
-- **Proposal A**, as specced: repeat every carried-over record. Everything matchable is on screen and
-  draggable with no extra click. *Tradeoff:* at nine records, 360px of repeats push the week's own
-  work off the screen, and the clutter grows with exactly the records that matter least.
-- **Proposal B**: no repetition, one 32px summary strip per band —
-  `▸ 6 records still available from earlier weeks · 1,240 head`. One line instead of nine, and the
-  band's own cards are unambiguously new. *Tradeoff:* the stock is a click away, and a collapsed strip
-  cannot be a drop target — in the exact case where the operator most wants to clear old stock.
-
-> **Ship both: they are the same component in two states.** Proposal B *is* Proposal A collapsed —
-> same sub-header, same chevron, same group. Build one component with a collapse toggle, persisted per
-> band and per column, and pick the **opening** state from the count.
-
-**Constants Phase 3 must name and export:**
-
-```ts
-/** Carry-overs render expanded at or below this count, collapsed above it. */
-export const CARRY_OVER_EXPAND_LIMIT = 4;
-
-/** Weeks forward of the current week that a carry-over may still appear in. */
-export const CARRY_OVER_HORIZON_WEEKS = 4;
-```
-
-- `CARRY_OVER_EXPAND_LIMIT = 4` — small carry-overs stay visible and draggable for free; a
-  nine-record pile-up defers to the week's own work until asked for. It also lets Mark A/B the two
-  proposals at runtime rather than in another design pass, which is the point: this is the display he
-  expects to iterate on.
-- `CARRY_OVER_HORIZON_WEEKS = 4`, counted forward from the current week, and **carry-overs never
-  render in a band before the current week** — a record cannot be carried over into the past. Four
-  weeks covers the seeded span and APG's booking window; past that, a record still holding stock is a
-  data-quality problem, not a matching opportunity.
-
-### 9.4 Identity — the rule that must not break
-
-A carry-over is **the same record, not a copy**. Expanding one shows the same matches; dragging one
-creates a match against the same record; and **it never counts in a band meta, a column count, or any
-total** (Phase 3, 4.6; Phase 4, 7.2). Carry-overs vanish from later bands the moment `unmatched`
-reaches zero — a visible, satisfying confirmation that a drag worked (Phase 5, 4.4).
-
-### 9.5 Under filters
-
-- A record excluded by a filter must **not** reappear as a carry-over. The filter applies to the
-  record, and a carry-over is the same record.
-- **A week filter is the exception.** Filtering to week 23 Aug must still show the carry-overs
-  matchable in it, because those records are precisely what makes that view correct. **The week filter
-  selects bands; every other filter selects records.** State this rule in the Phase 4 code and its
-  build-log entry — it is easy to get subtly wrong and hard to notice.
+- The trim is computed from the **currently visible** records, so filtering the oldest record out
+  moves the column's first band forward. Both columns re-trim independently on every filter change.
+- **The availability column has no "week commencing" filter.** Filtering supply to a single week
+  would hide exactly the older unmatched records the backlog exists to surface. Processor Spaces keep
+  theirs, because a delivery date genuinely is a single-week event.
+- A record excluded by a filter is simply not drawn. There is no second place it could appear.
 
 ---
 
@@ -853,7 +828,7 @@ reaches zero — a visible, satisfying confirmation that a drag worked (Phase 5,
 | **Card hover** | background `#F5F9FB`, `cursor: grab`, a six-dot grab glyph appears left of the chevron. **Nothing resizes** — a growing row makes a list of ten cards jitter under the pointer. |
 | **Card active / pressed** | background `#EEEEEE`, no movement |
 | **Dragging (CDK preview)** | **1:1 scale** — no tilt, no shrink; the operator is aiming at a 52px row and a transformed preview lies about where the pointer is. `0 8px 16px rgba(0,0,0,.24)` + `2px solid #00567E` outline, `cursor: grabbing`. Escape cancels. |
-| **Drag placeholder** (the gap left behind) | a flat `#EEEEEE` silhouette at the **same 52px height**, carrying the record name at 55% opacity. Same height matters: the list must not reflow mid-drag. **Not a dashed outline** — dashed already means Cancelled and carry-over. |
+| **Drag placeholder** (the gap left behind) | a flat `#EEEEEE` silhouette at the **same 52px height**, carrying the record name at 55% opacity. Same height matters: the list must not reflow mid-drag. **Not a dashed outline** — dashed already means Cancelled. |
 | **Valid drop target** | `2px solid #00567E` outline inset, background `#E8F1F6`, a `+` badge left of the chevron. The whole opposite column also takes a `#F6FAFC` wash the moment a drag starts. |
 | **Invalid target — same column** | **nothing changes at all.** No outline, no shake, no message. Dropping within a column is a no-op by specification (Phase 5, 1.3), and an error for a gesture that simply does not apply teaches an operator to fear the screen. The only cue is `cursor: no-drop`. |
 | **Blocked target — no unmatched quantity** | background `#EEEEEE`, a `block` glyph, `cursor: not-allowed`, `matTooltip="No unmatched quantity"`. Distinct from the same-column case because here the gesture *would* apply — the record is simply full. |
@@ -1007,9 +982,11 @@ Each column owns its own controls, so a filter can never be ambiguous about whic
   value without being opened. Selected chips: `#E8F1F6` fill, 1px petrol, petrol text.
 - **More** opens a second row of `appearance="fill"` selects for the rest of Phase 4's field list:
   demand `Processor · Plant · Delivery week (W.C.) · Sort by · Has unmatched quantity`; supply
-  `Location (searchable, 299) · Transaction type · Available-from week (W.C.) · Sort by ·
-  Unmatched quantity`. When open, the chip reads `More (2) ▴` with the count of active filters
-  inside it.
+  `Location (searchable, 299) · Transaction type · Sort by · Unmatched quantity`. When open, the chip
+  reads `More (2) ▴` with the count of active filters inside it.
+- **The supply side has no week filter, deliberately** (§9.5, resolved question 17). Filtering supply
+  to one week would hide the older unmatched records the backlog exists to surface. Demand keeps its
+  `Delivery week`, because a delivery date genuinely is a single-week event.
 - **Sort** is right-aligned micro-caps with a direction glyph. Sorting operates **within** bands.
 - **Plant narrows to the chosen processor**, and the **demand stock-class list narrows to that
   processor's own vocabulary** — the demand lists are processor-specific. The supply side never offers
@@ -1027,8 +1004,8 @@ filtered out.
 
 ### 12.3 Counts, and away-from-default
 
-- The count lives in the column header in micro-caps: `showing 44 of 50`. **Carry-overs never inflate
-  it.**
+- The count lives in the column header in micro-caps: `showing 44 of 50`. Every record is drawn once,
+  so the shown figure is a straight count of what is on screen.
 - A column away from its defaults grows two things in its header: a `Filtered` chip in
   `$lms-attention-ink` (`#5C5F62` border and text, info glyph) and an explicit `Reset` text button.
   **No hidden or timed resets.** The chip is deliberately **hueless** — "you have filtered this column"
@@ -1093,7 +1070,6 @@ own: "Quantity Matched", never `matchedExclDraft`.
 | Cancellation reasons | `Change from Agent/Farmer` · `Change from Processor` · `Internal decision by APG` |
 | Column counts | `showing 44 of 50` |
 | Away from default | `Filtered` / `Reset` |
-| Carry-over group | `Carried over (9)` · `New this week (7)` · `since 17-08-26` |
 | Band header | `Week of 23 Aug` |
 | Empty value | `-` |
 | Confirm-space reason when disabled | `Needs at least one confirmed match and no drafts` |
@@ -1187,8 +1163,9 @@ tooling — is carried straight from the screenshots.
 - [ ] Stock-class tiles with the species shapes and the fallback (§7). CSV hex colours **not** used.
 - [ ] A `NzTime` formatter added in C# for `Week of 23 Aug` and shipped on the DTO — no date formatting
       in TypeScript, and no `new Date()` from an ISO value.
-- [ ] `CARRY_OVER_EXPAND_LIMIT` and `CARRY_OVER_HORIZON_WEEKS` exported as named constants.
-- [ ] Carry-overs excluded from every count and total; identical record identity, not copies.
+- [ ] Every record drawn exactly once, in the band of its own date (§9.2).
+- [ ] Each column trimmed to the week of its own earliest record, interior empty bands kept (§9.3).
+- [ ] Both columns open scrolled to the top.
 - [ ] Every number on every card read straight from the DTO. No domain arithmetic in `web/`.
 - [ ] The 40px filter row is **reserved** even though Phase 4 fills it (§8.3), so the measured density
       is the shipped density.
@@ -1197,4 +1174,3 @@ tooling — is carried straight from the screenshots.
       interchangeable (§16, item 9).
 - [ ] Both match tables carry a Transport column, and sit in an `overflow-x: auto` wrapper so a long
       farmer-and-location value scrolls rather than widening the card.
-- [ ] A carry-over expands to the *same* expansion as a full card — not a reduced one (§9.2).

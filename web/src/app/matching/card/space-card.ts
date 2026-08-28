@@ -29,9 +29,6 @@ export class SpaceCard {
 
   readonly space = input.required<ProcessorSpaceDto>();
 
-  /** Which band this card sits in. Part of the expansion key, so each card expands on its own. */
-  readonly bandWeek = input.required<string>();
-
   /** Position in the rendered list within the band — the zebra stripe is positional. */
   readonly zebra = input(false);
 
@@ -53,11 +50,9 @@ export class SpaceCard {
 
   readonly matchesLabel = computed(() => matchCountLabel(this.space().matches.length));
 
-  readonly expanded = computed(() =>
-    this.state.isExpanded('demand', this.space().id, this.bandWeek()),
-  );
+  readonly expanded = computed(() => this.state.isExpanded('demand', this.space().id));
 
   toggle(): void {
-    this.state.toggleExpanded('demand', this.space().id, this.bandWeek());
+    this.state.toggleExpanded('demand', this.space().id);
   }
 }

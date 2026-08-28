@@ -76,14 +76,14 @@ export interface MatchDto {
 /**
  * One week of the banded timeline both columns are drawn on.
  *
- * This arrives from the server for the same reason every other date does: an empty week still renders
- * its header, and a week with no records in it cannot supply its own name. Building the sequence here
- * would mean adding seven days to an ISO string. With the ordered array in hand, banding is string
- * equality on `weekCommencing` and carry-over placement is a comparison of positions in it — no `Date`
- * is ever constructed and no day arithmetic is ever done.
+ * This arrives from the server for the same reason every other date does: an interior empty week
+ * still renders its header, and a week with no records in it cannot supply its own name. Building the
+ * sequence here would mean adding seven days to an ISO string. With the ordered array in hand,
+ * banding is string equality on `weekCommencing` and trimming each column's leading empty weeks is a
+ * slice of it — no `Date` is ever constructed and no day arithmetic is ever done.
  *
  * It deliberately carries no record ids: a record's week is on the record, and a second home for that
- * membership is exactly what would let a carry-over become a copy rather than the same record.
+ * membership would be a second place its identity lives.
  */
 export interface WeekBandDto {
   /** ISO `yyyy-MM-dd` Sunday, and the band's identity. Compare as a string; never parse it. */
@@ -144,7 +144,13 @@ export interface LivestockAvailabilityDto {
   /** ISO `yyyy-MM-dd`. Render `availableFromLabel` instead. */
   readonly availableFrom: string;
   readonly availableFromLabel: string;
-  /** The prose form — `17 Aug`. The carry-over card reads `since {{ availableFromShortLabel }}`. */
+  /**
+   * The prose form — `17 Aug`, beside the `dd-MM-yy` one.
+   *
+   * Nothing renders it today — Phase 3b removed the one row that did. Kept on the contract
+   * deliberately: dropping it is a wire-format change for no gain, and a compact date is exactly what
+   * a Phase 4 filter chip would want.
+   */
   readonly availableFromShortLabel: string;
   readonly availabilityDetails: string | null;
   readonly transactionType: TransactionType;

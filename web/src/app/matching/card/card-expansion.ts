@@ -8,10 +8,9 @@ import { matchStatusIcon, quantityClass, transactionTypeLabel } from './card-chr
  * What opens below a card: the fields that did not fit, both matched sums, and an LMS table of the
  * record's matches.
  *
- * **One component serves the full card and the carry-over row.** A carry-over is the same record, so
- * its expansion is identical — same fields, same sums, same matches — and the only difference is that
- * the collapsed row above it is 40px rather than 52px. There is deliberately no second, reduced
- * expansion (design-system.md 9.2).
+ * **One component serves both sides.** The demand and supply expansions differ only in which DTO
+ * fields fill which cells and in the counterparty column of the match table, so a single component
+ * keeps them structurally identical the way _card-geometry.scss keeps the collapsed rows identical.
  *
  * The collapsed row stays exactly where it is and this opens beneath it, so nothing above the pointer
  * moves (Phase 3, 5.2).

@@ -1,9 +1,9 @@
 // The matching screen's geometry, in one file because it has to agree in several.
 //
 // design-system.md 6.1 requires the line-1 column widths to be IDENTICAL on both sides and the
-// micro-cap header strip to match them EXACTLY. That is three templates (space card, availability
-// card, header strip) plus the carry-over row, and a width duplicated four times is a width that
-// drifts. Everything dimensional lives here; the cards only decide what goes in each column.
+// micro-cap header strip to match them EXACTLY. That is three templates — space card, availability
+// card, header strip — and a width duplicated three times is a width that drifts. Everything
+// dimensional lives here; the cards only decide what goes in each column.
 //
 // Two numbers are load-bearing and appear in more than one place on purpose:
 //   * the 112px meter block equals the header strip's Unmatched cell — if they differ the columns
@@ -19,11 +19,8 @@ $rail-width: 48px;
 $spine-width: 6px;
 $spine-width-booked: 3px;
 $card-height: 52px; // including its 1px bottom rule
-$carry-over-height: 40px;
 $header-strip-height: 28px;
 $band-header-height: 30px;
-$carry-over-sub-header-height: 32px;
-$new-this-week-height: 26px;
 $column-header-height: 40px;
 $filter-row-height: 40px; // reserved by Phase 3, filled by Phase 4
 $search-strip-height: 52px; // likewise
@@ -38,7 +35,6 @@ $col-date: 50px;
 $col-quantity: 40px;
 $col-meter-block: 112px; // 66 meter + 6 gap + 40 numeral
 $col-chevron: 24px;
-$col-carry-origin: 82px; // replaces the date column on a carry-over row
 
 // --- the meter's own parts ---
 $meter-track-width: 66px;

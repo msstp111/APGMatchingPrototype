@@ -1,13 +1,13 @@
 import { buildBoard } from './matching-board';
-import { CARRY_OVER_HORIZON_WEEKS } from './carry-over';
 import { anAvailability, aSpace, weeks } from '../testing/dto-fixtures';
 
 /**
- * The carry-over rule, which is the reason Phase 3 stands alone.
+ * `buildBoard` places every record in exactly one band and decides where each column's list starts.
  *
- * An availability record appears in full in its home week band, then reappears — visually demoted — at
- * the top of every later band while it still has unmatched quantity. It is **the same record**, not a
- * copy, and it must never double-count in any total or count on the screen.
+ * The trim is the part worth testing hard. Each column begins at the week of its **own** earliest
+ * surviving record, because a start week shared with the other column would hide a past-dated space
+ * older than the earliest availability record with nothing on screen to say so. Only the leading run
+ * of empty bands goes: a gap between two populated weeks is information.
  *
  * `buildBoard` is pure, so all of that is checkable here rather than by eye in a browser.
  */
@@ -23,30 +23,22 @@ describe('buildBoard', () => {
       const space = aSpace({ weekCommencing: homeWeek });
       const board = buildBoard(bands(), [space], []);
 
-      const bandsWithIt = board.bands.filter((b) => b.spaces.includes(space));
+      const bandsWithIt = board.demand.filter((b) => b.spaces.includes(space));
 
       expect(bandsWithIt).toHaveLength(1);
       expect(bandsWithIt[0].week.weekCommencing).toBe(homeWeek);
     });
 
-    /**
-     * A space belongs to one delivery day, so it never carries over. Only supply persists: stock stays
-     * available until it is used up, a slot on a Thursday does not.
-     */
-    it('never carries a space over, however much of it is unfilled', () => {
-      const board = buildBoard(bands(), [aSpace({ weekCommencing: homeWeek, unmatched: 100 })], []);
-
-      expect(board.bands.every((b) => b.carryOver.length === 0)).toBe(true);
-    });
-
-    it('gives an availability record exactly one native band', () => {
-      const record = anAvailability({ weekCommencing: homeWeek });
+    it('gives an availability record exactly one band and never repeats it', () => {
+      const record = anAvailability({ weekCommencing: '2026-08-16', unmatched: 40 });
       const board = buildBoard(bands(), [], [record]);
 
-      const native = board.bands.filter((b) => b.availability.includes(record));
+      // Unmatched stock from an earlier week stays in its own band. Phase 3 reprinted it into every
+      // later band; resolved question 17 replaced that with the backlog, found by scrolling up.
+      const drawn = board.supply.filter((b) => b.availability.includes(record));
 
-      expect(native).toHaveLength(1);
-      expect(native[0].week.weekCommencing).toBe(homeWeek);
+      expect(drawn).toHaveLength(1);
+      expect(drawn[0].week.weekCommencing).toBe('2026-08-16');
     });
 
     it('preserves the server order within a band', () => {
@@ -54,17 +46,7 @@ describe('buildBoard', () => {
       const second = aSpace({ id: 2, weekCommencing: homeWeek });
       const board = buildBoard(bands(), [first, second], []);
 
-      expect(board.bands[CURRENT].spaces.map((s) => s.id)).toEqual([1, 2]);
-    });
-
-    it('keeps every band, including the ones nothing falls in', () => {
-      const board = buildBoard(bands(), [aSpace({ weekCommencing: homeWeek })], []);
-
-      // Requirement 1.6: an empty week is information. Six in, six out.
-      expect(board.bands).toHaveLength(6);
-      expect(board.bands.map((b) => b.week.weekCommencing)).toEqual(
-        bands().map((b) => b.weekCommencing),
-      );
+      expect(board.demand[0].spaces.map((s) => s.id)).toEqual([1, 2]);
     });
 
     it('reports nothing unplaced when every record has a band', () => {
@@ -87,123 +69,138 @@ describe('buildBoard', () => {
       const board = buildBoard(bands(), [], [orphan]);
 
       expect(board.unplaced).toEqual([orphan]);
-      expect(board.bands.every((b) => b.availability.length === 0)).toBe(true);
+      expect(board.supply.every((b) => b.availability.length === 0)).toBe(true);
     });
   });
 
-  describe('carry-over identity', () => {
-    /**
-     * The whole phase turns on this. Not a deep-equal copy — the same object, so expanding a carry-over
-     * shows the same matches by construction, and Phase 5's drag hits the same record.
-     */
-    it('carries over the very same object as the home band holds', () => {
-      const record = anAvailability({ weekCommencing: '2026-08-16', unmatched: 40 });
-      const board = buildBoard(bands(), [], [record]);
+  describe('the leading trim', () => {
+    it('starts each column at the week of its own earliest record', () => {
+      const board = buildBoard(
+        bands(),
+        [aSpace({ weekCommencing: '2026-08-16' })],
+        [anAvailability({ weekCommencing: homeWeek })],
+      );
 
-      const home = board.bands[2].availability[0];
-      const repeats = board.bands.filter((b) => b.carryOver.length > 0);
-
-      expect(repeats.length).toBeGreaterThan(0);
-      expect(Object.is(home, record)).toBe(true);
-
-      for (const band of repeats) {
-        expect(Object.is(band.carryOver[0], record)).toBe(true);
-      }
-    });
-
-    it('shows the same matches on the repeat as on the home card, because they are one object', () => {
-      const record = anAvailability({ weekCommencing: '2026-08-16', unmatched: 40 });
-      const board = buildBoard(bands(), [], [record]);
-
-      const repeat = board.bands[CURRENT].carryOver[0];
-
-      expect(repeat.matches).toBe(board.bands[2].availability[0].matches);
-    });
-  });
-
-  describe('carry-over placement', () => {
-    it('does not repeat a record in its own home band', () => {
-      const record = anAvailability({ weekCommencing: homeWeek, unmatched: 40 });
-      const board = buildBoard(bands(), [], [record]);
-
-      expect(board.bands[CURRENT].carryOver).toEqual([]);
+      expect(board.demand[0].week.weekCommencing).toBe('2026-08-16');
+      expect(board.supply[0].week.weekCommencing).toBe(homeWeek);
     });
 
     /**
-     * A record cannot be carried over into the past. Its home band is week 9 Aug, two weeks before the
-     * current one, and the weeks between are gone — repeating it there would invite an operator to
-     * match stock into a week that has already happened.
+     * The reason the two columns no longer share one list. A Booked space three weeks older than
+     * every availability record is exactly the record a shared start week would swallow.
      */
-    it('never places a carry-over before the current week', () => {
-      const record = anAvailability({ weekCommencing: '2026-08-09', unmatched: 40 });
-      const board = buildBoard(bands(), [], [record]);
+    it('shows a past-dated space that is older than every availability record', () => {
+      const old = aSpace({ id: 9, weekCommencing: '2026-08-02' });
+      const board = buildBoard(bands(), [old], [anAvailability({ weekCommencing: homeWeek })]);
 
-      expect(board.bands[0].carryOver).toEqual([]);
-      expect(board.bands[1].carryOver).toEqual([]);
-      expect(board.bands[2].carryOver).toEqual([]);
-      expect(board.bands[CURRENT].carryOver).toHaveLength(1);
+      expect(board.demand[0].week.weekCommencing).toBe('2026-08-02');
+      expect(board.demand[0].spaces).toEqual([old]);
+      expect(board.supply[0].week.weekCommencing).toBe(homeWeek);
     });
 
-    it('starts at the band after home when home is in the future', () => {
-      // Home is 30 Aug, one week ahead of the current 23 Aug. The repeat starts at 6 Sep, and the
-      // current week — which is BEFORE the record exists — gets nothing.
-      const record = anAvailability({ weekCommencing: '2026-08-30', unmatched: 40 });
-      const board = buildBoard(bands(), [], [record]);
+    it('trims neither column by what the other one holds', () => {
+      const spacesOnly = buildBoard(bands(), [aSpace({ weekCommencing: '2026-08-09' })], []);
+      const withSupply = buildBoard(
+        bands(),
+        [aSpace({ weekCommencing: '2026-08-09' })],
+        [anAvailability({ weekCommencing: '2026-09-06' })],
+      );
 
-      expect(board.bands[CURRENT].carryOver).toEqual([]);
-      expect(board.bands[4].carryOver).toEqual([]);
-      expect(board.bands[5].carryOver).toHaveLength(1);
+      expect(withSupply.demand[0].week.weekCommencing).toBe(
+        spacesOnly.demand[0].week.weekCommencing,
+      );
     });
 
-    it('stops at the horizon rather than repeating forever', () => {
-      // Nine bands from the current week, and a horizon of four.
-      const many = weeks(0, 8);
-      const record = anAvailability({ weekCommencing: many[0].weekCommencing, unmatched: 40 });
-      const board = buildBoard(many, [], [record]);
+    it('never hides a record: every one is still drawn in the trimmed run', () => {
+      const spaces = [
+        aSpace({ id: 1, weekCommencing: '2026-08-02' }),
+        aSpace({ id: 2, weekCommencing: '2026-09-06' }),
+      ];
+      const records = [
+        anAvailability({ id: 1, weekCommencing: '2026-08-16' }),
+        anAvailability({ id: 2, weekCommencing: homeWeek }),
+      ];
 
-      const repeated = board.bands
-        .map((b, i) => ({ i, count: b.carryOver.length }))
-        .filter((b) => b.count > 0)
-        .map((b) => b.i);
+      const board = buildBoard(bands(), spaces, records);
 
-      expect(repeated).toEqual([1, 2, 3, 4]);
-      expect(repeated).toHaveLength(CARRY_OVER_HORIZON_WEEKS);
+      expect(board.demand.flatMap((b) => b.spaces).map((s) => s.id)).toEqual([1, 2]);
+      expect(board.supply.flatMap((b) => b.availability).map((a) => a.id)).toEqual([1, 2]);
     });
 
-    it('stops carrying over the moment the record is fully matched', () => {
-      const record = anAvailability({ weekCommencing: '2026-08-16', unmatched: 0 });
-      const board = buildBoard(bands(), [], [record]);
+    it('keeps an empty week that sits between two populated ones', () => {
+      const board = buildBoard(
+        bands(),
+        [
+          aSpace({ id: 1, weekCommencing: '2026-08-16' }),
+          aSpace({ id: 2, weekCommencing: '2026-08-30' }),
+        ],
+        [],
+      );
 
-      // Still in its home band — a fully matched record is history worth seeing in its own week.
-      expect(board.bands[2].availability).toHaveLength(1);
-      expect(board.bands.every((b) => b.carryOver.length === 0)).toBe(true);
+      // 16 Aug, then the empty 23 Aug, then 30 Aug — a gap in the calendar is information.
+      expect(board.demand.map((b) => b.week.weekCommencing)).toEqual([
+        '2026-08-16',
+        '2026-08-23',
+        '2026-08-30',
+        '2026-09-06',
+      ]);
+      expect(board.demand[1].spaces).toEqual([]);
     });
 
     /**
-     * Over-committed supply is a bug indicator rather than a matching opportunity, and a negative
-     * unmatched figure means there is nothing left to offer. Repeating it would invite an operator to
-     * commit stock that is already over-committed.
+     * Requirement 2.6. The band range always includes the current week, so a column whose records
+     * are all in the past still runs through to it and shows where "now" is.
      */
-    it('does not carry over a record whose unmatched figure is negative', () => {
-      const record = anAvailability({
-        weekCommencing: '2026-08-16',
-        unmatched: -5,
-        quantityState: 'Over',
-      });
-      const board = buildBoard(bands(), [], [record]);
+    it('runs through the current week when every record is in the past', () => {
+      const board = buildBoard(bands(), [aSpace({ weekCommencing: '2026-08-09' })], []);
 
-      expect(board.bands.every((b) => b.carryOver.length === 0)).toBe(true);
+      expect(board.demand[0].week.weekCommencing).toBe('2026-08-09');
+      expect(board.demand.some((b) => b.week.isCurrentWeek)).toBe(true);
     });
 
-    it('carries nothing over when no band is the current week', () => {
-      // Defensive: the server always includes the current week, so currentIndex is never -1. If that
-      // ever changes, no carry-over is a safer failure than every carry-over in the wrong place.
-      const noCurrent = weeks(-1);
-      const record = anAvailability({ weekCommencing: '2026-08-16', unmatched: 40 });
-      const board = buildBoard(noCurrent, [], [record]);
+    it('starts an empty column at the current week rather than rendering nothing', () => {
+      const board = buildBoard(bands(), [], [anAvailability({ weekCommencing: homeWeek })]);
 
-      expect(board.bands.every((b) => b.carryOver.length === 0)).toBe(true);
-      expect(board.bands[2].availability).toHaveLength(1);
+      expect(board.demand[0].week.isCurrentWeek).toBe(true);
+      expect(board.demand.every((b) => b.spaces.length === 0)).toBe(true);
+    });
+
+    it('falls back to the current week for both columns when there is nothing at all', () => {
+      const board = buildBoard(bands(), [], []);
+
+      expect(board.demand[0].week.isCurrentWeek).toBe(true);
+      expect(board.supply[0].week.isCurrentWeek).toBe(true);
+      expect(board.unplaced).toEqual([]);
+    });
+
+    /**
+     * Phase 4 filters `buildBoard`'s inputs and calls it again. The trim point is computed from the
+     * records it is handed, never cached, so removing the oldest record moves the first band forward.
+     */
+    it('recomputes the start week when the input list changes', () => {
+      const old = aSpace({ id: 1, weekCommencing: '2026-08-02' });
+      const recent = aSpace({ id: 2, weekCommencing: homeWeek });
+
+      expect(buildBoard(bands(), [old, recent], []).demand[0].week.weekCommencing).toBe(
+        '2026-08-02',
+      );
+      expect(buildBoard(bands(), [recent], []).demand[0].week.weekCommencing).toBe(homeWeek);
+    });
+
+    it('leaves trailing empty weeks alone', () => {
+      const board = buildBoard(bands(), [aSpace({ weekCommencing: '2026-08-30' })], []);
+
+      expect(board.demand.map((b) => b.week.weekCommencing)).toEqual(['2026-08-30', '2026-09-06']);
+    });
+
+    it('hands both columns the same band objects, so nothing can drift between them', () => {
+      const board = buildBoard(
+        bands(),
+        [aSpace({ weekCommencing: '2026-08-02' })],
+        [anAvailability({ weekCommencing: '2026-08-02' })],
+      );
+
+      expect(Object.is(board.demand[0], board.supply[0])).toBe(true);
     });
   });
 
@@ -218,7 +215,7 @@ describe('buildBoard', () => {
         [anAvailability({ id: 1, weekCommencing: homeWeek, quantityAvailable: 90 })],
       );
 
-      const meta = board.bands[CURRENT].meta;
+      const meta = board.demand[0].meta;
 
       expect(meta.spaceCount).toBe(2);
       expect(meta.spaceHead).toBe(350);
@@ -226,78 +223,41 @@ describe('buildBoard', () => {
       expect(meta.availabilityHead).toBe(90);
     });
 
-    /**
-     * The one plausible double-count on this design: a carried-over record is already counted in its
-     * home band, so counting it again in every later band would inflate every total on the screen.
-     */
-    it('leaves a band’s own totals untouched by the carry-overs sitting above them', () => {
-      const carried = anAvailability({
-        id: 1,
-        weekCommencing: '2026-08-16',
-        quantityAvailable: 90,
-        unmatched: 40,
-      });
-      const native = anAvailability({
-        id: 2,
-        weekCommencing: homeWeek,
-        quantityAvailable: 25,
-        unmatched: 25,
-      });
-
-      const board = buildBoard(bands(), [], [carried, native]);
-      const meta = board.bands[CURRENT].meta;
-
-      expect(board.bands[CURRENT].carryOver).toHaveLength(1);
-      expect(meta.availabilityCount).toBe(1);
-      expect(meta.availabilityHead).toBe(25);
-    });
-
-    it('rolls the carry-over strip up on unmatched, not on quantity available', () => {
-      // What is left is the only figure that matters this week; the original quantity is history.
+    it('reports zeroes for an empty band rather than omitting the figures', () => {
       const board = buildBoard(
         bands(),
-        [],
         [
-          anAvailability({ id: 1, weekCommencing: '2026-08-16', quantityAvailable: 90, unmatched: 40 }),
-          anAvailability({ id: 2, weekCommencing: '2026-08-16', quantityAvailable: 60, unmatched: 15 }),
+          aSpace({ id: 1, weekCommencing: '2026-08-16' }),
+          aSpace({ id: 2, weekCommencing: '2026-08-30' }),
         ],
+        [],
       );
 
-      const meta = board.bands[CURRENT].meta;
+      const empty = board.demand[1].meta;
 
-      expect(meta.carryOverCount).toBe(2);
-      expect(meta.carryOverHead).toBe(55);
+      expect(empty.spaceCount).toBe(0);
+      expect(empty.spaceHead).toBe(0);
+      expect(empty.availabilityCount).toBe(0);
+      expect(empty.availabilityHead).toBe(0);
     });
 
-    it('reports zeroes for an empty band rather than omitting the figures', () => {
-      const meta = buildBoard(bands(), [], []).bands[0].meta;
-
-      expect(meta.spaceCount).toBe(0);
-      expect(meta.spaceHead).toBe(0);
-      expect(meta.carryOverHead).toBe(0);
-    });
-  });
-
-  describe('totals across the whole board', () => {
     /**
-     * The guarantee the screen rests on: however many times a record is drawn, it is counted once.
+     * Every record is drawn once, so the board's totals are the input's totals. Phase 3 needed a
+     * guard against double-counting repeats; this is what replaces it.
      */
     it('counts each record exactly once across every band’s meta', () => {
       const records = [
-        anAvailability({ id: 1, weekCommencing: '2026-08-09', quantityAvailable: 10, unmatched: 10 }),
-        anAvailability({ id: 2, weekCommencing: '2026-08-16', quantityAvailable: 20, unmatched: 20 }),
-        anAvailability({ id: 3, weekCommencing: homeWeek, quantityAvailable: 30, unmatched: 30 }),
+        anAvailability({ id: 1, weekCommencing: '2026-08-09', quantityAvailable: 10 }),
+        anAvailability({ id: 2, weekCommencing: '2026-08-16', quantityAvailable: 20 }),
+        anAvailability({ id: 3, weekCommencing: homeWeek, quantityAvailable: 30 }),
       ];
 
       const board = buildBoard(bands(), [], records);
-      const totalCount = board.bands.reduce((t, b) => t + b.meta.availabilityCount, 0);
-      const totalHead = board.bands.reduce((t, b) => t + b.meta.availabilityHead, 0);
+      const totalCount = board.supply.reduce((t, b) => t + b.meta.availabilityCount, 0);
+      const totalHead = board.supply.reduce((t, b) => t + b.meta.availabilityHead, 0);
 
       expect(totalCount).toBe(3);
       expect(totalHead).toBe(60);
-
-      // And they really are being drawn more than once, or the assertion above proves nothing.
-      expect(board.bands.reduce((t, b) => t + b.carryOver.length, 0)).toBeGreaterThan(3);
     });
   });
 });

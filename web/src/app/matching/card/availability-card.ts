@@ -20,8 +20,8 @@ import {
  * status here is the *derived* one: the server works it out from the match set, and this card renders
  * the answer without knowing the rule.
  *
- * The record also appears as a 40px carry-over row in later bands while it still has unmatched stock —
- * see `carry-over-card.ts`. That is the same object, not a copy.
+ * The record is drawn here and nowhere else. A record still unmatched weeks later stays in this one
+ * band and is found by scrolling up into the backlog (resolved question 17).
  */
 @Component({
   selector: 'app-availability-card',
@@ -34,8 +34,6 @@ export class AvailabilityCard {
   private readonly state = inject(CardStateStore);
 
   readonly record = input.required<LivestockAvailabilityDto>();
-
-  readonly bandWeek = input.required<string>();
 
   readonly zebra = input(false);
 
@@ -60,11 +58,9 @@ export class AvailabilityCard {
 
   readonly matchesLabel = computed(() => matchCountLabel(this.record().matches.length));
 
-  readonly expanded = computed(() =>
-    this.state.isExpanded('supply', this.record().id, this.bandWeek()),
-  );
+  readonly expanded = computed(() => this.state.isExpanded('supply', this.record().id));
 
   toggle(): void {
-    this.state.toggleExpanded('supply', this.record().id, this.bandWeek());
+    this.state.toggleExpanded('supply', this.record().id);
   }
 }

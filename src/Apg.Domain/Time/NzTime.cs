@@ -40,10 +40,10 @@ public static class NzTime
     public const string DateLabelFormat = "dd-MM-yy";
 
     /// <summary>
-    /// The friendlier form the matching screen's week bands and carry-over cards read in — <c>16 Aug</c>,
-    /// <c>1 Sep</c>. LMS's own <see cref="DateLabelFormat"/> is right for a table of dates but wrong for
-    /// prose, and the band header and carry-over card are both prose: "Week of 16 Aug", "since 17 Aug".
-    /// One format serves both, so there is still exactly one place either string's date is formatted.
+    /// The friendlier form the matching screen's week bands read in — <c>16 Aug</c>, <c>1 Sep</c>.
+    /// LMS's own <see cref="DateLabelFormat"/> is right for a table of dates but wrong for prose, and a
+    /// band header is prose: "Week of 16 Aug". The availability DTO ships its available-from date in
+    /// this form too, so wherever a compact date is wanted there is still exactly one formatter.
     /// </summary>
     public const string ShortDateLabelFormat = "d MMM";
 

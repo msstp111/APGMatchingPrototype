@@ -56,15 +56,16 @@ public static class MatchingProjection
     /// </summary>
     /// <remarks>
     /// <para>
-    /// <b>One list serves both columns.</b> A week that is empty on the demand side but busy on the
-    /// supply side still renders on both, so the two sides stay vertically comparable and requirement
-    /// 1.6's visible gaps are visible on the side that has the gap.
+    /// <b>One calendar, trimmed per column by the client.</b> The server ships the full ordered run
+    /// because only it can name a week no record falls in; each column then starts at the week of its
+    /// own earliest record and renders every band from there, so an interior empty week keeps its
+    /// header. The two columns therefore often start at different weeks, which is intended: neither
+    /// column's start may be decided by what the other one holds.
     /// </para>
     /// <para>
-    /// The current week is folded into the range whether or not a record falls in it. That is what lets
-    /// the client treat "the index of the current band" as a value that always exists — the carry-over
-    /// rule is expressed relative to it, and an absent current week would make every carry-over a
-    /// special case.
+    /// The current week is folded into the range whether or not a record falls in it, so
+    /// <c>IsCurrentWeek</c> always has somewhere to land and a column whose records are all in the
+    /// past still shows where "now" is.
     /// </para>
     /// </remarks>
     public static IReadOnlyList<WeekBandDto> WeekBands(WorkingSet set, TimeProvider clock)

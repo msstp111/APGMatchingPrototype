@@ -30,11 +30,27 @@ public class SeedConfigurationTests
     }
 
     [Fact]
-    public void Every_processor_has_three_to_five_plants_and_at_least_fifteen_carriers_exist()
+    public void Every_processor_has_plants_and_at_least_fifteen_carriers_exist()
     {
-        Assert.All(SeedConfig.PlantsByProcessor, p => Assert.InRange(p.Plants.Length, 3, 5));
+        // The plants are APG's real ones, transcribed from Data/Plants.csv: ANZCO 7, Alliance 7,
+        // SFF 5. The original 3-to-5 bound described the invented list this replaced.
+        Assert.All(SeedConfig.PlantsByProcessor, p => Assert.InRange(p.Plants.Length, 3, 10));
         Assert.True(SeedConfig.TransportCompanies.Length >= 15);
         Assert.Equal(SeedConfig.Processors.Length, SeedConfig.PlantsByProcessor.Length);
+    }
+
+    [Fact]
+    public void The_plants_are_the_real_ones_from_the_data_folder()
+    {
+        Assert.Equal(
+            ["Canterbury", "Eltham", "Kokiri", "Manawatu", "Marlborough", "Rakaia", "Rangitikei"],
+            SeedConfig.PlantsByProcessor.First(p => p.Processor == "ANZCO").Plants);
+        Assert.Equal(
+            ["Dannevirke", "Levin", "Lorneville", "Mataura", "Nelson", "Pukeuri", "Smithfield"],
+            SeedConfig.PlantsByProcessor.First(p => p.Processor == "Alliance Group").Plants);
+        Assert.Equal(
+            ["Belfast", "Finegand", "Pacific", "Pareora", "Waitane"],
+            SeedConfig.PlantsByProcessor.First(p => p.Processor == "SFF").Plants);
     }
 
     [Fact]
