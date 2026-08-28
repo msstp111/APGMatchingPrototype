@@ -22,14 +22,6 @@ public static class SeedFixture
 
     public static SeedData Data => LazyData.Value;
 
-    /// <summary>
-    /// Sum of matched quantity excluding cancelled matches — the "incl Draft" figure. Phase 1 owns
-    /// the real implementation in <c>Apg.Domain</c>; it is restated here only because these tests
-    /// predate it, and it must not be copied anywhere outside the test project.
-    /// </summary>
-    public static int MatchedInclDraft(IEnumerable<Match> matches) =>
-        matches.Where(m => m.Status != MatchStatus.Cancelled).Sum(m => m.QuantityMatched);
-
     public static List<Match> MatchesForSpace(int spaceId) =>
         Data.Matches.Where(m => m.ProcessorSpaceId == spaceId).ToList();
 

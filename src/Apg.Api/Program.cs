@@ -1,4 +1,4 @@
-using System.Text.Json.Serialization;
+using Apg.Api.Contracts;
 using Apg.Api.Data;
 using Apg.Api.Seeding;
 using Microsoft.EntityFrameworkCore;
@@ -15,10 +15,11 @@ builder.Services.AddDbContext<ApgDbContext>(options => options.UseSqlite($"Data 
 
 builder.Services.AddSingleton(TimeProvider.System);
 builder.Services.AddScoped<DatabaseSeeder>();
+builder.Services.AddScoped<WorkingSetLoader>();
 
-// Enums go over the wire as strings so the client's own types stay readable.
-builder.Services.ConfigureHttpJsonOptions(options =>
-    options.SerializerOptions.Converters.Add(new JsonStringEnumConverter()));
+// The wire format lives in ApiJson so the serialisation tests assert against the same options the
+// host actually uses, rather than against a second copy that could drift from it.
+builder.Services.ConfigureHttpJsonOptions(options => ApiJson.Configure(options.SerializerOptions));
 
 // The Angular dev server proxies /api to this host, so requests arrive same-origin. CORS is here as
 // a belt-and-braces fallback for running the client without the proxy.
@@ -35,19 +36,15 @@ using (var scope = app.Services.CreateScope())
     await scope.ServiceProvider.GetRequiredService<DatabaseSeeder>().EnsureSeededAsync();
 }
 
-// A single read endpoint, to prove the wiring end to end. This is NOT the DTO contract: the real
-// one, carrying every computed field, is designed in Phase 1. Do not build against this shape.
-app.MapGet("/api/processor-spaces", async (ApgDbContext db) =>
-    await db.ProcessorSpaces
-        .OrderBy(s => s.DeliveryDate)
-        .ThenBy(s => s.Id)
-        .ToListAsync());
+// The two read endpoints of the DTO contract. Each returns the whole working set for its side,
+// sorted soonest-first, with every computed field already on it — both matched sums, unmatched, the
+// quantity state, the derived availability status, the confirm gate, the week-commencing Sunday, and
+// a display label beside every date. The client renders what it is given; it recomputes nothing.
+app.MapGet("/api/processor-spaces", async (WorkingSetLoader loader, CancellationToken cancellation) =>
+    MatchingProjection.ProcessorSpaces(await loader.LoadAsync(cancellation)));
 
-app.MapGet("/api/livestock-availability", async (ApgDbContext db) =>
-    await db.LivestockAvailabilities
-        .OrderBy(a => a.AvailableFrom)
-        .ThenBy(a => a.Id)
-        .ToListAsync());
+app.MapGet("/api/livestock-availability", async (WorkingSetLoader loader, CancellationToken cancellation) =>
+    MatchingProjection.LivestockAvailability(await loader.LoadAsync(cancellation)));
 
 app.MapPost("/api/dev/reset-database", async (DatabaseSeeder seeder) =>
 {

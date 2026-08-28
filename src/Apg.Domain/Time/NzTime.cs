@@ -1,7 +1,10 @@
+using System.Globalization;
+
 namespace Apg.Domain.Time;
 
 /// <summary>
-/// The one place New Zealand time is resolved and the one place a week boundary is decided.
+/// The one place New Zealand time is resolved, the one place a week boundary is decided, and the one
+/// place a business date is turned into a display string.
 /// </summary>
 /// <remarks>
 /// <para>
@@ -12,8 +15,14 @@ namespace Apg.Domain.Time;
 /// Saturday 13:00 UTC is already Sunday here.
 /// </para>
 /// <para>
-/// Phase 0 needs only the seed anchor. Phase 1 owns hardening this type and the full DST / boundary
-/// test matrix; extend it here rather than writing a second copy anywhere else.
+/// New Zealand runs two offsets — NZST is UTC+12, NZDT is UTC+13 — and it switches between them on a
+/// <em>Sunday</em>, which is also our week boundary. That coincidence is the single most likely
+/// source of an off-by-one-week error in this codebase, which is why the tests name both transition
+/// Sundays explicitly rather than trusting a happy-path week.
+/// </para>
+/// <para>
+/// This is the only home for date rules. A second copy anywhere else is the drift the roadmap
+/// forbids: extend this file.
 /// </para>
 /// </remarks>
 public static class NzTime
@@ -22,6 +31,13 @@ public static class NzTime
     /// IANA id. .NET 6+ accepts IANA ids on Windows as well as Linux, so one id serves both.
     /// </summary>
     public const string TimeZoneId = "Pacific/Auckland";
+
+    /// <summary>
+    /// The format the existing LMS app renders dates in — sampled from the Purchases screen, where
+    /// 23 August 2026 reads <c>23-08-26</c>. Formatted under the invariant culture so the machine's
+    /// locale cannot change what goes over the wire.
+    /// </summary>
+    public const string DateLabelFormat = "dd-MM-yy";
 
     private static readonly TimeZoneInfo Zone = TimeZoneInfo.FindSystemTimeZoneById(TimeZoneId);
 
@@ -43,6 +59,11 @@ public static class NzTime
         DateOnly.FromDateTime(TimeZoneInfo.ConvertTime(instant, Zone).DateTime);
 
     /// <summary>Today's date in New Zealand, according to the supplied clock.</summary>
+    /// <remarks>
+    /// A <see cref="TimeProvider"/> rather than <c>DateTime.Today</c>: a suite that reads the real
+    /// clock is flaky one day a week, and the day it is flaky is the day the New Zealand week has
+    /// already turned over while UTC has not.
+    /// </remarks>
     public static DateOnly Today(TimeProvider clock) => ToNzDate(clock.GetUtcNow());
 
     /// <summary>
@@ -53,12 +74,51 @@ public static class NzTime
     public static DateOnly CurrentWeekCommencing(TimeProvider clock) => WeekCommencing(Today(clock));
 
     /// <summary>
+    /// A business date as the client should display it — <c>dd-MM-yy</c>, matching LMS.
+    /// </summary>
+    /// <remarks>
+    /// Every DTO carrying a date carries its label too, so the client renders a string it was given
+    /// and never constructs a JavaScript <c>Date</c> from the ISO value. Doing so would reintroduce
+    /// the browser's timezone into a decision this design deliberately settles on the server.
+    /// </remarks>
+    public static string DateLabel(DateOnly date) =>
+        date.ToString(DateLabelFormat, CultureInfo.InvariantCulture);
+
+    /// <summary>
+    /// The label for the week a date falls in — the same format, applied to its Sunday. Phase 3's
+    /// band header composes its own wording around this ("Week of 23-08-26"); the date itself is
+    /// formatted here so no phase formats one in TypeScript.
+    /// </summary>
+    public static string WeekLabel(DateOnly date) => DateLabel(WeekCommencing(date));
+
+    /// <summary>
     /// A New Zealand wall-clock time on a business date, as an instant. Used for seeded audit
     /// timestamps so they too are anchored to the current week rather than to an absolute date.
     /// </summary>
+    /// <remarks>
+    /// The two daylight-saving Sundays make some local times unreal and others doubled:
+    /// <list type="bullet">
+    /// <item><description>
+    /// <b>Invalid</b> — the 02:00–03:00 that never happens on the September Sunday. There is no
+    /// instant to return, so the time is advanced past the gap to the first that does exist.
+    /// </description></item>
+    /// <item><description>
+    /// <b>Ambiguous</b> — the 02:00–03:00 that happens twice on the April Sunday. .NET's
+    /// <see cref="TimeZoneInfo.GetUtcOffset(DateTime)"/> resolves these to the <em>standard</em>
+    /// offset, i.e. the second (NZST) occurrence. That is deterministic, which is what matters here;
+    /// both occurrences fall on the same calendar date, so no week banding depends on the choice.
+    /// </description></item>
+    /// </list>
+    /// </remarks>
     public static DateTimeOffset AtNzTime(DateOnly date, TimeSpan timeOfDay)
     {
         var local = date.ToDateTime(TimeOnly.FromTimeSpan(timeOfDay), DateTimeKind.Unspecified);
+
+        while (Zone.IsInvalidTime(local))
+        {
+            local = local.AddMinutes(1);
+        }
+
         return new DateTimeOffset(local, Zone.GetUtcOffset(local));
     }
 }

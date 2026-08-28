@@ -83,4 +83,45 @@ public class DomainPurityTests
             offenders.Count == 0,
             $"{entity.Name} appears to persist a computed value: {string.Join(", ", offenders)}");
     }
+
+    /// <summary>
+    /// Ways of reading the real clock. Each of them makes "today" a property of the machine and its
+    /// timezone rather than of New Zealand, and each makes a test flaky on exactly the day the New
+    /// Zealand week has turned over while UTC has not.
+    /// </summary>
+    private static readonly string[] ForbiddenClockCalls =
+    [
+        "DateTime.Now",
+        "DateTime.Today",
+        "DateTime.UtcNow",
+        "DateTimeOffset.Now",
+        "DateTimeOffset.UtcNow",
+        "TimeProvider.System",
+    ];
+
+    /// <summary>
+    /// The acceptance criterion made mechanical. A clock is injected as a
+    /// <see cref="TimeProvider"/>; nothing in the domain reaches for the ambient one.
+    /// </summary>
+    [Fact]
+    public void No_domain_source_file_reads_the_real_clock()
+    {
+        var domainSource = Path.Combine(TestPaths.RepoRoot, "src", "Apg.Domain");
+
+        var offenders = Directory
+            .EnumerateFiles(domainSource, "*.cs", SearchOption.AllDirectories)
+            // obj/ holds generated assembly attributes, not code anyone wrote.
+            .Where(path => !path.Contains($"{Path.DirectorySeparatorChar}obj{Path.DirectorySeparatorChar}"))
+            .Select(path => (Path: path, Lines: File.ReadAllLines(path)))
+            .SelectMany(file => file.Lines.Select((line, index) => (file.Path, Line: line, Number: index + 1)))
+            // The names appear in prose in the XML docs explaining why they are absent.
+            .Where(x => !x.Line.TrimStart().StartsWith("///", StringComparison.Ordinal))
+            .Where(x => ForbiddenClockCalls.Any(call => x.Line.Contains(call, StringComparison.Ordinal)))
+            .Select(x => $"{Path.GetFileName(x.Path)}:{x.Number}")
+            .ToList();
+
+        Assert.True(
+            offenders.Count == 0,
+            $"Apg.Domain must take its clock as a TimeProvider. Real-clock reads at: {string.Join(", ", offenders)}");
+    }
 }

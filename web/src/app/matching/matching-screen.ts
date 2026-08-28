@@ -1,10 +1,10 @@
 import { ChangeDetectionStrategy, Component, inject, signal } from '@angular/core';
 import { ApiClient } from '../api/api-client';
-import { LivestockAvailabilityRecord, ProcessorSpaceRecord } from '../api/models';
+import { LivestockAvailabilityDto, ProcessorSpaceDto } from '../api/models';
 
 /**
- * Phase 0's matching screen: two labelled columns proving the client reaches the API through the
- * proxy and renders seeded data.
+ * Phase 1's matching screen: two labelled columns proving the DTO contract reaches the client intact
+ * — every figure on screen is read straight off the DTO, and this component computes nothing.
  *
  * The columns are DELIBERATELY UNSTYLED. Their visual language is Phase 2's job and Phase 3's build
  * — cards on a week-banded timeline, with carry-over cards, fill meters and status patterning. Do
@@ -19,8 +19,8 @@ import { LivestockAvailabilityRecord, ProcessorSpaceRecord } from '../api/models
 export class MatchingScreen {
   private readonly api = inject(ApiClient);
 
-  readonly spaces = signal<ProcessorSpaceRecord[]>([]);
-  readonly availability = signal<LivestockAvailabilityRecord[]>([]);
+  readonly spaces = signal<readonly ProcessorSpaceDto[]>([]);
+  readonly availability = signal<readonly LivestockAvailabilityDto[]>([]);
   readonly error = signal<string | null>(null);
 
   constructor() {

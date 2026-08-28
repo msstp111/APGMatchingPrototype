@@ -398,7 +398,7 @@ a { color: var(--accent); }
         <div class="step step-close">
           <span class="n">CLOSE 03</span>
           <h3>Your pass</h3>
-          <p>The part neither the tests nor the reviewer can do: sit in front of it and judge whether it's actually right. Every phase below carries its own checklist, aimed at what's most likely to be quietly wrong rather than at what's easy to verify. They tick off and persist.</p>
+          <p>The part neither the tests nor the reviewer can do: sit in front of it and judge whether it's actually right. Every phase below carries a checklist of things to <b>click through in the app</b> — no commands, no reading code. They tick off and persist.</p>
         </div>
       </div>
     </section>
@@ -565,17 +565,15 @@ When the build is green, close the phase in two steps. First, spawn a subagent o
 Produce a plan for my approval first.</pre>
         </div>
         <div class="checks">
-          <div class="checks-head"><span class="label">Your pass — do these before ticking the phase done</span><span class="checks-count"></span></div>
+          <div class="checks-head"><span class="label">Your pass — click through these</span><span class="checks-count"></span></div>
           <ol>
-            <li><label><input type="checkbox" data-check="p0-run"><span><b>Start both halves</b> using the commands the chat recorded in CLAUDE.md. Both come up clean and the client reaches the API.</span></label></li>
-            <li><label><input type="checkbox" data-check="p0-shell"><span><b>Put the app beside <span class="mono">LMS Purchases.png</span>.</b> Same blue, same yellow dev flag, same sidebar proportions, version string in the footer. Squint at both — if one obviously looks newer, it hasn't matched.</span></label></li>
+            <li><label><input type="checkbox" data-check="p0-shell"><span><b>Open the app beside <span class="mono">LMS Purchases.png</span>.</b> Same blue, same dev flag, same sidebar proportions, version block in the footer. Squint at both — if one obviously looks newer, it hasn't matched.</span></label></li>
             <li><label><input type="checkbox" data-check="p0-nav"><span><b>Click every sidebar item.</b> The existing ones do nothing and look <em>ordinary</em> — not greyed out. The booking module's own entry is the active one.</span></label></li>
             <li><label><input type="checkbox" data-check="p0-burger"><span><b>Click the hamburger.</b> The sidebar collapses and expands.</span></label></li>
-            <li><label><input type="checkbox" data-check="p0-data"><span><b>Open the read endpoint in a browser.</b> Plausible NZ farm names, sane quantities per species — hundreds for lamb, tens for cattle — and dates in the next few weeks, not 1970.</span></label></li>
-            <li><label><input type="checkbox" data-check="p0-det"><span><b>Delete the SQLite file and restart.</b> Hit the endpoint again: identical data. If it differs the seeder isn't deterministic, and every later demo will drift.</span></label></li>
-            <li><label><input type="checkbox" data-check="p0-cases"><span><b>Ask the chat which seeded records satisfy each case in §4.7</b> — the three-way splits, the over-filled space, the fully confirmed record — and spot-check two by eye.</span></label></li>
+            <li><label><input type="checkbox" data-check="p0-data"><span><b>Look at the two columns.</b> Both populated, with plausible NZ farm names, sane quantities per species — hundreds for lamb, tens for cattle — and dates in the next few weeks.</span></label></li>
+            <li><label><input type="checkbox" data-check="p0-width"><span><b>Resize to 1366px wide.</b> The shell holds together and the columns are both still usable.</span></label></li>
           </ol>
-          <p class="note">This phase has no real UI beyond the shell, so the shell and the data <em>are</em> the deliverable. Both are worth being fussy about now: every later phase gets judged sitting inside them.</p>
+          <p class="note">The columns are deliberately unstyled at this point — judge the shell and the data, not the content area.</p>
         </div>
       </article>
 
@@ -622,17 +620,13 @@ When the build is green, close the phase in two steps. First, spawn a subagent o
 Produce a plan for my approval first.</pre>
         </div>
         <div class="checks">
-          <div class="checks-head"><span class="label">Your pass — do these before ticking the phase done</span><span class="checks-count"></span></div>
+          <div class="checks-head"><span class="label">Your pass — very little to click here</span><span class="checks-count"></span></div>
           <ol>
-            <li><label><input type="checkbox" data-check="p1-test"><span><b>Run <span class="mono">dotnet test</span>.</b> All green. Ask for the test count and how much of it is date handling — if dates are two or three tests, push back.</span></label></li>
-            <li><label><input type="checkbox" data-check="p1-dto"><span><b>Open both read endpoints in a browser.</b> Every number a card will show is already on the DTO: both matched sums, unmatched, quantity state, week commencing, derived status, display labels.</span></label></li>
-            <li><label><input type="checkbox" data-check="p1-arith"><span><b>Add up one record's match quantities by hand.</b> That total must equal <span class="mono">matchedInclDraft</span>, and <span class="mono">matchedExclDraft</span> must be lower whenever a match is still Drafted.</span></label></li>
-            <li><label><input type="checkbox" data-check="p1-status"><span><b>Find a record where unmatched is 0 but one match is Drafted.</b> Its status must be <b>Pending</b>, not Confirmed. This is the near-miss that's easiest to get wrong.</span></label></li>
-            <li><label><input type="checkbox" data-check="p1-sunday"><span><b>Check a handful of <span class="mono">weekCommencing</span> values are genuinely Sundays</b>, and that a record dated on a Sunday has itself as its week.</span></label></li>
-            <li><label><input type="checkbox" data-check="p1-cancelled"><span><b>Confirm no cancelled match appears</b> in either DTO's match list — while the sums still show them excluded.</span></label></li>
-            <li><label><input type="checkbox" data-check="p1-dst"><span><b>Ask the chat to show you its DST tests.</b> If it can't point at 27 Sep 2026 and 5 Apr 2026 by name, the date pass wasn't really done.</span></label></li>
+            <li><label><input type="checkbox" data-check="p1-loads"><span><b>Open the app.</b> Both columns still populate after the endpoints changed shape. Nothing blank, nothing broken.</span></label></li>
+            <li><label><input type="checkbox" data-check="p1-numbers"><span><b>Look at the numbers on a few records.</b> Matched and unmatched are present, and unmatched plus matched adds up to the record's own quantity.</span></label></li>
+            <li><label><input type="checkbox" data-check="p1-dates"><span><b>Check the dates read as real dates</b> — no raw timestamps, no 1970 — and any week label lands on a Sunday.</span></label></li>
           </ol>
-          <p class="note">Nothing visible changes this phase, which is exactly why it needs checking by hand. A wrong number here surfaces three phases later as a card that just looks slightly odd.</p>
+          <p class="note">This phase is deliberately invisible: it's server-side rules and the DTO contract, with no UI of its own. Its correctness lives in the automated tests and the sonnet review rather than in anything you can click. If you want assurance here, ask the chat to walk you through its date tests.</p>
         </div>
       </article>
 
@@ -685,14 +679,13 @@ When the build is green, close the phase in two steps. First, spawn a subagent o
 Produce a plan for my approval first.</pre>
         </div>
         <div class="checks">
-          <div class="checks-head"><span class="label">Your pass — do these before ticking the phase done</span><span class="checks-count"></span></div>
+          <div class="checks-head"><span class="label">Your pass — judge the canvas by eye</span><span class="checks-count"></span></div>
           <ol>
             <li><label><input type="checkbox" data-check="p2-canvas"><span><b>Open the canvas.</b> All ten artboards there, populated with real seeded records rather than placeholder text.</span></label></li>
             <li><label><input type="checkbox" data-check="p2-lms"><span><b>Hold artboard 1 next to the screenshots.</b> Would someone who doesn't know believe they're the same product? That's the whole test.</span></label></li>
             <li><label><input type="checkbox" data-check="p2-density"><span><b>Count the cards visible per column.</b> LMS shows twenty-odd rows at a glance. Under about eight cards and the density argument has been lost.</span></label></li>
             <li><label><input type="checkbox" data-check="p2-thumb"><span><b>The thumb test.</b> Cover the fill meter — can you still read each card's status? Now cover the left edge — can you still read the fill? If either fails, the two systems have leaked into each other.</span></label></li>
             <li><label><input type="checkbox" data-check="p2-edge"><span><b>Look at Cancelled and at the pink over-committed state.</b> Both should be unmistakable without anyone explaining them.</span></label></li>
-            <li><label><input type="checkbox" data-check="p2-doc"><span><b>Read <span class="mono">design-system.md</span> on its own</b> and ask whether Phase 3 could be built from it alone. Anything you'd have to guess at is a gap that becomes five inconsistent decisions.</span></label></li>
             <li><label><input type="checkbox" data-check="p2-carry"><span><b>Look hard at the carry-over card.</b> This is the piece expected to need iterating — say what's wrong with it now, while changing it is still free.</span></label></li>
           </ol>
           <p class="note">You can edit the canvas directly in the artifact. Far cheaper to move things here than to have Phases 3 to 8 build the wrong thing consistently.</p>
@@ -744,12 +737,11 @@ When the build is green, close the phase in two steps. First, spawn a subagent o
 Produce a plan for my approval first.</pre>
         </div>
         <div class="checks">
-          <div class="checks-head"><span class="label">Your pass — do these before ticking the phase done</span><span class="checks-count"></span></div>
+          <div class="checks-head"><span class="label">Your pass — click through these</span><span class="checks-count"></span></div>
           <ol>
             <li><label><input type="checkbox" data-check="p3-bands"><span><b>Scroll both columns.</b> Week bands in date order, the "Week of…" rail stays readable, the current week is distinct, and an empty week still shows its header rather than silently closing the gap.</span></label></li>
             <li><label><input type="checkbox" data-check="p3-carry"><span><b>Find an availability record with an early available-from date and quantity left.</b> It should appear in full in its home week <em>and</em> as a muted dashed carry-over at the top of every later week.</span></label></li>
             <li><label><input type="checkbox" data-check="p3-same"><span><b>Expand a carry-over card and its home card.</b> Same matches, same numbers — it's one record, not a copy.</span></label></li>
-            <li><label><input type="checkbox" data-check="p3-count"><span><b>Count the records in a column against what the API returns.</b> Carry-overs must not inflate any count or total.</span></label></li>
             <li><label><input type="checkbox" data-check="p3-expand"><span><b>Expand and collapse several cards.</b> Nothing above should jump out from under your cursor.</span></label></li>
             <li><label><input type="checkbox" data-check="p3-overfill"><span><b>Find the seeded over-filled space.</b> Blue, and labelled "Over-filled".</span></label></li>
             <li><label><input type="checkbox" data-check="p3-inert"><span><b>Try to do anything but expand a card.</b> You shouldn't be able to — no dragging, no buttons. Those are later phases.</span></label></li>
@@ -801,7 +793,7 @@ When the build is green, close the phase in two steps. First, spawn a subagent o
 Produce a plan for my approval first.</pre>
         </div>
         <div class="checks">
-          <div class="checks-head"><span class="label">Your pass — do these before ticking the phase done</span><span class="checks-count"></span></div>
+          <div class="checks-head"><span class="label">Your pass — click through these</span><span class="checks-count"></span></div>
           <ol>
             <li><label><input type="checkbox" data-check="p4-default"><span><b>Load the page fresh.</b> Spaces filtered to Booked only; availability to Booked and Pending with unmatched above zero. Anything else means the spec defaults drifted.</span></label></li>
             <li><label><input type="checkbox" data-check="p4-narrow"><span><b>Pick a processor, then open the stock class filter.</b> It should have narrowed to that processor's own list — the two sides' vocabularies never mix.</span></label></li>
@@ -809,7 +801,7 @@ Produce a plan for my approval first.</pre>
             <li><label><input type="checkbox" data-check="p4-sneak"><span><b>Filter a specific record out entirely</b>, then check it hasn't crept back into a later week as a carry-over.</span></label></li>
             <li><label><input type="checkbox" data-check="p4-sort"><span><b>Sort by quantity.</b> Cards reorder <em>within</em> each week band; the bands themselves stay in date order.</span></label></li>
             <li><label><input type="checkbox" data-check="p4-flip"><span><b>Hit flip.</b> Columns swap, filters and sort survive intact. Reload the page — the flip is still there. And you can still tell instantly which column is which.</span></label></li>
-            <li><label><input type="checkbox" data-check="p4-count"><span><b>Check the "showing X of Y" counts</b> on both columns are right.</span></label></li>
+            <li><label><input type="checkbox" data-check="p4-count"><span><b>Check the "showing X of Y" counts</b> on both columns are right, and that carry-over cards don't inflate them.</span></label></li>
             <li><label><input type="checkbox" data-check="p4-empty"><span><b>Filter until nothing matches.</b> You should get an empty state with a one-click way out, never a blank column.</span></label></li>
             <li><label><input type="checkbox" data-check="p4-reset"><span><b>Hit reset.</b> Back to exactly what you saw in the first check.</span></label></li>
           </ol>
@@ -865,13 +857,12 @@ Produce a plan for my approval first.</pre>
             <li><label><input type="checkbox" data-check="p5-same"><span><b>Drag onto a card in the same column.</b> Nothing happens, and nothing complains.</span></label></li>
             <li><label><input type="checkbox" data-check="p5-scroll"><span><b>Start a drag and hold the cursor at the bottom edge of the other column.</b> It should scroll on its own. Keep holding across a week-band boundary — this is the mechanic most likely to fight the sticky rail.</span></label></li>
             <li><label><input type="checkbox" data-check="p5-esc"><span><b>Press Escape mid-drag.</b> Clean cancel, nothing created.</span></label></li>
-            <li><label><input type="checkbox" data-check="p5-default"><span><b>Check the pre-filled quantity</b> is the smaller of the two unmatched figures.</span></label></li>
+            <li><label><input type="checkbox" data-check="p5-default"><span><b>Check the pre-filled quantity</b> is the smaller of the two unmatched figures shown on the two cards.</span></label></li>
             <li><label><input type="checkbox" data-check="p5-caps"><span><b>Try to exceed the availability's unmatched quantity.</b> Blocked, with an explanation of why. Now try to over-fill the <em>space</em> — that must be allowed, and shows blue.</span></label></li>
             <li><label><input type="checkbox" data-check="p5-refuse"><span><b>Drag onto a record with no unmatched quantity left.</b> Exactly "There is no unmatched quantity", and no dialog opens at all.</span></label></li>
             <li><label><input type="checkbox" data-check="p5-live"><span><b>Create a match and watch both columns.</b> Numbers, meters and statuses update on both sides without a refresh.</span></label></li>
             <li><label><input type="checkbox" data-check="p5-vanish"><span><b>Fully consume an availability record.</b> Its carry-over cards should disappear from every later week.</span></label></li>
             <li><label><input type="checkbox" data-check="p5-dup"><span><b>Drag a pair that already has a match.</b> You should get a second, separate match — never a merged or topped-up one.</span></label></li>
-            <li><label><input type="checkbox" data-check="p5-price"><span><b>Check the default price on a pair whose two stock classes differ.</b> It must come from the <em>processor space</em> class. If the lookup is keyed on the wrong side, this is the only place you would notice.</span></label></li>
           </ol>
           <p class="note">There is no keyboard fallback by design, so dragging is the only route to a match. If anything here feels fragile, say so now rather than discovering it in front of APG.</p>
         </div>
@@ -922,7 +913,7 @@ When the build is green, close the phase in two steps. First, spawn a subagent o
 Produce a plan for my approval first.</pre>
         </div>
         <div class="checks">
-          <div class="checks-head"><span class="label">Your pass — do these before ticking the phase done</span><span class="checks-count"></span></div>
+          <div class="checks-head"><span class="label">Your pass — click through these</span><span class="checks-count"></span></div>
           <ol>
             <li><label><input type="checkbox" data-check="p6-both"><span><b>Open the same match from its space, then from its availability record.</b> Same match, same values, both routes.</span></label></li>
             <li><label><input type="checkbox" data-check="p6-draft"><span><b>On a Drafted match:</b> Delete is offered and asks for no reason. That's the mis-drag remedy.</span></label></li>
@@ -978,7 +969,7 @@ When the build is green, close the phase in two steps. First, spawn a subagent o
 Produce a plan for my approval first.</pre>
         </div>
         <div class="checks">
-          <div class="checks-head"><span class="label">Your pass — do these before ticking the phase done</span><span class="checks-count"></span></div>
+          <div class="checks-head"><span class="label">Your pass — click through these</span><span class="checks-count"></span></div>
           <ol>
             <li><label><input type="checkbox" data-check="p7-narrow"><span><b>Add a Processor Space. Pick ANZCO and note the stock classes, then switch to Alliance Group.</b> The list must change, and a now-invalid selection must clear rather than sit there stale.</span></label></li>
             <li><label><input type="checkbox" data-check="p7-appears"><span><b>Save it.</b> It lands in the correct week band and is immediately draggable.</span></label></li>
@@ -986,7 +977,7 @@ Produce a plan for my approval first.</pre>
             <li><label><input type="checkbox" data-check="p7-finance"><span><b>Choose Finance Stock as the transaction type.</b> No purchase list should open — that draw-down is deferred past pass 1.</span></label></li>
             <li><label><input type="checkbox" data-check="p7-debug"><span><b>Look at the add controls.</b> They should read as demo tooling. Nobody watching should mistake them for a farmer's real submission form.</span></label></li>
             <li><label><input type="checkbox" data-check="p7-overcommit"><span><b>Reduce a matched record's quantity below what's already matched.</b> You should be warned but allowed through, and the pink "Over-committed" state appears. This is the only legitimate route to it.</span></label></li>
-            <li><label><input type="checkbox" data-check="p7-cascade"><span><b>The important one: cancel a record that has live matches.</b> The record is cancelled and <em>every match survives untouched</em>. Go and find them. This non-cascade is the most surprising rule in the domain and the easiest for a helpful chat to "fix".</span></label></li>
+            <li><label><input type="checkbox" data-check="p7-cascade"><span><b>The important one: cancel a record that has live matches.</b> The record is cancelled and <em>every match survives untouched</em>. Go and find them on the other side. This non-cascade is the most surprising rule in the domain and the easiest for a helpful chat to "fix".</span></label></li>
             <li><label><input type="checkbox" data-check="p7-find"><span><b>Change the status filter</b> and confirm you can still find the record you just cancelled.</span></label></li>
           </ol>
         </div>
@@ -1038,9 +1029,9 @@ Produce a plan for my approval first.</pre>
           <div class="checks-head"><span class="label">Your pass — this one decides whether pass 1 is done</span><span class="checks-count"></span></div>
           <ol>
             <li><label><input type="checkbox" data-check="p8-reset"><span><b>Hit "Reset demo data".</b> It confirms first, then genuinely restores the full seed — the three-way splits and the over-filled space included.</span></label></li>
-            <li><label><input type="checkbox" data-check="p8-demo"><span><b>Walk <span class="mono">DEMO.md</span> end to end on freshly reset data.</b> Every record it names by hand should be exactly where it says.</span></label></li>
+            <li><label><input type="checkbox" data-check="p8-demo"><span><b>Walk the demo script end to end on freshly reset data.</b> Every record it names by hand should be exactly where it says.</span></label></li>
             <li><label><input type="checkbox" data-check="p8-break"><span><b>Try to break it.</b> Odd filter combinations, the longest location name, the biggest quantity. Hunt for <span class="mono">undefined</span>, <span class="mono">NaN</span>, <span class="mono">Invalid Date</span>, blank prices, cards that burst their layout.</span></label></li>
-            <li><label><input type="checkbox" data-check="p8-icons"><span><b>Check every stock class on both sides</b> has an icon or a deliberate fallback. The icon file comes from the forecasting system and its names only partly overlap ours.</span></label></li>
+            <li><label><input type="checkbox" data-check="p8-icons"><span><b>Check every stock class on both sides</b> has an icon or a deliberate fallback — none rendering bare.</span></label></li>
             <li><label><input type="checkbox" data-check="p8-lms"><span><b>Side by side with the screenshots one last time.</b> Eight phases is plenty of time for the family resemblance to have drifted.</span></label></li>
             <li><label><input type="checkbox" data-check="p8-width"><span><b>1366px.</b> Both columns, the sidebar, and the collapse all still behave.</span></label></li>
             <li><label><input type="checkbox" data-check="p8-stranger"><span><b>Then the real test: hand the laptop to someone who has never seen it</b> and ask them to match some livestock. Don't help, don't explain. Watch where they hesitate — that's your pass-2 backlog, written for you.</span></label></li>

@@ -1,5 +1,6 @@
 using Apg.Api.Seeding;
 using Apg.Domain.Entities;
+using Apg.Domain.Matching;
 
 namespace Apg.Api.Tests;
 
@@ -7,6 +8,12 @@ namespace Apg.Api.Tests;
 /// One test per demonstration case in the phase document's section 4.7. The seed is what every later
 /// phase is judged against, so these cases are proven here rather than eyeballed in the database.
 /// </summary>
+/// <remarks>
+/// Every quantity assertion here goes through <c>Apg.Domain</c>. Phase 0 restated the incl-Draft sum
+/// inside this test project because the real rule did not exist yet; Phase 1 deleted that copy, so
+/// these tests now fail if the seed and the rules ever disagree — which is the only way that
+/// disagreement would ever be noticed.
+/// </remarks>
 public class SeedDemonstrationCaseTests
 {
     [Fact]
@@ -37,7 +44,7 @@ public class SeedDemonstrationCaseTests
     public void At_least_one_space_is_over_filled()
     {
         var overFilled = SeedFixture.Data.ProcessorSpaces
-            .Where(s => s.QuantityRequired - SeedFixture.MatchedInclDraft(SeedFixture.MatchesForSpace(s.Id)) < 0)
+            .Where(s => MatchQuantities.ForSpace(s, SeedFixture.Data.Matches).State == QuantityState.Over)
             .ToList();
 
         Assert.NotEmpty(overFilled);
@@ -48,7 +55,7 @@ public class SeedDemonstrationCaseTests
     {
         var exact = SeedFixture.Data.ProcessorSpaces
             .Where(s => SeedFixture.MatchesForSpace(s.Id).Count > 0)
-            .Where(s => SeedFixture.MatchedInclDraft(SeedFixture.MatchesForSpace(s.Id)) == s.QuantityRequired)
+            .Where(s => MatchQuantities.ForSpace(s, SeedFixture.Data.Matches).State == QuantityState.Exact)
             .ToList();
 
         Assert.NotEmpty(exact);
@@ -57,11 +64,12 @@ public class SeedDemonstrationCaseTests
     [Fact]
     public void At_least_one_availability_record_is_fully_matched_with_every_match_confirmed()
     {
+        // Asserted through the real derivation rather than by restating it: this is the one
+        // combination that derives an availability status of Confirmed, and the seed exists partly to
+        // give that branch a worked example.
         var fullyConfirmed = SeedFixture.Data.Availabilities
-            .Select(a => (Availability: a, Matches: SeedFixture.MatchesForAvailability(a.Id)))
-            .Where(x => x.Matches.Count > 0)
-            .Where(x => SeedFixture.MatchedInclDraft(x.Matches) == x.Availability.QuantityAvailable)
-            .Where(x => x.Matches.All(m => m.Status == MatchStatus.Confirmed))
+            .Where(a => AvailabilityStatus.Derive(a, SeedFixture.Data.Matches)
+                == LivestockAvailabilityStatus.Confirmed)
             .ToList();
 
         Assert.NotEmpty(fullyConfirmed);
@@ -168,11 +176,12 @@ public class SeedDemonstrationCaseTests
         // hard-capped (resolved question 1). The pink state exists only as a bug indicator.
         foreach (var availability in SeedFixture.Data.Availabilities)
         {
-            var matched = SeedFixture.MatchedInclDraft(SeedFixture.MatchesForAvailability(availability.Id));
+            var tally = MatchQuantities.ForAvailability(availability, SeedFixture.Data.Matches);
 
             Assert.True(
-                matched <= availability.QuantityAvailable,
-                $"Availability {availability.Id} is over-committed: {matched} of {availability.QuantityAvailable}.");
+                tally.State != QuantityState.Over,
+                $"Availability {availability.Id} is over-committed: "
+                + $"{tally.MatchedInclDraft} of {availability.QuantityAvailable}.");
         }
     }
 
