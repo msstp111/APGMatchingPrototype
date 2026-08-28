@@ -35,18 +35,27 @@ Filterable by every displayed field:
     onto the processor lists. Do not attempt to filter one side by the other's stock class.
 2.3 **Location** — searchable, since there are ~300.
 2.4 **Transaction type** — multi-select.
-2.5 **Available-from week (W.C.)**.
-2.6 **Quantity unmatched > 0** — on by default (per the spec).
+2.5 **Quantity unmatched > 0** — on by default (per the spec).
 
-### 3. Filters and carry-over cards
+> No available-from week filter. See section 3.
 
-The interaction between filtering and Phase 3's carry-over cards needs deciding explicitly:
+### 3. No week filter on the availability column
 
-3.1 A record excluded by a filter must not appear as a carry-over card either.
-3.2 When filtering to a **specific week**, carry-over cards are exactly what makes that view correct —
-    they are the records still matchable that week. They must survive a week filter.
-3.3 Say in the code and the hand-off which rule you applied, because it is easy to get subtly wrong
-    and hard to notice.
+3.1 **The availability column has no "week commencing" filter** (resolved question 17). Processor
+    Spaces keep theirs — a delivery date genuinely is a single-week event — but supply does not work
+    that way.
+
+3.2 The reason: an availability record is a *state*, not an event. Filtering supply to a single week
+    would hide every older record that still has unmatched quantity, which is precisely what the
+    scroll-up backlog exists to prevent. A filter that quietly removes matchable supply is worse than
+    no filter at all.
+
+3.3 The spec (p.21) does ask for one — *"filter to show all records with an Available From Date in the
+    week commencing any given Sunday"*. That has been deliberately overridden. Do not add it back, and
+    do not add a cumulative "available by" variant either; that was considered and declined.
+
+3.4 The **W.C. column itself stays** on both sides. Showing which week a record belongs to is useful;
+    filtering supply down to one week is not.
 
 ### 4. Sorting
 
@@ -95,20 +104,21 @@ The interaction between filtering and Phase 3's carry-over cards needs deciding 
 - Flipping the columns preserves all filter and sort state and survives a page reload.
 - Reset returns a column to exactly the Phase 1 default constants — assert this in a test rather
   than by hand, so the defaults and the reset cannot drift apart.
-- Filtering to a single week shows that week's native cards plus the carry-over cards still
-  matchable in it.
-- Counts are correct and carry-over cards do not inflate them.
+- There is no week filter on the availability column, and the W.C. column is still displayed on both.
+- Changing a filter re-trims the leading empty bands: when a filter removes the oldest surviving
+  record, that column's first band moves forward accordingly.
+- Counts are correct, and every record is counted exactly once.
 - `dotnet build`, `dotnet test` and the Angular build all pass.
 
 ## Closing this phase
 
 Follow the shared protocol in the roadmap's "Closing a phase" section.
 
-**Review focus for the sonnet subagent:** the filter-versus-carry-over interaction, whether the reset
-control and the initial state can drift apart, and whether the displayed counts stay correct when
-carry-over cards are on screen. Ask it to hunt specifically for filter combinations that produce a
-misleading view rather than an empty one.
+**Review focus for the sonnet subagent:** whether the reset control and the initial state can drift
+apart; whether the leading-band trim recomputes correctly as filters change; and whether any filter
+combination produces a *misleading* view rather than an obviously empty one — a filter that silently
+removes still-matchable supply is the failure mode this phase's design exists to prevent.
 
-**Record in `Documents/BUILD-LOG.md`:** the rule you applied for carry-over cards under filters and
-why, where filter and sort state lives, what persists to `localStorage` under which keys, and how the
-flip is represented — Phase 7's add buttons must follow the columns when they swap.
+**Record in `Documents/BUILD-LOG.md`:** where filter and sort state lives, what persists to
+`localStorage` under which keys, how the leading-band trim is recomputed when filters change, and how
+the flip is represented — Phase 7's add buttons must follow the columns when they swap.

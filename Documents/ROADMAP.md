@@ -187,14 +187,46 @@ From `Frontend ideas.md`, binding on every UI phase:
 
 ### Spaces are fixed to a day; availability spans weeks
 
-The one genuinely open display problem. Working answer, expected to iterate:
+Both columns are banded by week (commencing Sunday), with a sticky left rail label. **Every record
+appears exactly once**, in the band containing its own date — delivery date for a space,
+available-from date for an availability record. Nothing is ever duplicated on screen.
 
-Both columns are banded by week (commencing Sunday), with a sticky left rail label. A **Processor
-Space** sits in exactly one band — its delivery date. A **Livestock Availability** record is anchored
-in the band containing its available-from date, and then **reappears at the top of every later band as
-a muted, dashed "carry-over" card** labelled "available since 10 Aug", for as long as it retains
-unmatched quantity. Scrolling to any week therefore shows everything genuinely matchable *that* week,
-not merely what became available that week. Detailed in Phase 3.
+The asymmetry — a space is an event on a day, availability is a state with a start and no end — is
+handled by the default filters rather than by reprinting anything:
+
+- **Both columns hide finished work by default.** Spaces default to `Status = Booked`; availability to
+  `Status ∈ {Booked, Pending}` with `unmatched > 0`. Confirmed and Cancelled records drop out of view.
+- What remains above the current week is therefore a **backlog** — records from earlier weeks with
+  business still outstanding. Supply that carried over is found by **scrolling up**, not by being
+  reprinted in later weeks.
+- **Leading empty bands are trimmed.** Each column starts at the week of its own earliest surviving
+  record. Each column trims independently: a space is never hidden because of what the availability
+  column contains, or the reverse.
+- **Each column opens scrolled to the top**, so the oldest unfinished business is the first thing an
+  operator sees. The list reads as a priority order more than a calendar.
+- **The availability column has no "week commencing" filter.** Filtering supply to a single week would
+  hide older unmatched records — the exact blindness this design exists to avoid. Processor Spaces
+  keep theirs, because a delivery date genuinely is a single-week event.
+
+The height of the region above the current week is itself the signal: it shows at a glance how much
+unfinished supply has accumulated. As records are matched and confirmed they drop out, and the backlog
+burns down.
+
+Two consequences, both **deliberate** — do not "fix" either:
+
+- **There is no horizon cap.** A record never matched and never cancelled stays at the top
+  indefinitely and the column grows upward without limit. That is correct: outstanding supply should
+  nag, and cancelling the record is the intended remedy. Do not add a cap, a cut-off, or an
+  "archive older than N weeks" rule.
+- **The `unmatched > 0` clause stays.** It removes more than just Confirmed records — a record still
+  `Pending`, with all its supply allocated but some matches unconfirmed, also drops out of the column.
+  On a *matching* screen that is right: there is nothing left to match. The backlog means "supply
+  still to allocate", not "everything unfinished".
+
+> An earlier draft used **carry-over cards** — the same availability record reprinted, muted, at the
+> top of every later week. That has been **removed** (resolved question 17). It duplicated records on
+> screen, risked double-counting, complicated dragging, and obscured the very backlog this design
+> makes visible. Do not reintroduce it.
 
 ### Two colour systems, resolved
 
@@ -293,6 +325,12 @@ Decided 2026-08-27 and 2026-08-28. **These override the .doc where they conflict
     sidebar present, not stubbed. See "Visual language" above.
 16. **Hue belongs to quantity fill; status is carried by weight, pattern, icon and text.** The two
     systems never both use colour. See "Two colour systems, resolved" above for the full scheme.
+17. **No carry-over cards.** Every record appears exactly once, in its own week band. Carried-over
+    supply is found by scrolling up through earlier weeks — visible because the default filters hide
+    finished work and leading empty bands are trimmed per column. **The availability column has no
+    week filter.** Both columns open scrolled to the top. This replaces the carry-over design an
+    earlier draft specified; do not reintroduce it. The backlog has **no horizon cap** and the
+    availability default keeps its **`unmatched > 0`** clause — both confirmed deliberate.
 
 The .doc contains unresolved authoring notes in angle brackets (`<validate>`, `<Devs>`). Those are open
 questions, not requirements. Ignore them.
@@ -306,7 +344,8 @@ questions, not requirements. Ignore them.
 | 0 | Scaffold & seed | Solution, themed Material shell (top bar + sidebar), API, EF Core, deterministic seed |
 | 1 | Domain core | `Apg.Domain` — every computed quantity, status and rule in C#, xUnit-tested |
 | 2 | Design pass | Visual language and screen mockups via the `design` skill; `design-system.md` |
-| 3 | Card lists & week bands | Both columns rendering, banded by week, carry-over cards, expand |
+| 3 | Card lists & week bands | Both columns rendering, banded by week, expand/collapse |
+| 3b | Remove carry-over | Reconciles Phase 3's code to resolved question 17: per-column trim, backlog, open at top |
 | 4 | Filter, sort, flip | Stock class and status filters, sorting, side-swap, reset-to-default |
 | 5 | Drag to match | Angular CDK across columns, quantity prompt, default price, refusal cases |
 | 6 | Match management | Open a match; edit, delete draft, cancel with reason, confirm; confirm a space |
@@ -315,6 +354,11 @@ questions, not requirements. Ignore them.
 
 **Phase 2 is where the bulk of UI design happens** and is the one phase that must invoke the `design`
 skill. Phases 3–8 implement against its output rather than inventing visuals of their own.
+
+**Phase 3b is a remediation phase, not a planned one.** Phase 3 was built, reviewed and logged against
+the carry-over design before resolved question 17 replaced it. 3b reconciles the code. It exists as its
+own phase rather than being absorbed into Phase 4 so that a design reversal stays visible in the
+history instead of arriving disguised as filter work.
 
 ---
 

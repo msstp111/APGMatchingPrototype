@@ -1,13 +1,13 @@
 # Phase 3 — Card Lists & Week Bands
 
 **Depends on:** Phase 1 (the DTO contract), Phase 2 (`design-system.md`).
-**Delivers:** both columns rendering real data as cards, banded by week, with carry-over cards.
+**Delivers:** both columns rendering real data as cards, banded by week, with the backlog above the current week visible by scrolling.
 
 ## Objective
 
 Turn the seed data into the screen. After this phase the matching screen looks finished but does
 nothing — no filtering, no sorting, no dragging. That is deliberate: the layout problem here
-(especially carry-over cards) is hard enough to deserve its own phase.
+(the trimmed, scroll-up backlog especially) is worth isolating from everything else.
 
 ## Out of scope
 
@@ -32,7 +32,7 @@ Cards are read-only in this phase. Expand/collapse is the only interaction.
 1.5 The **current week is visually distinguished** from past and future weeks. Past weeks are
     de-emphasised but not hidden.
 1.6 An empty week band still renders its header, so gaps in the calendar are visible rather than
-    silently collapsed.
+    silently collapsed — except for the leading run of empty bands, which is trimmed (see §4.2).
 
 ### 2. Processor Space cards
 
@@ -64,30 +64,40 @@ Cards are read-only in this phase. Expand/collapse is the only interaction.
 3.6 A negative unmatched value is highlighted and labelled **"Over-committed"**.
 3.7 Status on the left edge, as on the space cards, with no hue.
 
-### 4. Carry-over cards — the core of this phase
+### 4. The backlog — how carried-over supply is found
 
 A Processor Space belongs to one day. An Availability record becomes available on a date and stays
-available until it is used up. So an availability record that is unmatched three weeks after its
-available-from date is still matchable *this* week, and an operator working this week's bands must be
-able to see and use it.
+available until it is used up. So a record still unmatched three weeks after its available-from date
+is matchable *this* week, and an operator must be able to find it.
 
-4.1 An availability record renders as a **full card in its home band** (the band of its
-    available-from date).
-4.2 It **also renders as a carry-over card at the top of every subsequent band**, for as long as its
+**Every record appears exactly once**, in its own band. Nothing is reprinted, duplicated, or echoed
+into later weeks. Carried-over supply is found by **scrolling up**, and three things make that work:
+
+4.1 **Finished work is filtered out by default**, so what sits above the current week is a genuine
+    backlog rather than a history. Phase 4 builds the filters; this phase applies the same defaults
+    as its starting state — spaces `Status = Booked`; availability `Status ∈ {Booked, Pending}` with
     `unmatched > 0`.
-4.3 Carry-over cards are visually secondary per `design-system.md` — muted, dashed — and labelled
-    with their origin, e.g. "available since 10 Aug".
-4.4 Carry-over cards stop appearing in bands after the record's unmatched quantity reaches zero.
-4.5 A carry-over card is **the same record**, not a copy. Expanding one shows the same matches, and
-    from Phase 5 onward dragging one creates a match against the same record.
-4.6 Carry-over cards must **never double-count** in any total, badge, or count-of-records display.
-4.7 Group carry-over cards distinctly from the band's native cards so the operator can tell "new this
-    week" from "still hanging around" at a glance.
-4.8 Cap the carry-over horizon at a sensible number of weeks past the current week so a stale record
-    from months ago does not repeat forever. Make the cap a named constant and say what you chose.
 
-> If, while building this, you find a display that works better than carry-over cards, build the
-> specced behaviour first and then show the alternative. Mark expects to iterate here.
+4.2 **Leading empty bands are trimmed.** Each column begins at the week of its **own** earliest
+    surviving record. There is no fixed historical start, and neither column's start is influenced
+    by what the other contains — a space must never be hidden because of what the availability list
+    holds, or the reverse.
+
+4.3 **Each column opens scrolled to the top**, so the oldest outstanding record is the first thing an
+    operator sees. The list reads as a priority order before it reads as a calendar.
+
+4.4 Interior empty bands — a week with no records between two weeks that have some — still render
+    their header. Only the *leading* run of empty bands is removed.
+
+4.5 The two columns will often start at different weeks and their rails will show different weeks at
+    the same vertical position. That is expected: they scroll independently and each trims to its own
+    data.
+
+> **Do not build carry-over cards.** An earlier draft of this document specified an availability
+> record reprinted, muted, at the top of every later week. It was removed deliberately (resolved
+> question 17) because it duplicated records on screen, risked double-counting, complicated dragging,
+> and obscured the backlog this design makes visible. Do not reintroduce it, and do not treat its
+> absence as an oversight.
 
 ### 5. Expand and collapse
 
@@ -99,18 +109,17 @@ able to see and use it.
 
 ### 6. Performance
 
-6.1 Roughly 50 spaces, 50 availability records, and their carry-over instances must scroll smoothly.
+6.1 Roughly 50 spaces and 50 availability records must scroll smoothly. Every record renders once,
+    so there is no multiplier here — do not add virtualisation speculatively.
 6.2 Derived quantities arrive on the DTO already computed. Do not recompute or cache them in the
     client — bind to what the API returned.
-6.3 If you reach for virtualisation, check first that it does not fight the sticky rail. Plain
-    rendering is likely fine at this scale; do not add the complexity speculatively.
 
 ## Acceptance criteria
 
 - Both columns render every seeded record, banded correctly by week.
 - The sticky rail tracks the visible band while scrolling.
-- An availability record with an early available-from date and remaining unmatched quantity appears
-  as a carry-over card in each later band, and disappears from later bands once fully matched.
+- An availability record from an earlier week that still has unmatched quantity is visible by
+  scrolling up, appears exactly once, and drops out of view entirely once fully matched.
 - Every number on every card comes from the DTO. No domain arithmetic anywhere in `web/`.
 - The over-filled space in the seed data displays blue with the "Over-filled" label.
 - No card offers an action beyond expand/collapse.
@@ -120,11 +129,13 @@ able to see and use it.
 
 Follow the shared protocol in the roadmap's "Closing a phase" section.
 
-**Review focus for the sonnet subagent:** carry-over card identity — that a carry-over is the same
-record rather than a copy, and that it cannot double-count in any total or count. Also whether any
-domain arithmetic escaped into TypeScript instead of arriving on the DTO, and whether the sticky
-rail survives long bands and fast scrolling.
+**Review focus for the sonnet subagent:** that every record renders exactly once and nothing is
+duplicated across bands; that the leading-band trim is computed per column from that column's own
+data and cannot hide a record; that interior empty bands survive while leading ones do not. Also
+whether any domain arithmetic escaped into TypeScript instead of arriving on the DTO, and whether the
+sticky rail survives long bands and fast scrolling.
 
-**Record in `Documents/BUILD-LOG.md`:** the carry-over horizon you chose and why, roughly how many
-carry-over instances the seed produces, the component names and props Phases 4 to 7 will attach to,
-how expand/collapse state is held, and anything about the layout that is more fragile than it looks.
+**Record in `Documents/BUILD-LOG.md`:** which week each column trims to against the current seed and
+how far back the backlog runs, how the initial scroll-to-top is implemented, the component names and
+props Phases 4 to 7 will attach to, how expand/collapse state is held, and anything about the layout
+that is more fragile than it looks.

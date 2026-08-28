@@ -323,11 +323,11 @@ a { color: var(--accent); }
 
   <header class="masthead">
     <div class="eyebrow"><span class="label">Alpine Pastures Group &nbsp;·&nbsp; Booking Module &nbsp;·&nbsp; Prototype Pass 1</span></div>
-    <h1>The matching screen, in nine phases</h1>
+    <h1>The matching screen, phase by phase</h1>
     <p class="standfirst">One drag-and-drop screen where APG staff fill meatworks' space from farmers' stock. Everything else in this build exists to make that one screen work.</p>
     <div class="meta-row">
       <div><span class="label">Scope</span><span class="v">APG only · no roles · pass 1</span></div>
-      <div><span class="label">Phases</span><span class="v">9, one chat each</span></div>
+      <div><span class="label">Phases</span><span class="v">9 + a remediation pass</span></div>
       <div><span class="label">Spec</span><span class="v mono">Requirements 2026-08-27.docx</span></div>
       <div><span class="label">Roadmap</span><span class="v mono">Documents/ROADMAP.md</span></div>
     </div>
@@ -340,6 +340,7 @@ a { color: var(--accent); }
       <li><a href="#p1"><span class="n">01</span><span class="t">Domain core</span></a></li>
       <li><a href="#p2"><span class="n">02</span><span class="t">Design pass</span></a></li>
       <li><a href="#p3"><span class="n">03</span><span class="t">Cards &amp; week bands</span></a></li>
+      <li><a href="#p3b"><span class="n">03b</span><span class="t">Remove carry-over</span></a></li>
       <li><a href="#p4"><span class="n">04</span><span class="t">Filter, sort, flip</span></a></li>
       <li><a href="#p5"><span class="n">05</span><span class="t">Drag to match</span></a></li>
       <li><a href="#p6"><span class="n">06</span><span class="t">Match management</span></a></li>
@@ -484,7 +485,7 @@ a { color: var(--accent); }
 
     <section id="decisions">
       <span class="label">Settled 2026-08-27</span>
-      <h2>Sixteen decisions that override the spec</h2>
+      <h2>Seventeen decisions that override the spec</h2>
       <p>The requirements document contradicts itself in places and leaves authoring notes in angle brackets. These resolutions win wherever they conflict with it. They are in the roadmap so that no phase chat reopens them.</p>
       <div class="decisions">
         <div class="decision"><span class="n">01</span><p><strong>Over-filling is asymmetric.</strong> A space may be over-filled (blue). Supply is hard-capped, so over-committed pink stays unreachable.</p></div>
@@ -503,6 +504,7 @@ a { color: var(--accent); }
         <div class="decision"><span class="n">14</span><p><strong>A mouse is always available.</strong> No keyboard drag path, no keyboard-only journey. Material's own keyboard behaviour stays; nothing is built on top of it.</p></div>
         <div class="decision"><span class="n">15</span><p><strong>The visual language extends LMS</strong>, via themed Angular Material. Every screen renders inside the real shell — top bar and sidebar present, not stubbed.</p></div>
         <div class="decision"><span class="n">16</span><p><strong>Hue belongs to quantity fill; status uses weight, pattern, icon and text.</strong> The two systems never both use colour.</p></div>
+        <div class="decision"><span class="n">17</span><p><strong>No carry-over cards.</strong> Every record appears once, in its own week. Carried-over supply is found by scrolling up a burn-down backlog; leading empty bands trim per column, the availability column has no week filter, and the backlog has no horizon cap.</p></div>
       </div>
     </section>
 
@@ -510,12 +512,15 @@ a { color: var(--accent); }
       <span class="label">Frontend direction</span>
       <h2>Cards on a week-banded timeline</h2>
       <p>Both sides render as cards inside the LMS content area — status on the left edge, a fill meter for quantity, expandable for detail, always sorted soonest-first, with a sticky <span class="mono">Week of…</span> rail down the left. A flip control swaps the columns, because some people picture animals on the left and processors on the right.</p>
-      <p><b>The hard part:</b> a Processor Space belongs to one day, but an Availability record becomes available on a date and stays available until it is used up. The working answer is <b>carry-over cards</b> — the record shows in full in its home week, then reappears at the top of every later week, muted and dashed, labelled <span class="mono">available since 10 Aug</span>, for as long as it has unmatched quantity. Scroll to any week and you see everything genuinely matchable that week, not just what became available in it.</p>
-      <p style="color:var(--muted)">Expect to iterate on this. Phase 2 presents it as a proposal alongside anything better found while designing.</p>
+      <p><b>The hard part:</b> a Processor Space belongs to one day, but an Availability record becomes available on a date and stays available until it is used up. The answer is a <b>burn-down backlog</b>, not duplication. Every record appears exactly once, in its own week band. Both columns hide finished work by default — spaces default to Booked; availability to Booked or Pending with unmatched above zero — so whatever sits above the current week is outstanding business rather than history. Carried-over supply is found by <b>scrolling up</b>.</p>
+      <p>Two rules keep that honest. <b>Leading empty bands are trimmed</b>, each column starting at the week of its own earliest surviving record, so there's no dead space above the backlog and no column can hide a record because of what the other contains. And <b>each column opens scrolled to the top</b>, so the oldest unfinished item is the first thing you see — the list reads as a priority order before it reads as a calendar.</p>
+      <p>There is also <b>no week filter on the availability column</b>. Filtering supply to a single week would hide older unmatched records, which is the exact blindness this design removes. Spaces keep theirs, because a delivery date genuinely is a single-week event.</p>
+      <p>The height of the region above the current week is itself the signal: it shows how much unfinished supply has piled up, and it burns down as records are matched and confirmed. <b>There is no horizon cap</b> — a record never matched and never cancelled stays at the top indefinitely, which is correct: outstanding supply should nag, and cancelling it is the remedy.</p>
+      <p style="color:var(--muted)">An earlier draft used <b>carry-over cards</b> — the same record reprinted, muted, in every later week — and that was rejected: it duplicated records, risked double-counting, complicated dragging, and hid the backlog it was meant to surface.</p>
     </section>
 
     <div class="phases fullwidth">
-      <span class="label">The nine phases</span>
+      <span class="label">The phases</span>
       <h2 style="margin:14px 0 26px">Copy a prompt, open a fresh chat, plan first</h2>
 
       <!-- PHASE 0 -->
@@ -647,7 +652,7 @@ Produce a plan for my approval first.</pre>
         <ul class="keys">
           <li><b>Uses the <span class="mono">design</span> skill</b> — a multi-artboard canvas published as an Artifact you can then edit visually.</li>
           <li><b>Extends LMS, doesn't replace it.</b> The four screenshots are the reference; every control is a themed Material component, and the shell is fixed.</li>
-          <li><b>Ten artboards</b>, from the full screen in its shell down to drag states, the carry-over card, and every empty and edge case.</li>
+          <li><b>Ten artboards</b>, from the full screen in its shell down to drag states, the backlog above the current week, and every empty and edge case.</li>
           <li><b>Density over beauty.</b> A card that looks elegant four-to-a-screen and forces scrolling for the fifth has failed.</li>
           <li><b>Touches no application code.</b> The output is a canvas and <span class="mono">design-system.md</span>.</li>
         </ul>
@@ -664,7 +669,9 @@ Before you design anything, open the four PNGs in ExistingAppScreenshots/ and st
 
 The status-versus-quantity colour collision is already resolved in the roadmap under "Two colour systems, resolved". Apply it and document it in full; do not reopen it. Hue belongs to the quantity fill meter, status lives on the card's left edge as weight, pattern and icon.
 
-The genuine problem is making two columns of cards feel native to an app where every other screen is a dense table. Density is most of the answer. The other open question is the carry-over card — an availability record reappearing in later week bands while it still has unmatched quantity. Present it as a proposal with your reasoning, and if you find something better while designing, show both and say which you would ship.
+The genuine problem is making two columns of cards feel native to an app where every other screen is a dense table. Density is most of the answer.
+
+The availability-spans-weeks question is settled too — see resolved question 17. Every record appears once in its own week, and carried-over supply is found by scrolling up through a backlog kept meaningful by the default filters and the leading-band trim. Do not design carry-over cards; an earlier draft specified them and they were rejected. Your job there is to make the backlog legible: someone scrolling up should understand they are looking at outstanding supply, not history.
 
 Use real seeded data in every artboard, never placeholder text. A mouse is assumed available, so design no keyboard-drag affordances.
 
@@ -686,7 +693,7 @@ Produce a plan for my approval first.</pre>
             <li><label><input type="checkbox" data-check="p2-density"><span><b>Count the cards visible per column.</b> LMS shows twenty-odd rows at a glance. Under about eight cards and the density argument has been lost.</span></label></li>
             <li><label><input type="checkbox" data-check="p2-thumb"><span><b>The thumb test.</b> Cover the fill meter — can you still read each card's status? Now cover the left edge — can you still read the fill? If either fails, the two systems have leaked into each other.</span></label></li>
             <li><label><input type="checkbox" data-check="p2-edge"><span><b>Look at Cancelled and at the pink over-committed state.</b> Both should be unmistakable without anyone explaining them.</span></label></li>
-            <li><label><input type="checkbox" data-check="p2-carry"><span><b>Look hard at the carry-over card.</b> This is the piece expected to need iterating — say what's wrong with it now, while changing it is still free.</span></label></li>
+            <li><label><input type="checkbox" data-check="p2-carry"><span><b>Look at the backlog artboard.</b> Scrolling up past the current week, is it obvious you're looking at outstanding supply rather than history? If past weeks just look faded, that's not enough.</span></label></li>
           </ol>
           <p class="note">You can edit the canvas directly in the artifact. Far cheaper to move things here than to have Phases 3 to 8 build the wrong thing consistently.</p>
         </div>
@@ -699,7 +706,7 @@ Produce a plan for my approval first.</pre>
           <h3>Card Lists &amp; Week Bands</h3>
           <button class="done-toggle" aria-pressed="false"><svg class="tick" viewBox="0 0 12 12" aria-hidden="true"><path d="M1 6.5L4.5 10L11 2" fill="none" stroke="currentColor" stroke-width="2"/></svg>Done</button>
         </div>
-        <p class="delivers">Both columns rendering real data as cards, banded by week, with a sticky rail and carry-over cards. The screen looks finished and does nothing.</p>
+        <p class="delivers">Both columns rendering real data as cards, banded by week, with a sticky rail and the backlog above the current week reachable by scrolling. The screen looks finished and does nothing.</p>
         <div class="facts">
           <span class="fact"><span class="k">Depends on</span><span class="v">Phases 1–2</span></span>
           <span class="fact"><span class="k">Doc</span><span class="v mono">PHASE-3-card-lists-and-week-bands.md</span></span>
@@ -710,10 +717,10 @@ Produce a plan for my approval first.</pre>
           <li><b>Status on the left edge, quantity as a fill meter</b> — the two systems stay separate exactly as the design system specifies.</li>
           <li><b>Week bands</b> with a sticky <span class="mono">Week of…</span> rail, current week distinguished, empty weeks still shown.</li>
           <li><b>A space sits in exactly one band.</b> An availability record sits in its home band and carries over into later ones.</li>
-          <li><b>Carry-over cards are the same record</b>, never a copy — and must never double-count in any total.</li>
+          <li><b>Every record appears exactly once.</b> Leading empty bands trimmed per column, each list opening scrolled to the top of its own backlog.</li>
           <li><b>Read-only.</b> Expand and collapse is the only interaction in this phase.</li>
         </ul>
-        <div class="risk"><span class="label">Watch out</span>Carry-over cards are why this phase exists on its own. Get the horizon cap, the visual demotion, and the "same record, not a copy" identity right here, because Phases 4 and 5 both build directly on top of them.</div>
+        <div class="risk"><span class="label">Watch out</span>The trim is per column, computed from that column's own earliest surviving record. Anchoring both columns to the same week — or to the other column's data — can hide a past-dated Booked space entirely, with nothing on screen to say it happened.</div>
         <div class="prompt-wrap">
           <div class="prompt-bar"><span class="label">Prompt</span><button class="copy">Copy</button></div>
 <pre class="prompt">Read Documents/ROADMAP.md, Documents/BUILD-LOG.md, Documents/Phases/PHASE-3-card-lists-and-week-bands.md and Documents/design-system.md in full before doing anything else.
@@ -722,7 +729,9 @@ You are building Phase 3 — Card Lists &amp; Week Bands — and nothing else.
 
 Cards are read-only in this phase. No filtering, no sorting, no flip button, no dragging, no opening matches, no add buttons — those are Phases 4 to 7. Expand and collapse is the only interaction you build.
 
-The carry-over card is the hard part and the reason this phase stands alone. A processor space belongs to one day; an availability record becomes available on a date and stays available until it is used up, so it must appear in full in its home week band and then reappear, visually demoted, at the top of every later band while it still has unmatched quantity. It is the same record, not a copy — expanding a carry-over card shows the same matches, and it must never double-count in any total or count.
+Every record appears exactly once, in its own week band. Do not build carry-over cards — an earlier draft of the phase document specified them and they were removed deliberately, so don't reinstate them or read their absence as an oversight.
+
+Carried-over supply is instead found by scrolling up, and three things make that work: the default filters hide finished records so the region above the current week is a real backlog; the leading run of empty bands is trimmed so each column starts at its own earliest surviving record; and each column opens scrolled to the top so the oldest outstanding item is what you see first. Compute the trim per column from that column's own data — anchoring it to the other column can hide a past-dated Booked space with nothing on screen to indicate it.
 
 Every number on every card must arrive on the DTO already computed. No domain arithmetic anywhere in web/ — if something you need is missing from the contract, add it to the API rather than working it out in TypeScript.
 
@@ -740,8 +749,9 @@ Produce a plan for my approval first.</pre>
           <div class="checks-head"><span class="label">Your pass — click through these</span><span class="checks-count"></span></div>
           <ol>
             <li><label><input type="checkbox" data-check="p3-bands"><span><b>Scroll both columns.</b> Week bands in date order, the "Week of…" rail stays readable, the current week is distinct, and an empty week still shows its header rather than silently closing the gap.</span></label></li>
-            <li><label><input type="checkbox" data-check="p3-carry"><span><b>Find an availability record with an early available-from date and quantity left.</b> It should appear in full in its home week <em>and</em> as a muted dashed carry-over at the top of every later week.</span></label></li>
-            <li><label><input type="checkbox" data-check="p3-same"><span><b>Expand a carry-over card and its home card.</b> Same matches, same numbers — it's one record, not a copy.</span></label></li>
+            <li><label><input type="checkbox" data-check="p3-carry"><span><b>Scroll to the very top of the availability column.</b> You should land there on load, on the oldest record that still has unmatched quantity — with no empty weeks above it.</span></label></li>
+            <li><label><input type="checkbox" data-check="p3-same"><span><b>Pick a record from an earlier week and search the later weeks for it.</b> It must appear exactly once, in its own week, and nowhere else.</span></label></li>
+            <li><label><input type="checkbox" data-check="p3-trim"><span><b>Compare where the two columns start.</b> Each begins at its own earliest surviving record, so they'll often differ — and no past-dated Booked space is missing from the left column.</span></label></li>
             <li><label><input type="checkbox" data-check="p3-expand"><span><b>Expand and collapse several cards.</b> Nothing above should jump out from under your cursor.</span></label></li>
             <li><label><input type="checkbox" data-check="p3-overfill"><span><b>Find the seeded over-filled space.</b> Blue, and labelled "Over-filled".</span></label></li>
             <li><label><input type="checkbox" data-check="p3-inert"><span><b>Try to do anything but expand a card.</b> You shouldn't be able to — no dragging, no buttons. Those are later phases.</span></label></li>
@@ -752,6 +762,65 @@ Produce a plan for my approval first.</pre>
       </article>
 
       <!-- PHASE 4 -->
+      <article class="phase" id="p3b" data-phase="3b">
+        <div class="phase-head">
+          <span class="phase-num">PHASE 03b</span>
+          <h3>Remove Carry-Over, Build the Backlog</h3>
+          <button class="done-toggle" aria-pressed="false"><svg class="tick" viewBox="0 0 12 12" aria-hidden="true"><path d="M1 6.5L4.5 10L11 2" fill="none" stroke="currentColor" stroke-width="2"/></svg>Done</button>
+        </div>
+        <p class="delivers">Reconciles Phase 3's code to the burn-down backlog: carry-over cards stripped out, leading empty bands trimmed per column, both columns opening at the top.</p>
+        <div class="facts">
+          <span class="fact"><span class="k">Depends on</span><span class="v">Phase 3</span></span>
+          <span class="fact"><span class="k">Doc</span><span class="v mono">PHASE-3B-remove-carry-over.md</span></span>
+          <span class="fact"><span class="k">Closes with</span><span class="v">sonnet review &rarr; build log</span></span>
+        </div>
+        <ul class="keys">
+          <li><b>A remediation phase, not a planned one.</b> Phase 3 was built, reviewed and logged against the carry-over design before decision 17 replaced it. This reconciles the code.</li>
+          <li><b>Strip it all out</b> — <code>carry-over.ts</code>, the card component, <code>BandView.carryOver</code>, the group state in the card store, the "New this week" divider, the <code>$lms-carry-name</code> token, and every associated test.</li>
+          <li><b>Trim leading empty bands per column</b>, each starting at its own earliest surviving record. This overturns Phase 3's deliberate choice to have one band list serve both columns.</li>
+          <li><b>Both columns open scrolled to the top</b>, so the oldest outstanding record is what you see first.</li>
+          <li><b>The seed must not change.</b> Rename <code>CarryOverAvailabilityCount</code>, keep its behaviour — those five held-out records are exactly what populates the backlog.</li>
+        </ul>
+        <div class="risk"><span class="label">Watch out</span>The shared band list is the reason this isn't just a deletion. Phase 3 had one calendar serve both columns so they stayed vertically comparable — but a common start week hides a past-dated Booked space older than the earliest availability record, with nothing on screen to say so. Per-column trimming is what closes that, and it means the two rails will legitimately show different weeks at the same height.</div>
+        <div class="prompt-wrap">
+          <div class="prompt-bar"><span class="label">Prompt</span><button class="copy">Copy</button></div>
+<pre class="prompt">Read Documents/ROADMAP.md, Documents/BUILD-LOG.md, Documents/Phases/PHASE-3B-remove-carry-over.md and Documents/design-system.md in full before doing anything else.
+
+You are building Phase 3b — Remove Carry-Over, Build the Backlog — and nothing else.
+
+This is a remediation phase. Phase 3 was built, reviewed and logged against a design that has since been rejected: carry-over cards, where an availability record with unmatched stock repeats into every later week band. Resolved question 17 replaced it with a burn-down backlog. Read Phase 3's build-log entry carefully — it is the accurate record of what exists in the code, while the Phase 3 requirements document has already been rewritten to describe the intended end state. They disagree on purpose.
+
+Most of this is deletion and the phase document lists what goes. The part that is not deletion is the trim. Phase 3's decision 1 deliberately had one band list serve both columns so a week empty on one side still rendered on the other. That has to change: each column now begins at the week of its own earliest surviving record, trimmed independently, because a shared start week hides a past-dated Booked space older than the earliest availability record and gives no sign it has done so. Accept that the two columns will often start at different weeks and that their rails will show different weeks at the same vertical position — do not add scroll synchronisation to compensate.
+
+Keep the server as the source of the calendar. GET /api/week-bands still returns the ordered, gapless, labelled list; trimming is choosing where to start reading an ordered array, not date arithmetic. Do not move week generation into the client, and do not construct a Date in TypeScript to replace anything you delete.
+
+The seeded data must not change. Rename the carry-over seed constant but keep its behaviour — those held-out records are what populates the backlog — and leave the determinism test and Phase 0's recorded counts passing.
+
+Rules:
+- Build only what PHASE-3B specifies. You will be inside the same files Phase 4 needs; do not start Phase 4's filtering, sorting or flip work.
+- Delete tests rather than skipping or commenting them out.
+- The roadmap's "Resolved spec questions" override the requirements .docx wherever they conflict. Do not reopen them.
+- Update Documents/design-system.md, and note there that the Phase 2 canvas is stale on carry-over and was not regenerated.
+- Leave dotnet build, dotnet test and the Angular build green, and update CLAUDE.md with anything a future chat must know.
+
+When the build is green, close the phase in two steps. First, spawn a subagent on the sonnet model to review this phase's work for correctness bugs and code quality — hand it the phase document, the roadmap and the diff, have it report findings rather than apply them, then fix what is real and record what you deliberately did not fix and why. Do not let the review expand scope: a finding that belongs to a later phase goes in the build log, not into this phase's code. Second, append an entry to Documents/BUILD-LOG.md using the template at the top of that file, written for someone with no memory of this conversation. Say plainly at the top of that entry which of Phase 3's decisions it overturns. The phase document's "Closing this phase" section lists what else this phase must record.
+
+Produce a plan for my approval first.</pre>
+        </div>
+        <div class="checks">
+          <div class="checks-head"><span class="label">Your pass — click through these</span><span class="checks-count"></span></div>
+          <ol>
+            <li><label><input type="checkbox" data-check="p3b-gone"><span><b>Scroll the whole availability column.</b> No repeated cards, no muted dashed duplicates, no "New this week" divider anywhere.</span></label></li>
+            <li><label><input type="checkbox" data-check="p3b-once"><span><b>Pick a record from an early week and hunt for it in every later week.</b> It must appear exactly once, in its own band.</span></label></li>
+            <li><label><input type="checkbox" data-check="p3b-top"><span><b>Reload the page.</b> Both columns are scrolled to the top, sitting on their oldest outstanding record, with no empty weeks above it.</span></label></li>
+            <li><label><input type="checkbox" data-check="p3b-trim"><span><b>Compare where the two columns start.</b> They'll often be different weeks — that's correct now. Check the left column still shows any past-dated Booked space, even one older than every availability record.</span></label></li>
+            <li><label><input type="checkbox" data-check="p3b-gap"><span><b>Find an empty week between two populated ones.</b> It still shows its header — only the leading run is trimmed.</span></label></li>
+            <li><label><input type="checkbox" data-check="p3b-past"><span><b>Look at a past week band.</b> De-emphasised, but the cards in it are clearly live and usable — not greyed out as if disabled.</span></label></li>
+            <li><label><input type="checkbox" data-check="p3b-seed"><span><b>Check the data looks the same as before.</b> Same records, same quantities, same weeks — this phase changed the display, not the seed.</span></label></li>
+          </ol>
+          <p class="note">You're checking a removal, so most of this is confirming absence. The one thing to be positively curious about is where each column now starts.</p>
+        </div>
+      </article>
       <article class="phase" id="p4" data-phase="4">
         <div class="phase-head">
           <span class="phase-num">PHASE 04</span>
@@ -770,14 +839,16 @@ Produce a plan for my approval first.</pre>
           <li><b>Flip swaps the columns</b> and loses no state, which is why each column must be identifiable without relying on its position.</li>
           <li><b>Sorting works within week bands</b>, not across them. The chronological spine stays put.</li>
         </ul>
-        <div class="risk"><span class="label">Watch out</span>Filters and carry-over cards interact subtly. A filtered-out record must not sneak back as a carry-over — but when filtering to a single week, carry-over cards are precisely what makes the view correct, so they have to survive a week filter.</div>
+        <div class="risk"><span class="label">Watch out</span>The availability column gets no week filter — the spec asks for one and it's deliberately overridden, because filtering supply to a single week hides older unmatched records. Also: changing a filter changes which record is oldest, so the leading-band trim has to recompute with it.</div>
         <div class="prompt-wrap">
           <div class="prompt-bar"><span class="label">Prompt</span><button class="copy">Copy</button></div>
 <pre class="prompt">Read Documents/ROADMAP.md, Documents/BUILD-LOG.md, Documents/Phases/PHASE-4-filter-sort-flip.md and Documents/design-system.md in full before doing anything else.
 
 You are building Phase 4 — Filter, Sort &amp; Flip — and nothing else. This phase only changes what is shown; nothing here may change data.
 
-Two things need care. First, filters and carry-over cards: a record excluded by a filter must not reappear as a carry-over card, but when the operator filters to a single week the carry-over cards are exactly what make that view correct, so they must survive a week filter. Decide the rule explicitly and say which you applied.
+Two things need care. First: the availability column gets **no** week-commencing filter. The spec asks for one on page 21 and it has been deliberately overridden (resolved question 17), because supply is a state rather than an event and filtering it to a single week hides every older record that still has unmatched quantity. Don't add it, and don't add a cumulative "available by" variant either — that was considered and declined. The W.C. column itself stays on both sides; it's only the filter that goes.
+
+Second: changing any filter changes which record is oldest, so the leading-empty-band trim has to recompute alongside it, per column, from that column's own surviving data.
 
 Second, sorting operates within week bands rather than across them — the chronological band order is the spine of the screen. If you think a global sort that dissolves the bands is genuinely wanted, offer it as an explicit mode rather than silently breaking them.
 
@@ -797,11 +868,11 @@ Produce a plan for my approval first.</pre>
           <ol>
             <li><label><input type="checkbox" data-check="p4-default"><span><b>Load the page fresh.</b> Spaces filtered to Booked only; availability to Booked and Pending with unmatched above zero. Anything else means the spec defaults drifted.</span></label></li>
             <li><label><input type="checkbox" data-check="p4-narrow"><span><b>Pick a processor, then open the stock class filter.</b> It should have narrowed to that processor's own list — the two sides' vocabularies never mix.</span></label></li>
-            <li><label><input type="checkbox" data-check="p4-week"><span><b>Filter to a single week.</b> The carry-over cards must still be there. That view is the entire reason they exist.</span></label></li>
-            <li><label><input type="checkbox" data-check="p4-sneak"><span><b>Filter a specific record out entirely</b>, then check it hasn't crept back into a later week as a carry-over.</span></label></li>
+            <li><label><input type="checkbox" data-check="p4-week"><span><b>Look for a week filter on the availability column.</b> There shouldn't be one — the spaces column keeps its, the supply column doesn't. The W.C. column itself should still be displayed on both.</span></label></li>
+            <li><label><input type="checkbox" data-check="p4-sneak"><span><b>Filter out the oldest surviving availability record.</b> The column's first week band should move forward, with no empty weeks left stranded at the top.</span></label></li>
             <li><label><input type="checkbox" data-check="p4-sort"><span><b>Sort by quantity.</b> Cards reorder <em>within</em> each week band; the bands themselves stay in date order.</span></label></li>
             <li><label><input type="checkbox" data-check="p4-flip"><span><b>Hit flip.</b> Columns swap, filters and sort survive intact. Reload the page — the flip is still there. And you can still tell instantly which column is which.</span></label></li>
-            <li><label><input type="checkbox" data-check="p4-count"><span><b>Check the "showing X of Y" counts</b> on both columns are right, and that carry-over cards don't inflate them.</span></label></li>
+            <li><label><input type="checkbox" data-check="p4-count"><span><b>Check the "showing X of Y" counts</b> on both columns are right.</span></label></li>
             <li><label><input type="checkbox" data-check="p4-empty"><span><b>Filter until nothing matches.</b> You should get an empty state with a one-click way out, never a blank column.</span></label></li>
             <li><label><input type="checkbox" data-check="p4-reset"><span><b>Hit reset.</b> Back to exactly what you saw in the first check.</span></label></li>
           </ol>
@@ -861,7 +932,7 @@ Produce a plan for my approval first.</pre>
             <li><label><input type="checkbox" data-check="p5-caps"><span><b>Try to exceed the availability's unmatched quantity.</b> Blocked, with an explanation of why. Now try to over-fill the <em>space</em> — that must be allowed, and shows blue.</span></label></li>
             <li><label><input type="checkbox" data-check="p5-refuse"><span><b>Drag onto a record with no unmatched quantity left.</b> Exactly "There is no unmatched quantity", and no dialog opens at all.</span></label></li>
             <li><label><input type="checkbox" data-check="p5-live"><span><b>Create a match and watch both columns.</b> Numbers, meters and statuses update on both sides without a refresh.</span></label></li>
-            <li><label><input type="checkbox" data-check="p5-vanish"><span><b>Fully consume an availability record.</b> Its carry-over cards should disappear from every later week.</span></label></li>
+            <li><label><input type="checkbox" data-check="p5-vanish"><span><b>Fully consume an availability record.</b> It should drop out of the column entirely — one fewer item in the backlog — since the default filter hides records with nothing left to match.</span></label></li>
             <li><label><input type="checkbox" data-check="p5-dup"><span><b>Drag a pair that already has a match.</b> You should get a second, separate match — never a merged or topped-up one.</span></label></li>
           </ol>
           <p class="note">There is no keyboard fallback by design, so dragging is the only route to a match. If anything here feels fragile, say so now rather than discovering it in front of APG.</p>

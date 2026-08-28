@@ -25,7 +25,8 @@ matches, always at status `Drafted`.
     the same result. The operator should never have to think about direction.
 1.3 Dropping on the **same** column is invalid — no match, no error, just no effect.
 1.4 Dropping on empty space or a band header is invalid and cancels cleanly.
-1.5 **Carry-over cards are draggable** and act on the record they represent (Phase 3, 4.5).
+1.5 Every record is a single card in a single band, so there is no ambiguity about which instance
+    was dragged. An availability record from an earlier week is dragged from where it sits.
 1.6 Auto-scroll the target column when a drag approaches its edge — without this, matching across
     weeks means dropping the card, scrolling, and starting again.
 1.7 The dragged card follows the pointer per the Phase 2 drag states. Valid targets highlight;
@@ -74,10 +75,10 @@ matches, always at status `Drafted`.
 4.2 **Every drag creates a new match** (resolved question 8). Dropping a pair that already matches
     produces a second, separate match. Never merge, top up, or dedupe.
 4.3 On creation, everything derived updates immediately on **both** columns: unmatched, both matched
-    sums, quantity colours, the availability record's derived status, and whether a carry-over card
-    should still exist.
-4.4 If the match consumes the last of an availability record's quantity, its carry-over cards vanish
-    from later bands — a visible, satisfying confirmation that the drag worked.
+    sums, quantity meters, and the availability record's derived status.
+4.4 If the match consumes the last of an availability record's quantity, the record leaves the
+    default-filtered view entirely — a visible confirmation that the drag worked, and one fewer item
+    in the backlog.
 4.5 Confirm the creation briefly and non-blockingly. Include undo if it is cheap; a mis-drag is the
     most common mistake this screen will produce, and Phase 6 adds a proper delete for drafts.
 
@@ -98,7 +99,7 @@ matches, always at status `Drafted`.
   unmatched quantity while permitting the space to be over-filled.
 - The default price is looked up on the **Processor Space** stock class. Verify with a seeded pair
   whose two stock classes differ — if the lookup is keyed on the wrong side this is where it shows.
-- Dragging a carry-over card matches against the underlying record.
+- Dragging an availability record from a past week band works exactly as one from the current week.
 - Both columns' numbers, colours, and statuses update instantly after a match is created.
 - Creating a second match between an already-matched pair yields two matches, not one merged one.
 - `dotnet build`, `dotnet test` and the Angular build all pass.
@@ -109,8 +110,9 @@ Follow the shared protocol in the roadmap's "Closing a phase" section.
 
 **Review focus for the sonnet subagent:** the quantity rules at their boundaries — the exact refusal
 condition, the supply cap, the deliberately absent demand cap — and whether the default price is
-genuinely keyed on the Processor Space stock class. Also ask it to check that dragging a carry-over
-card acts on the underlying record, and that nothing merges or dedupes a repeat pairing.
+genuinely keyed on the Processor Space stock class. Also ask it to check that nothing merges or
+dedupes a repeat pairing, and that creating a match correctly removes a fully consumed record from the
+default-filtered view.
 
 **Record in `Documents/BUILD-LOG.md`:** how the drag was wired, anything about auto-scroll or long
 week bands that still feels wrong, and how a card advertises that it

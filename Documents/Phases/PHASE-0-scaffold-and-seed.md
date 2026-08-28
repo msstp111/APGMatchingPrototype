@@ -122,8 +122,8 @@ A seeder in `Apg.Api` that reads `Data/*.csv` and populates the database when it
     delivery date, optional free-text delivery time, optional notes. Status `Booked`.
 
 4.6 **Livestock Availability** — about 50, with available-from dates spread across the same window,
-    deliberately including several with early dates that remain unmatched, so Phase 3's carry-over
-    cards have something to show. Each has: stock class from the availability list, quantity
+    deliberately including several with early dates that remain unmatched, so Phase 3's backlog above
+    the current week has something in it. Each has: stock class from the availability list, quantity
     available, location, available-from date, optional availability details, transaction type,
     optional notes. Status `Booked`.
 

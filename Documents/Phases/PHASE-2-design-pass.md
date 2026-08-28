@@ -63,9 +63,12 @@ staff will use this all day, some of them on poor monitors in farm offices.
    over-filled quantity states.
 3. **Livestock Availability card** — collapsed and expanded, every status, under / exact states, and
    the pink over-committed bug state.
-4. **The carry-over card** — a muted, dashed availability card appearing in a later week band,
-   labelled "available since 10 Aug". It must read as clearly secondary to a card in its home week
-   while still being obviously draggable and actionable. See the roadmap for the concept.
+4. **The backlog above the current week** — the top of the availability column, showing older weeks
+   whose surviving records are the unfinished ones, running down into the current week. The question
+   this artboard answers: does an operator scrolling up understand they are looking at outstanding
+   supply rather than history? Consider whether past bands need any marking beyond being
+   de-emphasised. There are **no carry-over cards** (resolved question 17) — every record appears
+   once, in its own week.
 5. **Week band and rail** — how a band header reads, how the sticky rail behaves, what an empty week
    looks like, how "this week" is distinguished from past and future weeks.
 6. **Drag states** — a card mid-drag under the cursor, a valid drop target on the opposite column, an
@@ -133,7 +136,8 @@ Later phases must be implementable from this document alone, without opening the
 - Type scale, spacing scale, border radii, elevation.
 - Card dimensions, collapsed and expanded, and internal padding.
 - Week band and rail metrics, and how the content area sits inside the shell.
-- The carry-over card's exact visual treatment.
+- How a **past** week band is de-emphasised relative to the current one, and where the trimmed list
+  begins.
 - Interaction states: hover, active, dragging, drop target, disabled.
 - Anything you decided that the canvas shows but does not explain.
 
@@ -147,13 +151,16 @@ Later phases must be implementable from this document alone, without opening the
 - `Documents/design-system.md` is complete enough that Phase 3 needs no further design decisions.
 - The roadmap's status/quantity colour scheme is applied as written and documented in full.
 - No keyboard-drag or pointer-free affordances were designed.
+- No carry-over cards appear anywhere in the canvas.
 - No application code was modified — nothing under `src/`, `tests/` or `web/`.
 
 ## Hand-off notes
 
-Mark expects to iterate on the availability-spans-weeks display in particular. Present the carry-over
-concept as a proposal with your reasoning, and if you found a better answer while designing, show
-both and say which you would ship.
+The availability-spans-weeks problem is **settled** — see resolved question 17 and the roadmap's
+"Spaces are fixed to a day" section. Every record appears once in its own week; carried-over supply is
+found by scrolling up through a backlog that the default filters and the leading-band trim keep
+meaningful. An earlier draft of this plan used carry-over cards and that design was rejected. Your job
+is to make the backlog legible, not to solve the problem again.
 
 ## Closing this phase
 
@@ -167,6 +174,6 @@ invent inconsistently. Second, whether the design would look at home in the scre
 has drifted into being its own product.
 
 **Record in `Documents/BUILD-LOG.md`:** the canvas Artifact URL, the sampled hex values and the
-Material theme configuration, the status left-edge scheme and the fill meter as shipped, the
-carry-over card treatment you settled on and any alternative you rejected, the type and colour tokens
+Material theme configuration, the status left-edge scheme and the fill meter as shipped, how a past
+week band reads against the current one, the type and colour tokens
 by name, and anything the canvas shows that the document does not explain.

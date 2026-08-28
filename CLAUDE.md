@@ -111,7 +111,7 @@ testing/dto-fixtures.ts   DTO builders for the specs only
 
 ## Build plan
 
-The build is nine phases, one chat each, each starting in plan mode. Before working on any of it, read:
+The build is nine phases plus one remediation pass (3b), one chat each, each starting in plan mode. Before working on any of it, read:
 
 - `Documents/ROADMAP.md` — shared context for every phase: domain model, architecture, resolved spec questions, phase list.
 - `Documents/BUILD-LOG.md` — what earlier phases actually did and decided. Every phase appends an entry before finishing.
