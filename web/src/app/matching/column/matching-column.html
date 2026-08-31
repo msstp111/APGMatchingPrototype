@@ -1,21 +1,30 @@
 <!--
-  The column header, the reserved filter row and the sticky micro-cap strip are all OUTSIDE the
-  scrolling list, except the strip, which is inside it and sticky at top: 0 so it survives scrolling.
-  The strip's cells use the same widths as the cards, from _card-geometry.scss.
+  The column header and the filter row sit OUTSIDE the scrolling list. The micro-cap strip is inside
+  it and sticky at top: 0 so it survives scrolling. The strip's cells use the same widths as the
+  cards, from _card-geometry.scss.
 -->
 <section class="column" [class.supply]="!isDemand()">
   <header class="chead">
     <span class="material-symbols-outlined glyph">{{ glyph() }}</span>
     <h2 class="ctitle">{{ title() }}</h2>
     <span class="showing">showing {{ shown() | number }} of {{ totalCount() | number }}</span>
+
+    <!--
+      Away from default: a hueless chip and an explicit reset (design-system.md 12.3). Hueless
+      deliberately — "you have filtered this column" is information, not a warning, and every usable
+      amber collides with the quantity ramp's orange.
+    -->
+    @if (!isDefault()) {
+      <span class="filtered" title="This column is not in its default filter and sort state">
+        <span class="material-symbols-outlined" aria-hidden="true">info</span>
+        Filtered
+      </span>
+
+      <button type="button" class="reset" (click)="reset()">Reset</button>
+    }
   </header>
 
-  <!--
-    Reserved for Phase 4's filter chips and sort control. Held open rather than removed so the card
-    density this design is calculated against does not change when the controls arrive; left empty
-    rather than filled with disabled controls, which would promise an interaction that does not exist.
-  -->
-  <div class="filters" aria-hidden="true"></div>
+  <app-column-filters [side]="side()" [spaces]="spaces()" [availability]="availability()" />
 
   <div class="list">
     <div class="strip">
@@ -28,12 +37,18 @@
       <span class="s-chev"></span>
     </div>
 
-    <!--
-      Every band renders, including the empty ones. A missing band would make two weeks look adjacent
-      when they are not (requirement 1.6).
-    -->
-    @for (band of bands(); track band.week.weekCommencing) {
-      <app-week-band [band]="band" [side]="side()" />
+    @if (isFilteredEmpty()) {
+      <!-- Never a blank column: the filters that emptied it are restated, with two ways out. -->
+      <app-filtered-empty [side]="side()" [spaces]="spaces()" [availability]="availability()" />
+    } @else {
+      <!--
+        Every band renders, including the empty ones. A missing band would make two weeks look
+        adjacent when they are not (requirement 1.6). The leading run of empty bands is trimmed off
+        per column in buildBoard, and re-trimmed whenever a filter changes which record is oldest.
+      -->
+      @for (band of bands(); track band.week.weekCommencing) {
+        <app-week-band [band]="band" [side]="side()" />
+      }
     }
   </div>
 </section>

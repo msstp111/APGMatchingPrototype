@@ -23,9 +23,12 @@ export interface StockClassTile {
 }
 
 /**
- * Both vocabularies at once, and note they do not line up: `Lamb` is on both sides, `Lambs` is SFF's
- * spelling, `Cow` is supply's and `Cows` is ANZCO's and SFF's. That mismatch is the point of the
- * screen and must never be presented as an error.
+ * Both vocabularies at once, and note they do not line up: `Cow` is supply's spelling and `Cows` is
+ * ANZCO's and SFF's, `Cattle` is Alliance's where supply says `Mixed Cattle`. That mismatch is the
+ * point of the screen and must never be presented as an error.
+ *
+ * `Lambs` is kept as an alias although nothing produces it any more: SFF's list said `Lambs` until
+ * APG confirmed it is `Lamb`, and a one-line alias costs nothing if that is ever reverted.
  */
 const TILES: ReadonlyMap<string, StockClassTile> = new Map([
   ['Lamb', { monogram: 'LM', species: 'sheep' as Species }],

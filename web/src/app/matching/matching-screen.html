@@ -5,28 +5,53 @@
 
   Two exceptions exist and are named in no-domain-arithmetic.spec.ts: the fill meter's CSS widths and
   the band header's roll-up totals.
+
+  There is no shared search strip. design-system.md 12.1 specified one; the per-column filter rows
+  cover it, and the 52px it would have taken went back to the list (Phase 4).
 -->
 <div class="matching-screen">
   @if (error()) {
     <p class="error">{{ error() }}</p>
   }
 
-  <!--
-    Reserved for Phase 4's shared search field. Held open at 52px because the card density this design
-    is calculated against assumes it, and empty rather than filled with a dead control.
-  -->
-  <div class="search-strip" aria-hidden="true"></div>
-
   @if (ready()) {
-    <div class="columns">
+    <div class="columns" [class.flipped]="flipped()">
       <!--
         Each column gets its own trimmed run of bands, so each starts at the week of its own earliest
-        record. The two often differ, and their rails will show different weeks at the same height.
-        That is correct: the columns scroll independently and neither may be trimmed by the other's
-        data. Both open at the top, which is where the oldest outstanding record now sits.
+        surviving record — recomputed whenever a filter changes which record that is. The two often
+        differ, and their rails will show different weeks at the same height. That is correct: the
+        columns scroll independently and neither may be trimmed by the other's data.
+
+        The order is CSS, so flipping never destroys a column: no filter, sort or expanded card is
+        lost across it (requirement 5.2).
       -->
-      <app-matching-column side="demand" [bands]="board().demand" />
-      <app-matching-column side="supply" [bands]="board().supply" />
+      <app-matching-column
+        class="demand"
+        side="demand"
+        [bands]="board().demand"
+        [spaces]="spaces()"
+        [total]="spaces().length"
+      />
+
+      <button
+        type="button"
+        class="flip"
+        (click)="toggleFlip()"
+        [attr.aria-label]="
+          flipped() ? 'Put Processor Spaces on the left' : 'Put Livestock Availability on the left'
+        "
+        title="Swap the columns"
+      >
+        <span class="material-symbols-outlined" aria-hidden="true">swap_horiz</span>
+      </button>
+
+      <app-matching-column
+        class="supply"
+        side="supply"
+        [bands]="board().supply"
+        [availability]="availability()"
+        [total]="availability().length"
+      />
     </div>
   }
 </div>

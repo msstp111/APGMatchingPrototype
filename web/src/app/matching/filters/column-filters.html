@@ -1,0 +1,267 @@
+<!--
+  Every chip shows its current value without being opened (design-system.md 12.2), because the two
+  filters Frontend ideas.md singles out are Status and Stock class and a control that hides its own
+  state is how an operator concludes a record has vanished.
+
+  No hue anywhere in here. A selected chip takes the petrol tint and a petrol ring, which is the
+  brand colour saying "active", never a status or a quantity colour (design-system.md 3).
+-->
+<div class="row">
+  <button
+    type="button"
+    class="fchip"
+    [class.on]="selectedStatuses().length > 0"
+    [matMenuTriggerFor]="statusMenu"
+  >
+    Status: {{ statusSummary() }}
+    <span class="material-symbols-outlined caret" aria-hidden="true">arrow_drop_down</span>
+  </button>
+
+  <mat-menu #statusMenu="matMenu" class="filter-menu">
+    <!--
+      Statuses are the type's members, not the loaded data's: ticking Cancelled and seeing nothing
+      teaches more than a menu that quietly omits it.
+    -->
+    @for (status of statusOptions(); track status) {
+      <button mat-menu-item type="button" (click)="toggleStatus(status); $event.stopPropagation()">
+        <span class="material-symbols-outlined tick" aria-hidden="true">{{
+          tickGlyph(isSelected(selectedStatuses(), status))
+        }}</span>
+        {{ status }}
+      </button>
+    }
+  </mat-menu>
+
+  <button
+    type="button"
+    class="fchip"
+    [class.on]="selectedStockClasses().length > 0"
+    [matMenuTriggerFor]="stockClassMenu"
+  >
+    Stock class: {{ stockClassSummary() }}
+    <span class="material-symbols-outlined caret" aria-hidden="true">arrow_drop_down</span>
+  </button>
+
+  <mat-menu #stockClassMenu="matMenu" class="filter-menu">
+    <!--
+      The two sides hold different, non-aligned vocabularies and neither is ever offered the other's.
+      On the demand side this list narrows to the selected processors' own classes.
+    -->
+    @for (stockClass of stockClassOptions(); track stockClass) {
+      <button
+        mat-menu-item
+        type="button"
+        (click)="toggleStockClass(stockClass); $event.stopPropagation()"
+      >
+        <span class="material-symbols-outlined tick" aria-hidden="true">{{
+          tickGlyph(isSelected(selectedStockClasses(), stockClass))
+        }}</span>
+        {{ stockClass }}
+      </button>
+    }
+
+    @if (stockClassOptions().length === 0) {
+      <div class="menu-note">- no stock classes in this column</div>
+    }
+  </mat-menu>
+
+  <!--
+    The third chip: the "who" filter on each side, promoted out of More because there is room for it
+    on the row and it is the one an operator reaches for after status and stock class.
+  -->
+  @if (isDemand()) {
+    <button
+      type="button"
+      class="fchip"
+      [class.on]="selectedProcessors().length > 0"
+      [matMenuTriggerFor]="processorMenu"
+      data-testid="processor-chip"
+    >
+      Processor: {{ processorSummary() }}
+      <span class="material-symbols-outlined caret" aria-hidden="true">arrow_drop_down</span>
+    </button>
+  } @else {
+    <button
+      type="button"
+      class="fchip"
+      [class.on]="selectedLocations().length > 0"
+      [matMenuTriggerFor]="locationMenu"
+      data-testid="location-chip"
+    >
+      Location: {{ locationSummary() }}
+      <span class="material-symbols-outlined caret" aria-hidden="true">arrow_drop_down</span>
+    </button>
+  }
+
+  <button
+    type="button"
+    class="fchip"
+    [class.on]="moreCount() > 0"
+    [matMenuTriggerFor]="moreMenu"
+    data-testid="more-chip"
+  >
+    More{{ moreCount() > 0 ? ' (' + moreCount() + ')' : '' }}
+    <span class="material-symbols-outlined caret" aria-hidden="true">arrow_drop_down</span>
+  </button>
+
+  <mat-menu #moreMenu="matMenu" class="filter-menu">
+    <!--
+      What did not fit on the row. Processor and Location are NOT in here: they have chips of their
+      own, and a control with two homes is a control whose state has to be looked for in two places.
+    -->
+    @if (isDemand()) {
+      <button mat-menu-item type="button" [matMenuTriggerFor]="plantMenu">Plant</button>
+      <button mat-menu-item type="button" [matMenuTriggerFor]="weekMenu">
+        Delivery week (W.C.)
+      </button>
+    } @else {
+      <button mat-menu-item type="button" [matMenuTriggerFor]="transactionTypeMenu">
+        Transaction type
+      </button>
+
+      <!--
+        There is deliberately no week filter here (resolved question 17). Filtering supply to a single
+        week would hide every older record that still has unmatched stock — the exact blindness the
+        scroll-up backlog exists to prevent. The W.C. value still shows on the card and the band.
+      -->
+    }
+
+    <!--
+      The same rule on both sides — `unmatched > 0` — so it is one item with one wording, outside the
+      side branch. Only its default differs: off on demand, on on supply.
+    -->
+    <button mat-menu-item type="button" (click)="toggleHasUnmatched(); $event.stopPropagation()">
+      <span class="material-symbols-outlined tick" aria-hidden="true">{{
+        tickGlyph(hasUnmatched())
+      }}</span>
+      Has unmatched quantity
+    </button>
+  </mat-menu>
+
+  <mat-menu #processorMenu="matMenu" class="filter-menu">
+    @for (processor of demandOptions().processors; track processor) {
+      <button
+        mat-menu-item
+        type="button"
+        (click)="toggleProcessor(processor); $event.stopPropagation()"
+      >
+        <span class="material-symbols-outlined tick" aria-hidden="true">{{
+          tickGlyph(isSelected(selectedProcessors(), processor))
+        }}</span>
+        {{ processor }}
+      </button>
+    }
+  </mat-menu>
+
+  <mat-menu #plantMenu="matMenu" class="filter-menu">
+    <!-- Narrowed by the processor filter (requirement 1.4). -->
+    @for (plant of demandOptions().plants; track plant) {
+      <button mat-menu-item type="button" (click)="togglePlant(plant); $event.stopPropagation()">
+        <span class="material-symbols-outlined tick" aria-hidden="true">{{
+          tickGlyph(isSelected(selectedPlants(), plant))
+        }}</span>
+        {{ plant }}
+      </button>
+    }
+  </mat-menu>
+
+  <mat-menu #weekMenu="matMenu" class="filter-menu">
+    <!-- One week or every week: a delivery date is a single-week event. The label is the server's. -->
+    <button mat-menu-item type="button" (click)="selectWeek(null)">
+      <span class="material-symbols-outlined tick" aria-hidden="true">{{
+        tickGlyph(selectedWeek() === null)
+      }}</span>
+      Any week
+    </button>
+
+    @for (week of demandOptions().weeks; track week.value) {
+      <button mat-menu-item type="button" (click)="selectWeek(week.value)">
+        <span class="material-symbols-outlined tick" aria-hidden="true">{{
+          tickGlyph(selectedWeek() === week.value)
+        }}</span>
+        {{ week.label }}
+      </button>
+    }
+  </mat-menu>
+
+  <mat-menu #locationMenu="matMenu" class="filter-menu wide">
+    <!--
+      Requirement 2.3: type-ahead inside the control, narrowing the ~300 location OPTIONS so one can
+      be picked. Clicks and keys are stopped here so the menu neither closes on a keystroke nor hands
+      the letters to its own keyboard navigation.
+    -->
+    <div class="typeahead" (click)="$event.stopPropagation()" (keydown)="$event.stopPropagation()">
+      <span class="material-symbols-outlined" aria-hidden="true">search</span>
+      <input
+        type="text"
+        placeholder="Type to narrow locations"
+        aria-label="Type to narrow locations"
+        [value]="locationQuery()"
+        (input)="setLocationQuery($any($event.target).value)"
+      />
+    </div>
+
+    @for (location of visibleLocations(); track location.value) {
+      <button
+        mat-menu-item
+        type="button"
+        (click)="toggleLocation(location.value); $event.stopPropagation()"
+      >
+        <span class="material-symbols-outlined tick" aria-hidden="true">{{
+          tickGlyph(isSelected(selectedLocations(), location.value))
+        }}</span>
+        {{ location.label }}
+      </button>
+    }
+
+    @if (hiddenLocationCount() > 0) {
+      <div class="menu-note">{{ hiddenLocationCount() }} more match — keep typing to narrow</div>
+    }
+
+    @if (visibleLocations().length === 0) {
+      <div class="menu-note">- no locations match</div>
+    }
+  </mat-menu>
+
+  <mat-menu #transactionTypeMenu="matMenu" class="filter-menu">
+    @for (type of supplyOptions().transactionTypes; track type.value) {
+      <button
+        mat-menu-item
+        type="button"
+        (click)="toggleTransactionType(type.value); $event.stopPropagation()"
+      >
+        <span class="material-symbols-outlined tick" aria-hidden="true">{{
+          tickGlyph(isSelected(selectedTransactionTypes(), type.value))
+        }}</span>
+        {{ type.label }}
+      </button>
+    }
+  </mat-menu>
+
+  <!--
+    Sorting reorders cards INSIDE each week band and never dissolves them: the band order is
+    chronological and comes from the server's calendar (requirement 4.3).
+  -->
+  <button type="button" class="sort" [matMenuTriggerFor]="sortMenu" data-testid="sort-control">
+    <span class="material-symbols-outlined dir" aria-hidden="true">{{ sortGlyph() }}</span>
+    {{ sortSummary() }}
+  </button>
+
+  <mat-menu #sortMenu="matMenu" class="filter-menu">
+    <div class="menu-note">Sort within each week</div>
+
+    @for (field of sortFields(); track field.field) {
+      <button mat-menu-item type="button" (click)="selectSortField(field.field)">
+        <span class="material-symbols-outlined tick" aria-hidden="true">{{
+          tickGlyph(sort().field === field.field)
+        }}</span>
+        {{ field.label }}
+      </button>
+    }
+
+    <button mat-menu-item type="button" (click)="toggleSortDirection()">
+      <span class="material-symbols-outlined tick" aria-hidden="true">swap_vert</span>
+      Reverse order
+    </button>
+  </mat-menu>
+</div>

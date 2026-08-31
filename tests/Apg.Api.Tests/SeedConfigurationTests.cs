@@ -18,7 +18,27 @@ public class SeedConfigurationTests
             ["Cows", "Prime", "Nat Beef - Ultra", "Nat Beef - Premium", "Bulls", "Lamb", "Mutton"],
             byProcessor["ANZCO"]);
         Assert.Equal(["Lamb", "Mutton", "Cattle", "Deer"], byProcessor["Alliance Group"]);
-        Assert.Equal(["Lambs", "Prime", "Cows"], byProcessor["SFF"]);
+
+        // "Lamb", not "Lambs": APG confirmed SFF spells it the same way everyone else does. The two
+        // vocabularies still do not align — Cows against Cow, Cattle against Mixed Cattle — and this
+        // one word is not the reason they don't.
+        Assert.Equal(["Lamb", "Prime", "Cows"], byProcessor["SFF"]);
+    }
+
+    /// <summary>
+    /// The processor mix APG actually sees, and the reason it is a weighted list rather than a cycle:
+    /// <c>Processors[i % 3]</c> aliased with the six-week spread, so every week held exactly one
+    /// processor.
+    /// </summary>
+    [Fact]
+    public void The_processor_mix_is_seventy_twenty_ten()
+    {
+        var byProcessor = SeedConfig.ProcessorMix.ToDictionary(p => p.Processor, p => p.Weight);
+
+        Assert.Equal(70, byProcessor["ANZCO"]);
+        Assert.Equal(20, byProcessor["Alliance Group"]);
+        Assert.Equal(10, byProcessor["SFF"]);
+        Assert.Equal(100, SeedConfig.ProcessorMix.Sum(p => p.Weight));
     }
 
     [Fact]

@@ -327,8 +327,12 @@ A meter cannot grow past its track, so the over state is drawn instead of measur
    appears on the card's line 2 whenever there is room, and always in the expanded card and in every
    dialog. The wording comes from the DTO's `quantityStateLabel`; do not compose it in TypeScript.
 
-Seeded example to check against: Processor Space #1 — 354 matched against 49 required, `unmatched`
-`-305`. Space #5 shows both segments and the over-run at once: 125 solid, 209 in alpha, against 190.
+**The seeded example moved.** It was Processor Space #1 at 354 matched against 49 required
+(`unmatched -305`), which was a 7× over-fill and looked like a seeder artefact. After the processor
+mix was corrected the over-filled space is a different record with a plausible over-run — one space,
+in the tens rather than the hundreds. Check the numeral column against a **four-character** figure
+anyway: the width is set for `-305` and the seed no longer produces one, so nothing else will catch
+it if that column narrows.
 
 ### 4.3 The pink state
 
@@ -569,7 +573,6 @@ status nor quantity uses:
 | Stock class | Vocabulary | Monogram | Shape |
 | --- | --- | --- | --- |
 | `Lamb` | both | `LM` | sheep |
-| `Lambs` | SFF | `LM` | sheep |
 | `Mutton` | both | `MU` | sheep |
 | `Cows` | ANZCO, SFF | `CO` | cattle |
 | `Cow` | supply | `CO` | cattle |
@@ -605,7 +608,7 @@ Inside the content area, top to bottom:
 
 | Element | Height |
 | --- | --- |
-| Shared search strip | **52** — 8px top padding + 38px field + 6px bottom padding |
+| ~~Shared search strip~~ | **Not built** — see §12.1. The 52px went back to the list. |
 | Columns wrapper | fills; `padding: 0 12px 12px`, `gap: 16px` |
 | — Column header | 40 |
 | — Filter row | 40 |
@@ -638,28 +641,30 @@ column that changes is the flexing name column (§6.1). Both columns must stay i
 ```
 768  viewport
 - 52  top bar
-- 52  search strip
 - 12  bottom padding
 - 40  column header
 - 40  filter row
 - 28  header strip
-= 544px of list
+= 596px of list
 ```
 
-544px is the list's *total*, and band chrome shares it. Since every record is drawn once and there
+**Phase 4 raised this from 544px by not building the shared search strip** (§12.1): the 52px it had
+reserved went back to the list, which is worth about one more card per column.
+
+596px is the list's *total*, and band chrome shares it. Since every record is drawn once and there
 are no sub-headers, the only chrome inside the list is the 30px band headers — and, in a week with
 nothing in it, a 44px empty row. A realistic scroll position shows two or three headers, so 60–90px.
 The honest figure is:
 
 | Visible band chrome | Cards per column |
 | --- | --- |
-| none (one long band) | 10 |
-| two band headers (60px) | 9 |
-| three headers, or two plus an empty week (90px+) | 8 |
+| none (one long band) | 11 |
+| two band headers (60px) | 10 |
+| three headers, or two plus an empty week (90px+) | 9 |
 
-**8 to 10 cards per column, so 16 to 20 across both** — against LMS's ~20 rows. That is the family
-resemblance, and it is checkable: **if Phase 3 ends up showing four cards per column, the design has
-failed and the card must shrink, not the target.**
+**9 to 11 cards per column, so 18 to 22 across both** — against LMS's ~20 rows. That is the family
+resemblance, and it is checkable: **if the screen ends up showing four cards per column, the design
+has failed and the card must shrink, not the target.**
 
 **One caveat for Phase 3 specifically.** The 40px filter row belongs to Phase 4. Phase 3 must
 nevertheless **reserve it** — render the 40px band empty, or leave the gap — so that the density it
@@ -701,7 +706,7 @@ JavaScript `Date` from the ISO value. Phase 1's build log calls this out explici
 | Leader | a 1px dotted petrol line down the rail at 45% opacity, from below the label to the band's end, showing the band's extent |
 
 **The band header does not stick — only the rail label does.** Two stuck elements would eat 58px of a
-544px list, and the rail already answers "which week am I in". If Phase 3 reaches for virtualisation,
+596px list, and the rail already answers "which week am I in". If Phase 3 reaches for virtualisation,
 check the sticky rail first; plain rendering is expected to be fine at ~50 records per side.
 
 ### 8.6 Past, current, future
@@ -764,18 +769,18 @@ Two consequences, both deliberate — do not "fix" either:
   screen that is right — there is nothing left to match. The backlog means "supply still to
   allocate", not "everything unfinished".
 
-### 9.3 Where the list begins — trimmed per column
+### 9.3 Where the list begins and ends — trimmed per column
 
-**Each column starts at the week of its own earliest surviving record.** The leading run of bands
-with nothing in *that* column is not rendered.
+**Each column spans the weeks its own surviving records occupy**: from the week of its earliest to
+the week of its latest. The runs of empty bands at each end are not rendered.
 
 | Rule | Why |
 | --- | --- |
 | Each column trims **independently** | A shared start week hides a past-dated Booked space older than the earliest availability record, with nothing on screen to say so. Neither column's start may be decided by the other's data. |
-| Only the **leading** run goes | An empty week *between* two populated weeks still renders its header (§8.4): a gap in the calendar is information. Trailing weeks are left alone. |
-| The run always reaches the **current week** | The band range includes it whether or not a record falls in it, so a column whose records are all in the past still shows where "now" is. |
-| A column with **no records at all** starts at the current week | Rather than render nothing. The empty-band rows (§8.4) then say each week is empty. |
-| The trim is **recomputed, never cached** | Phase 4 filters the record lists and rebuilds the board; the first band must move forward when a filter removes the oldest record. |
+| Only the runs at **each end** go | An empty week *between* two populated weeks still renders its header (§8.4): a gap in the calendar is information. Trimming both ends is not the same as dropping every empty band. |
+| A column may **end before the current week** | Changed in Phase 4, overturning an earlier rule that the run always reached today. Filtering the demand column to one delivery week left a stack of empty headers under the only band holding anything, which reads as missing data. The `Past` tag on every past band, and its absence on every future one, still says which side of today a record falls on. |
+| A column with **no records at all** shows the current week alone | Rather than render nothing. Its empty-band row (§8.4) then says the week is empty. |
+| The trim is **recomputed, never cached** | Filtering rebuilds the board, and both ends move when a filter changes which records survive. |
 
 **The two columns will often start at different weeks, and their rails will show different weeks at
 the same vertical position.** That is expected and correct — they scroll independently and each trims
@@ -911,10 +916,13 @@ tracking, 4px radius.
 
 1. **Both parent records, read-only, side by side**, each `flex: 1 1 0`, 10px apart: the same block as
    §11.1 plus the side glyph, the record id in the kicker (`Processor Space #3`), a sub-line
-   (`Lambs · delivery 01-09-26 · no time set`), and the fact pairs
+   (`Lamb · delivery 01-09-26 · no time set`), and the fact pairs
    `Originally required`/`Originally available` and `Quantity unmatched` with its state label.
-2. **The stock-class note**, as §11.1 — and note that `Lambs` versus `Lamb` looks like a typo and is
-   not. Neither side is validated against the other.
+2. **The stock-class note**, as §11.1 — and note that `Cows` on a space against `Cow` on an
+   availability record looks like a typo and is not. Neither side is validated against the other.
+   (This example used to be SFF's `Lambs` against supply's `Lamb`; APG confirmed SFF spells it
+   `Lamb` too, so the seed was corrected and the example moved. The vocabularies still do not
+   align — `Cattle` against `Mixed Cattle`, `Nat Beef - Ultra` against `GFNB ultra`.)
 3. **Three editable fields**: `Quantity matched` (150px, min 1, max stated in the hint),
    `Price per kg` (150px), `Transport company` (flexes, autocomplete).
 4. A micro-note under the fields spelling the ceiling out:
@@ -962,28 +970,55 @@ Actions: `Keep match` · `Cancel match` (`mat-flat-button`, `#BA1A1A`).
 
 ## 12. Filter and sort bar
 
-### 12.1 Shared search strip
+### 12.1 Shared search strip — not built, and not to be reinstated casually
 
-LMS's own signature, and the most recognisable single element on the screen: a full-width
-`appearance="fill"` search field with a floating label, and a **stacked** `× Clear` / `^ Hide` pair at
-the top right, 22px each, 12px text. Label:
-`Search processor, plant, location, farmer, stock class`.
+> **Phase 4 decided against it, with Mark, and reclaimed its 52px** (§8.1, §8.3). What this section
+> specified was a full-width `appearance="fill"` field with a stacked `× Clear` / `^ Hide` pair,
+> searching record text across processor, plant, location, farmer and stock class.
+>
+> Three reasons it went:
+>
+> 1. **The per-column filters cover it.** Everything it would have searched is already a filter on the
+>    column that owns it, and the filter says what it is doing where the search would not have.
+> 2. **It would have been the one control filtering both columns at once**, which is the ambiguity
+>    §12.2 avoids by giving each column its own controls — and it would have muddied per-column
+>    `Reset`, which cannot clear a field it does not own.
+> 3. **Nothing later needs it.** Every other "search" in Phases 5–8 is a type-ahead picker inside a
+>    dialog or form (transport company, location), not this strip.
+>
+> **Requirement 2.3's "searchable" location filter is not this.** It is a type-ahead *inside* the
+> supply column's Location control, narrowing the ~300 location **options** so one can be picked. It
+> is built, and it lives in §12.2's `More`.
+>
+> If a later phase wants record-text search back, it is a new decision — and it costs a card per
+> column.
 
 ### 12.2 Per-column filter row — 40px
 
 Each column owns its own controls, so a filter can never be ambiguous about which side it applies to.
 
 ```
-[ Status: Booked ▾ ]  [ Stock class: All ▾ ]  [ More ▾ ]        ↓ Soonest
+[ Status: Booked ▾ ] [ Stock class: All ▾ ] [ Processor: All ▾ ] [ More ▾ ]   ↓ Soonest
 ```
 
-- **Status** and **Stock class** are `mat-chip-option`s, 26px, 12px text, 13px radius, rather than
-  selects — they are the two filters `Frontend ideas.md` singles out, and they must show their current
-  value without being opened. Selected chips: `#E8F1F6` fill, 1px petrol, petrol text.
-- **More** opens a second row of `appearance="fill"` selects for the rest of Phase 4's field list:
-  demand `Processor · Plant · Delivery week (W.C.) · Sort by · Has unmatched quantity`; supply
-  `Location (searchable, 299) · Transaction type · Sort by · Unmatched quantity`. When open, the chip
-  reads `More (2) ▴` with the count of active filters inside it.
+- **Status**, **Stock class** and one **"who"** filter are chips, 26px, 12px text, 13px radius,
+  rather than selects — they must show their current value without being opened. Selected chips:
+  `#E8F1F6` fill, 1px petrol, petrol text. The third chip is `Processor` on demand and `Location` on
+  supply; three chips plus `More` and the sort control is what fits a 40px row at 1366px, and a
+  fourth would start ellipsing the values it exists to show.
+- **More** holds what did not fit: demand `Plant · Delivery week (W.C.) · Has unmatched quantity`;
+  supply `Transaction type · Has unmatched quantity`. The chip reads `More (2)` with the count of
+  filters **inside it** currently restricting the list — the promoted chips show their own state on
+  the row, so counting them here would say a filter was hidden when it is in plain sight. The supply
+  column opens on `More (1)`, because its `Has unmatched quantity` default really does hide records.
+- **`Has unmatched quantity` is worded identically on both sides**, because it is the same rule —
+  `unmatched > 0` — with a different default: off on demand, on on supply.
+
+  **As built (Phase 4), `More` opens a menu with a submenu per field rather than a second row.** An
+  inline second row costs 40px of a 596px list — a card per column, which §8.3 exists to protect —
+  and a `mat-select` opened inside a `mat-menu` is an overlay inside an overlay. Every control in the
+  row is therefore the same shape: a chip that shows its value, and a menu behind it. Sort is its own
+  right-aligned control, as the line below says, and not a field inside `More`.
 - **The supply side has no week filter, deliberately** (§9.5, resolved question 17). Filtering supply
   to one week would hide the older unmatched records the backlog exists to surface. Demand keeps its
   `Delivery week`, because a delivery date genuinely is a single-week event.
@@ -1082,7 +1117,7 @@ own: "Quantity Matched", never `matchedExclDraft`.
 ## 16. Things the canvas shows but does not explain
 
 1. **Line 2 is unlabelled on purpose.** Only line 1 aligns to the header strip. Labelling both would
-   need two header rows and cost 28px of the 544px list.
+   need two header rows and cost 28px of the 596px list.
 2. **The card's `title` attributes** carry the full stock-class name on the tile and
    `708 matched / 1003 incl. draft of 1180` on the meter, so a truncated or abbreviated value is
    always recoverable by hover.
@@ -1091,11 +1126,17 @@ own: "Quantity Matched", never `matchedExclDraft`.
    sums. Do not blend those two facts.
 4. **`Unmatched` comes from the incl-draft sum, not the excl-draft one.** Both are on the DTO and it is
    easy to reach for the wrong one; a draft has already spoken for the stock.
-5. **The artboards showing Confirmed and Cancelled Processor Spaces are constructed.** The seed
-   contains only `Booked` spaces (all 40), and no cancelled availability records. Those rows show a
-   real record as it would render after the action, and are labelled as such on the canvas.
-6. **The seed groups processors by week** (week 16-08 is all ANZCO, 23-08 all Alliance, 30-08 all SFF).
-   That is an artefact of the seeder, not a design intention — do not build anything that assumes it.
+5. **The artboards showing Confirmed and Cancelled Processor Spaces are constructed**, because when
+   they were drawn the seed held nothing but `Booked` spaces. **It no longer does**: after Phase 4 the
+   seed carries 34 Booked, 4 Confirmed and 2 Cancelled, so both spines can now be checked against real
+   records. A Confirmed space is only seeded where the domain agrees it could be confirmed, and one
+   Cancelled space deliberately keeps its live matches, because cancelling never cascades. There are
+   still no cancelled *availability* records.
+6. **The seed used to group processors by week** — week 16-08 all ANZCO, 23-08 all Alliance, 30-08 all
+   SFF — which is what the artboards show. That was a bug, not a design intention: the seeder picked
+   `Processors[i % 3]` while the week came from `i % 6`, and with three processors and six weeks the
+   two aliased exactly. Fixed after Phase 4; the mix is now ANZCO 70% / Alliance Group 20% / SFF 10%,
+   shuffled, so a week holds several processors. **Nothing may assume either arrangement.**
 7. **The current week in every artboard is w/c Sunday 2026-08-23**, with bands running 16-08 (past)
    through 20-09. Bands and colours will land differently against a reseeded database; the geometry
    will not.
@@ -1129,12 +1170,12 @@ deliberately, and it is better that the list is written down than rediscovered a
    is a new visual device, sanctioned by resolved question 16: hue was already committed to the
    quantity ramp, so status needed a channel of its own. Held next to the PNGs this is the single most
    visible addition. It is not a regression.
-2. **The filter chrome is roughly half LMS's footprint.** In the Killsheets and Purchases screenshots
+2. **The filter chrome is a fifth of LMS's footprint.** In the Killsheets and Purchases screenshots
    the search field plus the row of underline selects occupies on the order of 190–200px before the
-   column headers begin; Killsheets alone shows eight filter fields. This design budgets 52px for the
-   shared search strip plus 40px per column — under 100px — and defers the rest behind "More". That is
-   a measurable departure, taken because the cards need the vertical space (§8.3) and reversing it
-   would cost two cards per column.
+   column headers begin; Killsheets alone shows eight filter fields. This design budgets **40px per
+   column and nothing else** — Phase 4 dropped the 52px search strip as well (§12.1) — and defers
+   everything past Status and Stock class behind "More". That is a measurable departure, taken because
+   the cards need the vertical space (§8.3) and reversing it would cost two or three cards per column.
 3. **Chips are an idiom LMS does not use.** All four reference screens filter exclusively through
    underline selects with floating labels. The Status and Stock class chips are new. They are still
    themed Material components, so nothing reads as a foreign framework, but the idiom is an addition —

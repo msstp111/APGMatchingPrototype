@@ -12,9 +12,10 @@ describe('stockClassTile', () => {
   });
 
   /**
-   * `Lamb` is supply's spelling and ANZCO's, `Lambs` is SFF's. They are separate entries in separate
+   * `Cow` is supply's spelling and `Cows` is ANZCO's and SFF's. They are separate entries in separate
    * vocabularies and the screen must not present the difference as an error — but they are the same
-   * animal, so they get the same tile.
+   * animal, so they get the same tile. (`Lambs` no longer appears in any list; it is kept as an alias
+   * in case SFF's spelling is ever reverted.)
    */
   it('treats the two spellings of a class as the same animal', () => {
     expect(stockClassTile('Lambs')).toEqual(stockClassTile('Lamb'));

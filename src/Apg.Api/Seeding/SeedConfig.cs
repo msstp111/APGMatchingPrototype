@@ -19,6 +19,26 @@ public static class SeedConfig
     public static readonly string[] Processors = ["ANZCO", "Alliance Group", "SFF"];
 
     /// <summary>
+    /// How the Processor Spaces divide between the three processors, as a share of the total.
+    /// Roughly 70 / 20 / 10, which is the real-world mix APG sees. The seeder builds the exact counts
+    /// from these weights and shuffles them.
+    /// </summary>
+    /// <remarks>
+    /// This replaced a <c>Processors[i % 3]</c> cycle that aliased with the <c>i % 6</c> week spread,
+    /// so that every week held exactly one processor and always would. What the shuffle removes is
+    /// that <em>structural</em> guarantee — it does not promise a mixed week. With ANZCO at 70% and
+    /// seven spaces in a week, an all-ANZCO week is perfectly ordinary, and the current seed has one.
+    /// A genuinely guaranteed mix would need the assignment to know about the week, which is the
+    /// coupling that caused the original bug.
+    /// </remarks>
+    public static readonly (string Processor, int Weight)[] ProcessorMix =
+    [
+        ("ANZCO", 70),
+        ("Alliance Group", 20),
+        ("SFF", 10),
+    ];
+
+    /// <summary>
     /// Processor Space stock classes, per processor, exactly as the requirements list them.
     /// These do <em>not</em> map onto <see cref="AvailabilityStockClasses"/>; a human judges
     /// compatibility during the drag. Do not build a lookup between the two.
@@ -27,7 +47,8 @@ public static class SeedConfig
     [
         ("ANZCO", ["Cows", "Prime", "Nat Beef - Ultra", "Nat Beef - Premium", "Bulls", "Lamb", "Mutton"]),
         ("Alliance Group", ["Lamb", "Mutton", "Cattle", "Deer"]),
-        ("SFF", ["Lambs", "Prime", "Cows"]),
+        // SFF's list said "Lambs" until APG confirmed it is "Lamb", like everyone else's.
+        ("SFF", ["Lamb", "Prime", "Cows"]),
     ];
 
     /// <summary>The single, separate supply-side list.</summary>

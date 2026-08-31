@@ -1450,3 +1450,476 @@ carrying forward:
   reappears in a component, something has gone backwards.
 
 Test counts at close: `Apg.Domain.Tests` 122, `Apg.Api.Tests` 76, Angular 42 across 5 files.
+
+---
+
+## Phase 4 — Filter, Sort & Flip
+
+**Completed:** 2026-08-31
+**Status:** Complete
+
+### What shipped
+
+The matching screen filters and sorts. Each column has its own 40px filter row — Status and Stock
+class as chips that show their current value, everything else behind a `More` chip — plus a
+right-aligned sort control, a `Filtered` badge and `Reset` in its header when it is away from
+default, and a no-results state that restates the filters hiding the records. The columns swap on a
+flip button, and every choice persists to `localStorage`. Both columns open in the spec's default
+filters, so what sits above the current week is now a genuine backlog rather than a history — the
+thing Phase 3b built the structure for and could not complete.
+
+Nothing changes data and no new endpoint exists: filtering and sorting run over the working set the
+three read endpoints already returned.
+
+Later phases can rely on: `filters/filter-defaults.ts` as the one home of every default,
+`MatchingPreferences` as the root store for view preferences, and `filters/filter-service.ts` as
+pure, testable filter and sort functions over DTO lists.
+
+### Where the state lives, and what persists
+
+| Thing | Where |
+| --- | --- |
+| Filter and sort types, and **every default** | `web/src/app/matching/filters/filter-defaults.ts` |
+| Pure filtering, sorting, away-from-default, the empty state's summary | `filters/filter-service.ts` |
+| Option lists, derived from the working set, with processor narrowing | `filters/filter-options.ts` |
+| The signal store, and all persistence | `filters/matching-preferences.ts` (root-provided) |
+| The 40px filter row | `filters/column-filters.ts` |
+| The no-results state | `filters/filtered-empty.ts` |
+| Which cards are expanded | still `board/card-state.ts`, still session-only |
+
+**One `localStorage` key: `apg.matching.preferences.v1`.** It holds
+`{ version: 1, flipped, demand: { filters, sort }, supply: { filters, sort } }` — one key so a
+partial write cannot leave two halves disagreeing, and versioned so a shape change is a fallback
+rather than a crash. Reading is defensive **field by field**: a value outside a known set (a status,
+a transaction type, a sort field) is dropped and that field falls back to its default, while a
+free-text selection with no known set (stock class, processor, plant) is *kept* even when the loaded
+data no longer contains it — a stale value filters nothing in, the empty state names it, and
+silently discarding a selection the operator made is the worse failure. Malformed JSON, an unknown
+version, or storage being unavailable all fall back to the defaults without throwing.
+
+Card expansion deliberately did **not** move into this store. A filter still applied tomorrow is a
+convenience; a card still expanded tomorrow is a small mystery.
+
+### Decisions made during the build
+
+1. **The defaults and the reset are the same objects, not the same values.** `resetDemand()` and
+   `resetSupply()` assign the exported constants themselves, and `filter-defaults.spec.ts` asserts
+   the opening state with `toBe` (identity) rather than `toEqual`. A test that restated
+   `['Booked']` would simply have been a second copy of the defaults, which is the thing the
+   acceptance criterion is guarding against. There is also a key-enumeration test, so a filter field
+   added without a default fails there rather than silently arriving as `undefined`.
+
+2. **No shared search strip, and its 52px reclaimed** — decided with Mark mid-plan.
+   `design-system.md` §12.1 specified a full-width LMS-style search field over both columns. It was
+   not in PHASE-4's numbered requirements, the per-column filters cover everything it would have
+   searched, and it would have been the one control filtering *both* columns at once — the ambiguity
+   §12.2 avoids by giving each column its own controls — which would also have muddied per-column
+   `Reset`, since a column cannot reset a field it does not own. Checked before deciding: **no later
+   phase needs it.** Every other "search" in Phases 5–8 is a type-ahead picker inside a dialog or
+   form (transport company in 5 and 6, location in 7), and Phase 8's "Reset demo data" button is the
+   only unhoused screen-level control, needing ~28px rather than a 52px band.
+
+   Rather than leave a permanently empty band with no owner, the strip was removed and **the list
+   grew from 544px to 596px — 9 to 11 cards per column instead of 8 to 10**, which is the figure
+   §8.3 exists to protect. Four sections of `design-system.md` were edited to match (below).
+
+3. **Requirement 2.3's "searchable" location filter is a type-ahead inside the control**, not a
+   search of the cards. Mark clarified this and had PHASE-4 §2.3 rewritten to say so while this
+   phase was being planned. It narrows the ~300 location *options* so one can be picked; the cards
+   are never searched by text anywhere on this screen. The menu shows the first 60 matches and says
+   how many more there are, so a capped list never pretends to be the whole list.
+
+4. **No "ungrouped" global sort mode.** Requirement 4.3 permits offering one; it was considered and
+   declined. The chronological band order is the spine of the screen, and the backlog above the
+   current week only means anything while the bands are intact. **Sorting is applied to the flat
+   lists before `buildBoard` bands them**, and `buildBoard` preserves the order it is handed inside
+   each band — so a sort reorders cards *within* each week by construction and cannot dissolve a
+   band even by accident. No change to `matching-board.ts` was needed.
+
+5. **The default demand sort is delivery date then id, not "then delivery time"** (requirement 4.2's
+   literal wording). `deliveryTime` is free text — `AM kill`, `Yard by 6:30am`, `Before midday` — so
+   an alphabetical secondary sort is not chronological: it would put the 6:30am delivery last and
+   read as a bug. Phase 3's log already ruled this out and named the remedy (a sortable time field,
+   which is a data change this phase may not make). Delivery time **is** offered as a sort field,
+   because 4.1 asks for every displayed field; its ordering is alphabetical.
+
+6. **Filter options are derived from the loaded working set, not from a vocabulary endpoint.**
+   Requirements 1.2 and 1.4 want the demand stock classes and plants to narrow to the chosen
+   processor, and that falls straight out of the records, which carry all three fields. It keeps
+   this phase entirely client-side, and no option is ever offered that would match nothing. The one
+   deliberate exception is status: `DEMAND_STATUSES` and `SUPPLY_STATUSES` are the type's members
+   rather than the data's, because ticking `Cancelled` and seeing nothing teaches more than a menu
+   that quietly omits it.
+
+7. **Changing the processor selection prunes plants and stock classes it has just taken off the
+   menu** (`narrowDemandFilters`). Choosing `ANZCO` while `Lorneville` is still selected would
+   otherwise leave two filters that cannot both be satisfied, and the column would empty for a
+   reason no visible control is showing. An empty column with a visible cause is fine; one whose
+   cause has been hidden by another control is the misleading view this phase's review focus names.
+
+8. **The `More` chip opens a menu with a submenu per field, not an inline second row.** §12.2
+   describes "a second row of `appearance="fill"` selects"; a second row costs 40px of a 596px list —
+   a card per column — and a `mat-select` opened inside a `mat-menu` is an overlay inside an
+   overlay. So every control in the row is the same shape: a chip that shows its value with a menu
+   behind it. `design-system.md` §12.2 now records this.
+
+9. **The `More` count is "filters currently restricting the list", not "filters away from default".**
+   The supply column therefore opens reading `More (1)`, because `Unmatched > 0` is on and genuinely
+   hides records. §12.2 wants the defaults visible on the chip faces precisely so nobody concludes a
+   record has vanished.
+
+10. **`Clear filters` and `Reset to default` are different buttons doing different things**, both on
+    the empty state as §13 asks. Clearing shows *everything* loaded, including the Confirmed and
+    Cancelled records the default hides; resetting returns the column to how it opened. Someone who
+    has filtered themselves into an empty column usually wants to see what is actually there.
+
+11. **The flip is CSS `order` on the two column hosts**, not a template swap. Neither column
+    component is ever destroyed, so filters, sort, expanded cards and scroll position cannot be lost
+    across it — requirement 5.2 is satisfied by construction rather than by copying state around.
+    **Phase 7's `+ Add` buttons will follow the columns for free**, because they belong in the column
+    header (design-system.md §14) and the header moves with its column.
+
+12. **Away-from-default compares selections as sets.** Ticking `Pending` then `Booked` leaves the
+    supply default in a different order, and an operator who has arrived back at the defaults by hand
+    is at the defaults — the `Filtered` chip must not claim otherwise.
+
+13. **Comparators use `<` and `>`, never `a - b`.** Subtracting two quantity fields is arithmetic on
+    a domain value and `no-domain-arithmetic.spec.ts` fails it, correctly. Date sorts compare the ISO
+    `yyyy-MM-dd` strings, which sort chronologically as text. **The allow-list is still exactly two
+    files** and no third arithmetic site was needed.
+
+### How the leading-band trim recomputes (the phase document asks for this by name)
+
+It is not recomputed by anything in this phase — and that is the point. `matching-screen.ts` filters
+and sorts the two lists in `computed()`s and hands the results to `buildBoard`, which is where Phase
+3b put the per-column trim:
+
+```ts
+readonly visibleSpaces = computed(() => sortSpaces(filterSpaces(this.spaces(), …), …));
+readonly board = computed(() => buildBoard(this.weeks(), this.visibleSpaces(), …));
+```
+
+`buildBoard` starts each column at `findIndex` of the first band holding **that column's own**
+surviving records, so filtering out the oldest space moves the demand column's first band forward
+and leaves the supply column exactly where it was. Nothing is cached and nothing is memoised beyond
+Angular's own `computed`. `matching-screen.spec.ts`'s
+`re-trims a column leading bands when a filter removes its oldest record` asserts both halves of
+that: the moved column and the unmoved one.
+
+**Filter `buildBoard`'s inputs; never filter inside it, and never reach into a `BandView`.** The band
+meta totals and the trim then both reshape for free.
+
+### Deviations from the phase document
+
+- **No shared search strip** (decision 2) — it was `design-system.md`'s, not the phase document's.
+- **The default demand sort ignores delivery time** (decision 5), with the reason and the remedy.
+- **No "ungrouped" sort mode** (decision 4), which 4.3 permits rather than requires.
+- **`More` is a menu, not an inline second row** (decision 8).
+- Everything in sections 1 to 7 was built. Section 3 (no supply week filter) is enforced three ways:
+  the type has no such field, a test fails if any key of `DEFAULT_SUPPLY_FILTERS` matches
+  `/week|available.?by/i`, and `column-filters.spec.ts` opens the supply column's `More` menu and
+  asserts nothing in it mentions a week. The W.C. value still renders on both sides.
+
+### `design-system.md` edits, and why a phase edited Phase 2's document
+
+Phase 3b set the precedent: it deleted §12.2's supply week filter because "left alone it would have
+been a trap for Phase 4". The same reasoning applies to a search strip that will now never be built.
+
+- **§12.1** — rewritten as "not built, and not to be reinstated casually", with the three reasons and
+  the note that requirement 2.3's type-ahead is a different thing entirely.
+- **§8.1** — the 52px row struck from the content-area table.
+- **§8.3** — the density arithmetic restated at **596px**, and the cards-per-column table moved to
+  **9–11** (from 8–10).
+- **§12.2** — `More` as built, and the `More (n)` count explained.
+- **§16a.2** — the filter-chrome divergence from LMS restated: 40px per column and nothing else.
+- Two stray "544px list" references elsewhere updated to 596px.
+
+### Review findings
+
+A sonnet subagent reviewed against the phase document, the roadmap, `design-system.md` and the diff,
+and ran all four commands itself rather than trusting my word. **No confirmed correctness bugs.** It
+verified independently that the reset assigns the constants themselves, that the trim is per column
+and uncached, that resolved question 17 is enforced at three levels, that no third arithmetic site
+was added, and that the flip cannot lose state. Three findings, all fixed:
+
+1. **The "no week filter on supply" test did not test that** (the most valuable finding). It asserted
+   only that both columns render a filter component and that the string `Week of` appears somewhere
+   on the page — it never opened the supply column's `More` menu, so a week item added there later
+   would have passed. **Fixed**, and properly: a new `filters/column-filters.spec.ts` mounts the row
+   for each side, opens the real `mat-menu` overlay and reads it, asserting the demand side offers
+   `Delivery week` and that nothing in the supply side's menu matches `/week/i` or `/available.?by/i`.
+   The positive assertions in the same test are what stop the negative one passing vacuously on an
+   empty panel. That file also covers the chip faces, the type-ahead and the processor narrowing
+   through the control rather than the helper.
+2. **The transaction-type list was hand-typed in `matching-preferences.ts`** for storage validation,
+   unlike the statuses, which are exported constants. A member added to `TransactionType` later would
+   have been silently rejected on read with no compiler complaint. **Fixed:** `TRANSACTION_TYPES` now
+   lives in `filter-defaults.ts` with the other closed sets.
+3. **`visibleLocations` and `hiddenLocationCount` each recomputed the same match** independently.
+   **Fixed:** one private `matchingLocations` computed feeds both.
+
+The reviewer also noted, correctly, that on-screen verification at 1366×768 still had not been done —
+see below.
+
+### Watch out for
+
+- **On-screen density is still unverified, and this phase changed it.** Removing the search strip
+  should give 9–11 cards per column instead of 8–10, but jsdom has no layout engine and no browser
+  was driven from this session: there is no browser-automation tool available here. **The API (5286)
+  and the Angular dev server (4200) were left running deliberately so this can be eyeballed.**
+  Phases 3 and 3b left the same gap; it is now three phases old and worth ten minutes.
+- **The two columns legitimately show different weeks at the same height**, and filtering makes it
+  happen far more often than before, because each column re-trims to its own surviving records. That
+  is the design (Phase 3b, requirement 2.3). **Do not add scroll synchronisation.**
+- **`showing n of m` counts records, and `m` is the whole loaded set for that side**, not the number
+  in view. Against the current seed the demand column opens `showing 40 of 40` (all 40 spaces are
+  `Booked`) and supply opens `showing 44 of 50` — which is exactly design-system.md §12.3's own
+  example, by coincidence rather than by design.
+- **A column with nothing loaded at all still renders empty week bands**, not §13's "Empty column"
+  state. Only the *filtered* empty case was built, because 7.3 asks for that one and §13 pairs the
+  other with Phase 7's `+ Add a record` button. Phase 7 or 8 owns the rest.
+- **Menus, not selects.** Every filter control is a chip plus a `mat-menu`, and multi-select items
+  call `$event.stopPropagation()` so the menu survives a tick. If a later phase adds a `mat-select`
+  inside one of these menus it will be an overlay inside an overlay; prefer another submenu.
+- **The location menu is capped at 60 matches** (`LOCATION_MENU_LIMIT`) with a line saying how many
+  more match. With ~300 locations in the seed, an unfiltered open shows 60 of them.
+- **Prettier is not clean across the repo.** Running `npx prettier --write` over
+  `src/app/matching/**` reformats several Phase 3 files this phase did not touch (and rewrites CRLF
+  to LF); those were reverted so the diff stays honest. Format the files you actually change.
+- **`@angular/animations` is not installed** — Angular 22 makes it optional. `provideNoopAnimations`
+  fails at import in a spec; Material's menus open in jsdom without it.
+- **The API still locks `Apg.Domain.dll` while it runs.** It bit again here. Unchanged advice:
+  `Get-CimInstance Win32_Process -Filter "Name='Apg.Api.exe'"`, stop the `Apg.Api.exe` child.
+- **`Documents/Phases/PHASE-4-filter-sort-flip.md` was modified in the working tree by another
+  session while this phase ran** — the §2.3 rewrite recorded in decision 3. That change is not this
+  phase's, but it is in the same uncommitted diff.
+- **Phase 3b's work and this phase's are both uncommitted** at the time of writing; the last commit
+  is `704876c Phase 3b`. (Phase 3b's own log says its work was uncommitted too, so that commit
+  presumably arrived afterwards.)
+
+### New commands, dependencies, conventions
+
+No new packages and no changes to CLAUDE.md's command table.
+
+- One spec: `npx ng test --watch=false --include=src/app/matching/filters/column-filters.spec.ts`
+- **Conventions now enforced by tests rather than by discipline:** the defaults and the reset cannot
+  drift (`filter-defaults.spec.ts`); the supply column can gain no week filter, in the model or in
+  the rendered control (`filter-defaults.spec.ts`, `column-filters.spec.ts`); sorting cannot dissolve
+  a band (`filter-service.spec.ts`); the trim moves with the filters, per column
+  (`matching-screen.spec.ts`).
+- **Filter `buildBoard`'s inputs. Never filter inside it, never reach into a `BandView`.**
+
+Test counts at close: `Apg.Domain.Tests` 122, `Apg.Api.Tests` 76, Angular **104 across 9 files**
+(42 across 5 at the end of Phase 3b).
+
+---
+
+## Phase 4 addendum — trailing trim, one phrase, one more chip
+
+**Completed:** 2026-08-31
+**Status:** Complete
+**Not a new phase.** Three corrections to Phase 4, made after looking at the finished screen. The
+Phase 4 entry above stands; these three points amend it.
+
+### What changed, and what it overturns
+
+**1. Both ends of each column are now trimmed, not just the leading run.**
+
+A column spans exactly the weeks its own surviving records occupy: from the week of its earliest to
+the week of its latest. `trim()` in `web/src/app/matching/board/matching-board.ts` already found the
+first populated band and now finds the last as well. **Interior empty weeks still render** — a gap in
+the calendar is information, and trimming both ends is not the same as dropping every empty band. A
+column with no records at all shows the current week alone rather than the current week onward.
+
+**This overturns Phase 3b's requirement 2.6**, which guaranteed the run always reached the current
+week so a column whose records were all in the past still showed where "now" is. Filtering the demand
+column to one delivery week made the cost obvious: a stack of empty headers below the only band
+holding anything, which reads as missing data rather than as a calendar. What 2.6 was protecting is
+still carried — every past band has a grey `Past` tag on its rail and no future band does, so "am I
+looking at old stock" never depended on the current week being on screen. Decided with Mark, who was
+shown the trade-off first. `design-system.md` §9.3's rule table now says so.
+
+`Array.prototype.findLastIndex` is ES2023 and this tsconfig does not assume that lib, so the search
+is a reverse loop.
+
+**2. Both columns say `Has unmatched quantity`, and the field is `hasUnmatched` on both.**
+
+They were `Has unmatched quantity` on demand and `Unmatched quantity more than zero` on supply, which
+was nothing better than transcribing each requirement's own words (1.6 and 2.5). It is the same rule —
+`unmatched > 0` — so it now has one wording, one field name and one handler; only the default differs,
+off on demand and **on** on supply. `SupplyFilters.unmatchedOnly` is gone.
+
+**The `localStorage` key is now `apg.matching.preferences.v2`.** The per-field fallback would have
+silently turned a deliberately-disabled filter back on when the old field name stopped being read;
+bumping the version drops the stale object once, visibly, instead. Anyone who had filters set will
+find them back at the defaults after this change, once.
+
+**3. A third chip per column: `Processor` on demand, `Location` on supply.**
+
+The row was sized for the narrowest case and had room to spare. Measured against ~566px of column at
+1366×768, three chips plus `More` plus the sort control lands near 546px; a fourth would start
+ellipsing the values the chips exist to show.
+
+**The promoted control leaves `More`**, so every filter has exactly one home and `More (n)` keeps
+meaning "n filters active in here" — `demandMoreCount` no longer counts processors and
+`supplyMoreCount` no longer counts locations. `More` now holds demand
+`Plant · Delivery week (W.C.) · Has unmatched quantity` and supply
+`Transaction type · Has unmatched quantity`.
+
+### Tests
+
+Six existing tests encoded the old behaviour and were changed rather than added to:
+`leaves trailing empty weeks alone` became `drops trailing empty weeks`;
+`runs through the current week when every record is in the past` became
+`ends at the last populated week even when that is in the past`; the two empty-column cases now expect
+one band; `trims the leading empty weeks and keeps the later ones` became
+`shows only the weeks its own records occupy`; and two band-list expectations lost a trailing week.
+Added: `trims each end of each column separately`, `puts the who filter on the row rather than inside
+More`, and `words the unmatched filter identically on both sides`.
+
+Angular is **107 tests across 9 files**, up from 104.
+
+### Watch out for
+
+- **A column can now end before the current week.** If every surviving record in a column is in the
+  past, the `This week` band is not drawn at all. That is intended. The `Past` tag is what tells the
+  operator which side of today they are on.
+- **`More (n)` counts only what is inside `More`.** If a later phase promotes another filter to a
+  chip, it has to come out of the count too, or the chip will claim a filter is hidden while it is in
+  plain sight.
+- **The supply row is the tighter of the two** — `Status: 2 selected` plus `Location: <a long farm
+  name>` is the worst case. Chips are `flex: 0 1 auto` with ellipsis so they shrink rather than
+  overflow, but if it reads badly the fix is shorter chip labels, not a second row.
+
+---
+
+## Interstitial — Seed variability: processor mix, space statuses, `Lamb`
+
+**Completed:** 2026-08-31
+**Status:** Complete
+**Not a phase.** A data change made after Phase 4 closed, recorded separately for the same reason the
+real-plant-names change was: Phase 4 was explicitly barred from changing data, and a seed change
+mixed into a filter diff would make both harder to review.
+
+### The bug this started from
+
+**Every week in the seed held exactly one processor** — 16-08 all ANZCO, 23-08 all Alliance Group,
+30-08 all SFF, then repeating. Mark spotted it on screen. The cause was arithmetic, not intent:
+`GenerateProcessorSpaces` picked `SeedConfig.Processors[i % 3]` while the week a space lands in came
+from `i % WeekCount` with `WeekCount == 6`. Three and six alias exactly, so the processor was a
+function of the week and always would be. `design-system.md` §16.6 had noticed the symptom and
+recorded it as "an artefact of the seeder"; it was a bug.
+
+It matters beyond looking odd: on a screen where filtering by processor was indistinguishable from
+filtering by week, neither filter could be trusted to demonstrate anything.
+
+### What changed
+
+| | Before | After |
+| --- | --- | --- |
+| Processor mix (40 spaces) | ANZCO 14 · Alliance 13 · SFF 13, one per week | **ANZCO 28 · Alliance 8 · SFF 4** (70/20/10), shuffled |
+| Space statuses | 40 Booked | **34 Booked · 4 Confirmed · 2 Cancelled** |
+| SFF stock classes | `Lambs`, `Prime`, `Cows` | **`Lamb`**, `Prime`, `Cows` |
+
+- **The mix lives in `SeedConfig.ProcessorMix`** as weights, and `SeedDataGenerator.ProcessorAssignments`
+  builds the exact counts from them and shuffles with the shared PRNG. Weights rather than counts so
+  the record count can change without re-deriving them; integer division's remainder goes to the
+  largest share, so the list is always exactly `ProcessorSpaceCount` long. 70/20/10 is the real-world
+  mix APG sees.
+- **Statuses are assigned after the matches exist** (`ApplySpaceStatuses`), never before, because both
+  rules are the domain's:
+  - a space is only made `Confirmed` where `ProcessorSpaceRules.CanConfirm` already says it could be —
+    at least one live match, every live match Confirmed. Seeding a Confirmed space with a draft
+    outstanding would put a record on screen that contradicts the rule the Confirm button enforces;
+  - a `Cancelled` space **keeps its matches**, and the pass deliberately prefers spaces that hold
+    **live** ones. Cancelling never cascades (that is the point — it lets APG arrange alternatives
+    before notifying anyone), and the seed now shows it rather than leaving Phase 7 to demonstrate it
+    from nothing. Both cancelled spaces hold live matches: 7 has two, 16 has one.
+  - Spaces locked by the section 4.7 demonstration cases are skipped, so confirming or cancelling one
+    cannot quietly retire the case it was built for. `GenerateMatches` now returns a `MatchSet`
+    carrying the locked ids alongside the matches, which is the only reason its signature changed.
+  - Counts are `ConfirmedSpaceCount = 4` and `CancelledSpaceCount = 2`, named constants beside the
+    others. Small on purpose: the matching screen's default filter is `Status = Booked`, and these are
+    the records it is meant to hide.
+- **`Lambs` → `Lamb`** in SFF's list. `SeedConfig`'s `"Lamb" or "Lambs" => Species.Lamb` and the
+  client's `stock-classes.ts` alias both stay, documented as aliases, so a revert is one word.
+
+### What the seed looks like now
+
+Measured against the running API on 2026-08-31 (current week Sunday **2026-08-30**, bands 23-08
+through 27-09):
+
+- Spaces per week: 23-08 `ANZCO 7` · 30-08 `ANZCO 6, Alliance 1` · 06-09 `Alliance 4, ANZCO 2, SFF 1` ·
+  13-09 `ANZCO 5, Alliance 2` · 20-09 `ANZCO 4, Alliance 1, SFF 1` · 27-09 `ANZCO 4, SFF 2`.
+  **The earliest week is still all ANZCO** — that is now chance rather than arithmetic, and with 70% of
+  spaces being ANZCO a seven-record week of them is unremarkable.
+- Under the default filters the demand column reads **`showing 34 of 40`** and supply
+  **`showing 41 of 50`**. Both counts are finally non-tautological.
+- Above the current week: 6 Booked spaces and 8 still-matchable availability records. That is the
+  backlog, and it is now visibly a backlog rather than a history.
+- **The match status split did not move** — still 8 Drafted, 15 Confirmed, 2 Cancelled. The
+  demonstration spine is scripted, and the filler pass targets a fixed total, so the split survives a
+  different random stream. Phase 0's and Phase 2's counts tables record the old *space* numbers and
+  are left alone: they are history, and this entry supersedes them.
+
+### Tests
+
+- `Processor_space_stock_classes_are_exactly_the_specified_per_processor_lists` re-pinned to `Lamb`.
+- **New** `The_processor_mix_is_seventy_twenty_ten`, so the mix is a stated intention rather than an
+  emergent number.
+- `The_generated_counts_are_the_ones_the_build_log_records` gained the **space** status split, derived
+  from the constants rather than restated, so changing a constant without changing the log fails here.
+- **New** `Every_confirmed_space_is_one_the_domain_agrees_could_be_confirmed` and
+  `At_least_one_cancelled_space_still_holds_live_matches` — both asserted through `Apg.Domain` rather
+  than through the seeder's own bookkeeping, so the seed and the rules cannot disagree unnoticed.
+- `dotnet test`: **122 domain + 79 API**, none skipped. Every section 4.7 demonstration case still
+  builds; the seeder throws by name if one cannot, and none did.
+
+### Review findings
+
+A sonnet subagent reviewed the seed diff only (the concurrent client-side change was excluded). It
+ran the build and the tests itself, and went further than asked: it hit `POST /api/dev/reset-database`
+and re-fetched, confirming **determinism empirically** rather than by reading the code. It walked the
+proportion arithmetic by hand for a 41-space count and for weights that do not sum to 100, checked
+that the one new dictionary is never iterated (so no ordering can leak into the output), and verified
+against the live data that every Confirmed space satisfies `CanConfirm` and that SFF's four spaces
+still cover all three of its classes.
+
+**No determinism problems and no silently-dropped demonstration case.** Three findings, all fixed:
+
+1. **The `ProcessorMix` doc comment claimed "no week is ever a single processor", which a shuffle
+   cannot promise — and the seed's own earliest week is all ANZCO.** The most valuable finding,
+   because it was my sentence and it was wrong in the same file that fixes the bug. What the shuffle
+   removes is the *structural* guarantee; at 70% ANZCO a seven-space all-ANZCO week is ordinary. A
+   real guarantee would need the assignment to know about the week, which is exactly the coupling
+   that caused the original bug. Comment rewritten, and CLAUDE.md's line with it.
+2. **The cancelled-space selection ordered on "has any match" rather than "has a **live** match".**
+   It worked, but only because the filler pass happens never to produce Cancelled matches — a space
+   whose only match was itself cancelled would have demonstrated nothing, and nothing in the code
+   would have noticed. Now ordered on `MatchQuantities.IsLive`, with a `Required(...)` that throws if
+   no cancelled space holds a live match. The fix changed the data: previously one of the two
+   cancelled spaces had no matches at all, and now both carry live ones.
+3. **The `Required(...)` checks ran after the mutations**, unlike the rest of the file's fail-before-
+   use pattern, so a shortfall would have thrown with half the pass already applied. Both candidate
+   lists are now built and checked before anything is written.
+
+### Watch out for
+
+- **The over-filled space is no longer `-305`.** It was Processor Space #1 at 354 matched against 49
+  required, which Phase 3's log called out as looking like a seeder artefact. The new stream produces
+  one over-filled space with a plausible over-run in the tens. That is better data and a small loss:
+  **the seed no longer exercises the four-character numeral** (`-305`) the meter's 40px column was
+  widened for. `design-system.md` §4.2 now says so; check that column against a four-character figure
+  by hand if it is ever narrowed.
+- **`src/Apg.Api/apg.db` was deleted** so the next start reseeds. Anyone holding a database from
+  before this change still has the old data — delete the file or `POST /api/dev/reset-database`.
+- **Confirmed and Cancelled spaces drop out of the default filter**, which is correct and will look
+  like records going missing to anyone who has not read this. The `Filtered` chip and the count say
+  so.
+- **The seed's *availability* records changed too**, even though nothing about them was edited: the
+  processor draw moved the shared PRNG stream, so every downstream value differs. Any note anywhere
+  citing an availability record by id and quantity is now stale.
+- **`ProcessorAssignments` assumes the weights are a share of `ProcessorSpaceCount`.** They need not
+  sum to 100 — the code divides by their total — but a mix that leaves several processors with zero
+  spaces would break the stock-class coverage guarantee, and SFF at 4 spaces for 3 classes is already
+  the tightest case in the set.

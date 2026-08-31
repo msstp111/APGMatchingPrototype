@@ -1,0 +1,125 @@
+@use '../card-geometry' as geo;
+@use '../../../styles/lms-tokens' as lms;
+
+// The 40px row Phase 3 reserved and this phase fills. Its height is the density target's, so it is
+// taken from the geometry partial rather than written here (design-system.md 8.3).
+:host {
+  display: block;
+  flex: 0 0 auto;
+  height: geo.$filter-row-height;
+  border-bottom: 1px solid lms.$lms-divider;
+  background: lms.$lms-surface;
+}
+
+.row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  height: 100%;
+  padding: 0 8px;
+  overflow: hidden;
+}
+
+// A chip: 26px tall, a 13px pill radius, 12px text (design-system.md 5.3, 12.2). Selected takes the
+// petrol tint and a petrol ring — the brand colour saying "active", never a status or quantity hue.
+.fchip {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  flex: 0 1 auto;
+  min-width: 0;
+  height: geo.$filter-chip-height;
+  padding: 0 6px 0 10px;
+  border: 1px solid lms.$lms-rule-strong;
+  border-radius: geo.$filter-chip-radius;
+  background: lms.$lms-white;
+  color: lms.$lms-text;
+  font-family: inherit;
+  font-size: 12px;
+  line-height: geo.$filter-chip-height;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  cursor: pointer;
+}
+
+.fchip:hover {
+  background: lms.$lms-hover;
+}
+
+.fchip.on {
+  border-color: lms.$lms-petrol;
+  background: lms.$lms-petrol-tint;
+  color: lms.$lms-petrol;
+}
+
+.caret {
+  font-size: 16px;
+}
+
+// Right-aligned micro-caps with a direction glyph (design-system.md 12.2).
+.sort {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  flex: 0 0 auto;
+  margin-left: auto;
+  height: geo.$filter-chip-height;
+  padding: 0 4px;
+  border: 0;
+  background: none;
+  cursor: pointer;
+  @include geo.micro-caps;
+}
+
+.sort:hover {
+  color: lms.$lms-petrol;
+}
+
+.dir {
+  font-size: 15px;
+}
+
+// --- inside the menus ---------------------------------------------------------------------------
+// A mat-menu renders in an overlay outside this component's DOM, but its content is declared in this
+// component's template and keeps the emulated-encapsulation attribute, so these selectors reach it.
+// They must stay top-level: nothing in the overlay is a descendant of .row.
+.tick {
+  font-size: 18px;
+  margin-right: 8px;
+  color: lms.$lms-text-muted;
+}
+
+.menu-note {
+  padding: 6px 16px;
+  color: lms.$lms-faint;
+  font-size: 11.5px;
+  line-height: 14px;
+  white-space: nowrap;
+}
+
+.typeahead {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px 8px;
+  border-bottom: 1px solid lms.$lms-divider;
+  color: lms.$lms-text-muted;
+}
+
+.typeahead input {
+  flex: 1 1 auto;
+  min-width: 0;
+  border: 0;
+  border-bottom: 1px solid lms.$lms-rule-strong;
+  background: none;
+  font-family: inherit;
+  font-size: 13px;
+  padding: 2px 0;
+  color: lms.$lms-text;
+}
+
+.typeahead input:focus {
+  outline: none;
+  border-bottom-color: lms.$lms-petrol;
+}

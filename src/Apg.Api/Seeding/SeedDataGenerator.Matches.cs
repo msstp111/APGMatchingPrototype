@@ -9,7 +9,7 @@ public static partial class SeedDataGenerator
     /// Builds the match set: first the scripted demonstration spine, then random filler up to
     /// <see cref="TargetMatchCount"/>.
     /// </summary>
-    private static List<Match> GenerateMatches(
+    private static MatchSet GenerateMatches(
         Mulberry32 rng,
         DateOnly anchor,
         IReadOnlyList<ProcessorSpace> spaces,
@@ -30,8 +30,18 @@ public static partial class SeedDataGenerator
         BuildDemonstrationSpine(context);
         FillRemainingMatches(context);
 
-        return context.Matches;
+        return new MatchSet(context.Matches, context.LockedSpaces);
     }
+
+    /// <summary>
+    /// The matches, and the spaces whose arithmetic a demonstration case depends on.
+    /// </summary>
+    /// <remarks>
+    /// The locked ids travel out with the matches because the status pass has to leave those spaces
+    /// alone: cancelling the over-filled space, or confirming the one built to show a draft
+    /// outstanding, would quietly retire the case it was constructed for.
+    /// </remarks>
+    private sealed record MatchSet(List<Match> Matches, IReadOnlySet<int> LockedSpaceIds);
 
     /// <summary>
     /// Constructs every case the phase document's section 4.7 requires, one at a time, on records
@@ -218,6 +228,16 @@ public static partial class SeedDataGenerator
         value ?? throw new InvalidOperationException(
             $"The seed could not build the demonstration case '{caseName}' required by phase 0, section 4.7.");
 
+    /// <summary>The same rule for a condition rather than a record: it holds, or the seed refuses.</summary>
+    private static void Required(bool satisfied, string caseName)
+    {
+        if (!satisfied)
+        {
+            throw new InvalidOperationException(
+                $"The seed could not build the demonstration case '{caseName}' required by phase 0, section 4.7.");
+        }
+    }
+
     private static List<T> Required<T>(List<T> values, int expected, string caseName) =>
         values.Count == expected
             ? values
@@ -302,6 +322,9 @@ public static partial class SeedDataGenerator
         public int RemainingDemand(int spaceId) => _remainingDemand[spaceId];
 
         public int RemainingSupply(int availabilityId) => _remainingSupply[availabilityId];
+
+        /// <summary>Spaces a demonstration case depends on. Nothing later may disturb their sums.</summary>
+        public IReadOnlySet<int> LockedSpaces => _lockedSpaces;
 
         public void LockSpace(int spaceId) => _lockedSpaces.Add(spaceId);
 

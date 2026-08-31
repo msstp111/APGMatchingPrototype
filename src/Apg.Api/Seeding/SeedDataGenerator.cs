@@ -1,4 +1,5 @@
 using Apg.Domain.Entities;
+using Apg.Domain.Matching;
 
 namespace Apg.Api.Seeding;
 
@@ -45,6 +46,15 @@ public static partial class SeedDataGenerator
     /// </remarks>
     public const int BacklogAvailabilityCount = 5;
 
+    /// <summary>
+    /// Spaces moved off <c>Booked</c> once the matches exist, so all three Processor Space statuses
+    /// appear in the seed. Small on purpose: the matching screen's default filter is
+    /// <c>Status = Booked</c>, and these are the records it is supposed to hide.
+    /// </summary>
+    public const int ConfirmedSpaceCount = 4;
+
+    public const int CancelledSpaceCount = 2;
+
     private const int WeekCount = LastWeekOffset - FirstWeekOffset + 1;
 
     public static SeedData Generate(DateOnly anchorWeekCommencing, IReadOnlyList<Location> locations)
@@ -66,9 +76,14 @@ public static partial class SeedDataGenerator
 
         var spaces = GenerateProcessorSpaces(rng, anchorWeekCommencing);
         var availabilities = GenerateAvailabilities(rng, anchorWeekCommencing, locations);
-        var matches = GenerateMatches(rng, anchorWeekCommencing, spaces, availabilities, priceLookup);
+        var matchSet = GenerateMatches(rng, anchorWeekCommencing, spaces, availabilities, priceLookup);
 
-        return new SeedData(anchorWeekCommencing, locations, farmers, spaces, availabilities, matches, prices);
+        // After the matches, never before: a Confirmed space is only Confirmed because its matches
+        // say it can be.
+        ApplySpaceStatuses(spaces, matchSet);
+
+        return new SeedData(
+            anchorWeekCommencing, locations, farmers, spaces, availabilities, matchSet.Matches, prices);
     }
 
     /// <summary>
@@ -141,15 +156,15 @@ public static partial class SeedDataGenerator
     {
         var spaces = new List<ProcessorSpace>(ProcessorSpaceCount);
 
-        // Processors are cycled rather than drawn at random so all three are well represented, and
-        // each processor's first few spaces walk its own stock class list so every class appears at
+        // Each processor's first few spaces walk its own stock class list so every class appears at
         // least once. Everything after that is random. Guaranteed coverage matters: the seed has to
         // contain an ANZCO "Nat Beef - Premium" space for the mismatched-pairing demonstration.
         var usedClassCount = new Dictionary<string, int>();
+        var processors = ProcessorAssignments(rng);
 
         for (var i = 0; i < ProcessorSpaceCount; i++)
         {
-            var processor = SeedConfig.Processors[i % SeedConfig.Processors.Length];
+            var processor = processors[i];
             var classes = StockClassesFor(processor);
             var plants = PlantsFor(processor);
 
@@ -178,6 +193,117 @@ public static partial class SeedDataGenerator
         }
 
         return spaces;
+    }
+
+    /// <summary>
+    /// Moves a few spaces off <see cref="ProcessorSpaceStatus.Booked"/>, so the seed contains all
+    /// three of the statuses a space can hold rather than only the one it is created in.
+    /// </summary>
+    /// <remarks>
+    /// Both rules here are the domain's, not the seeder's:
+    /// <list type="bullet">
+    /// <item><description>
+    /// A space is only made <c>Confirmed</c> if <see cref="ProcessorSpaceRules.CanConfirm"/> already
+    /// says it could be — at least one live match, every live match Confirmed. A Confirmed space with
+    /// a draft outstanding is a state APG could never have reached, and seeding one would put a
+    /// record on screen that contradicts the rule the Confirm button enforces.
+    /// </description></item>
+    /// <item><description>
+    /// A <c>Cancelled</c> space <em>keeps its matches</em>. Cancelling a record never cascades — that
+    /// is deliberate, so APG can arrange alternatives before notifying anyone — and the seed should
+    /// show it rather than leave Phase 7 to demonstrate it from nothing.
+    /// </description></item>
+    /// </list>
+    /// Spaces a section 4.7 demonstration case depends on are skipped: confirming or cancelling one
+    /// would quietly retire the case it was built for.
+    /// </remarks>
+    private static void ApplySpaceStatuses(IReadOnlyList<ProcessorSpace> spaces, MatchSet matchSet)
+    {
+        var matchesBySpace = matchSet.Matches
+            .GroupBy(m => m.ProcessorSpaceId)
+            .ToDictionary(g => g.Key, g => (IReadOnlyList<Match>)[.. g]);
+
+        IReadOnlyList<Match> MatchesFor(ProcessorSpace space) =>
+            matchesBySpace.GetValueOrDefault(space.Id, []);
+
+        bool Available(ProcessorSpace space) => !matchSet.LockedSpaceIds.Contains(space.Id);
+
+        var confirmable = spaces
+            .Where(Available)
+            .Where(s => ProcessorSpaceRules.CanConfirm(s, MatchesFor(s)))
+            .Take(ConfirmedSpaceCount)
+            .ToList();
+
+        // Cancelled spaces are drawn from those that still hold LIVE matches, not merely any match:
+        // a space whose only match is itself cancelled would demonstrate nothing. The non-cascade
+        // rule is the point — cancelling a record never touches its matches — so the seed has to put
+        // a cancelled space with live matches on the screen.
+        var cancellable = spaces
+            .Where(Available)
+            .Where(s => !confirmable.Contains(s))
+            .OrderByDescending(s => MatchesFor(s).Any(MatchQuantities.IsLive))
+            .Take(CancelledSpaceCount)
+            .ToList();
+
+        // Checked before anything is mutated, so a shortfall throws against an untouched set rather
+        // than leaving half the pass applied behind the exception.
+        Required(
+            confirmable.Count == ConfirmedSpaceCount,
+            $"{ConfirmedSpaceCount} spaces the domain agrees could be confirmed");
+        Required(
+            cancellable.Count == CancelledSpaceCount,
+            $"{CancelledSpaceCount} spaces to cancel");
+        Required(
+            cancellable.Exists(s => MatchesFor(s).Any(MatchQuantities.IsLive)),
+            "a cancelled space that still holds live matches, showing that cancelling does not cascade");
+
+        foreach (var space in confirmable)
+        {
+            space.Status = ProcessorSpaceStatus.Confirmed;
+        }
+
+        foreach (var space in cancellable)
+        {
+            space.Status = ProcessorSpaceStatus.Cancelled;
+        }
+    }
+
+    /// <summary>
+    /// One processor per space, in APG's real proportions, shuffled.
+    /// </summary>
+    /// <remarks>
+    /// This replaces a <c>Processors[i % 3]</c> cycle. The week a space lands in comes from
+    /// <c>i % WeekCount</c>, and with six weeks and three processors the two aliased exactly: every
+    /// week held one processor and only one, for as long as the seed existed. Nothing in the design
+    /// intended that, and a screen where filtering by processor is the same thing as filtering by
+    /// week teaches the wrong lesson about the data.
+    /// <para>
+    /// The counts are built from <see cref="SeedConfig.ProcessorMix"/> and any rounding remainder
+    /// goes to the largest share, so the list is always exactly <see cref="ProcessorSpaceCount"/>
+    /// long. Shuffling with the shared PRNG keeps the whole thing deterministic.
+    /// </para>
+    /// </remarks>
+    private static List<string> ProcessorAssignments(Mulberry32 rng)
+    {
+        var totalWeight = SeedConfig.ProcessorMix.Sum(p => p.Weight);
+        var assignments = new List<string>(ProcessorSpaceCount);
+
+        foreach (var (processor, weight) in SeedConfig.ProcessorMix)
+        {
+            var count = ProcessorSpaceCount * weight / totalWeight;
+            assignments.AddRange(Enumerable.Repeat(processor, count));
+        }
+
+        // Integer division loses the remainder; the biggest share absorbs it.
+        var largest = SeedConfig.ProcessorMix.MaxBy(p => p.Weight).Processor;
+        while (assignments.Count < ProcessorSpaceCount)
+        {
+            assignments.Add(largest);
+        }
+
+        rng.Shuffle(assignments);
+
+        return assignments;
     }
 
     private static List<LivestockAvailability> GenerateAvailabilities(

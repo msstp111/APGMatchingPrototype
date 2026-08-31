@@ -8,9 +8,9 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Current state
 
-Phases 0 to 3b are complete: the solution, the Angular app, EF Core + SQLite and the deterministic seeder are in place, the LMS shell (top bar + sidebar) is built, every computed quantity, status and date rule lives in `Apg.Domain` and reaches the client on the DTO contract, Phase 2 settled the visual language in `Documents/design-system.md`, Phase 3 built the matching screen's two week-banded card lists with expand/collapse, and Phase 3b removed the carry-over cards it had shipped and replaced them with the trimmed backlog (resolved question 17). Phases 4–8 are still to come — see `Documents/BUILD-LOG.md` for what each finished phase actually did.
+Phases 0 to 4 are complete: the solution, the Angular app, EF Core + SQLite and the deterministic seeder are in place, the LMS shell (top bar + sidebar) is built, every computed quantity, status and date rule lives in `Apg.Domain` and reaches the client on the DTO contract, Phase 2 settled the visual language in `Documents/design-system.md`, Phase 3 built the matching screen's two week-banded card lists with expand/collapse, Phase 3b removed the carry-over cards it had shipped and replaced them with the trimmed backlog (resolved question 17), and Phase 4 added per-column filters, sorting within the bands, the column flip and reset-to-default. Phases 5–8 are still to come — see `Documents/BUILD-LOG.md` for what each finished phase actually did.
 
-**The matching screen is read-only.** Filtering and sorting are Phase 4, drag-and-drop is Phase 5, the match dialogs are Phase 6. Expanding and collapsing a card is the only interaction that exists.
+**The matching screen still changes no data.** Drag-and-drop is Phase 5, the match dialogs are Phase 6, record creation is Phase 7. Expanding a card, filtering, sorting and flipping the columns are the interactions that exist.
 
 ### Layout
 
@@ -61,6 +61,7 @@ Run from the repo root unless stated.
 ### Conventions
 
 - The seeder is deterministic: an explicit mulberry32 PRNG (`src/Apg.Api/Seeding/Mulberry32.cs`), never `System.Random`. Every date is an offset from the Sunday of the current **New Zealand** week.
+- **The seeded Processor Spaces are 70% ANZCO / 20% Alliance Group / 10% SFF** (`SeedConfig.ProcessorMix`), shuffled. Until after Phase 4 the seeder cycled `Processors[i % 3]` while the week came from `i % 6`; the two aliased, so every week held exactly one processor and always would. The shuffle removes that structural guarantee but does not promise a mixed week — at 70% ANZCO an all-ANZCO week is ordinary, and the current seed has one. Statuses are **34 Booked / 4 Confirmed / 2 Cancelled**, assigned *after* the matches exist so a Confirmed space is one `ProcessorSpaceRules.CanConfirm` agrees could be confirmed, and one Cancelled space keeps its live matches because cancelling never cascades. All of these are pinned by `SeedDeterminismTests`.
 - Every invented list (processors, plants, carriers, stock classes, farmer names) lives in `src/Apg.Api/Seeding/SeedConfig.cs` so APG's real values are a one-file swap.
 - LMS colours and metrics live in `web/src/styles/_lms-tokens.scss`, sampled from the screenshots, with Phase 2's matching-screen palette appended (surfaces, rules, the quantity ramp, semantics) as both SCSS variables and `:root` custom properties. The Material palettes in `web/src/styles/_theme-colors.scss` were generated from `#00567E`. Do not re-sample; the values are recorded in the build log.
 - The Material theme runs at `density: -2` with dialogs overridden to a 4px radius (`web/src/styles.scss`), so Material's own controls land on LMS's proportions without a per-component override each.
@@ -80,17 +81,23 @@ Domain rules live in C# in `Apg.Domain` (no EF, no ASP.NET) and reach the client
 
 **Dates on the wire:** every business date is a `DateOnly` serialising as `yyyy-MM-dd`, and **always ships alongside a preformatted label** in LMS's `dd-MM-yy` (`23-08-26`). Where a date appears in prose rather than in a column it also ships a short label in `d MMM` (`16 Aug`) — `WeekBandDto.WeekOfLabel` and `LivestockAvailabilityDto.AvailableFromShortLabel`; the client supplies only the surrounding word ("Week of", "since"), because the week rail stacks them on separate lines. The client renders the label and must never construct a JavaScript `Date` from the ISO value. Change the formats in `NzTime.DateLabelFormat` / `NzTime.ShortDateLabelFormat`, nowhere else.
 
-### The matching screen (Phases 3 and 3b)
+### The matching screen (Phases 3, 3b and 4)
 
-Under `web/src/app/matching/`. `matching-screen` loads three streams and renders two `matching-column`s; everything below is presentation over already-computed values.
+Under `web/src/app/matching/`. `matching-screen` loads three streams, filters and sorts them, and renders two `matching-column`s; everything below is presentation over already-computed values.
 
 ```
 _card-geometry.scss   ALL dimensions + the card-shell/spines/line-1 mixins. Both columns @use it,
                       so design-system.md 6.1's "identical on both sides" is enforced, not hoped for.
 board/matching-board.ts   buildBoard(weeks, spaces, availability) → { demand, supply, unplaced }.
                           Pure. The two band runs are trimmed slices of one array.
-board/card-state.ts       root CardStateStore — which cards are expanded
-column/matching-column.ts header, reserved 40px filter row, sticky 28px strip, scrolling .list
+board/card-state.ts       root CardStateStore — which cards are expanded (session only)
+filters/filter-defaults.ts    THE constants module: filter/sort types + every default, frozen
+filters/filter-service.ts     pure filter + sort + away-from-default + the empty state's summary
+filters/filter-options.ts     option lists derived from the working set, with processor narrowing
+filters/matching-preferences.ts  root signal store + localStorage
+filters/column-filters.ts     the 40px filter row: chips, menus, the location type-ahead, sort
+filters/filtered-empty.ts     the no-results state, with Clear filters / Reset to default
+column/matching-column.ts header (+ Filtered chip and Reset), filter row, sticky 28px strip, .list
 band/week-band.ts         sticky rail, band header, the band's cards, empty-band row
 card/space-card.ts, card/availability-card.ts     the 52px rows
 card/card-expansion.ts    fields + both sums + the match table. Shared by both cards.
@@ -98,9 +105,13 @@ card/fill-meter.ts, card/stock-class-tile.ts, card/stock-classes.ts, card/card-c
 testing/dto-fixtures.ts   DTO builders for the specs only
 ```
 
-**Phase 4 attaches to `buildBoard`'s inputs, not its output** — filter the lists and call it again, and the band meta totals *and the per-column trim* reshape for free.
+**Filtering and sorting attach to `buildBoard`'s inputs, never its output** — `matching-screen` filters and sorts the lists and calls it again, so the band meta totals *and the per-column trim* reshape for free. Sorting the flat list before banding is also what makes a sort reorder cards **within** each week rather than dissolving the bands; there is deliberately no "ungrouped" mode.
 
-**The backlog, and the per-column trim (Phase 3b).** Every record is drawn **exactly once**, in the band of its own date — nothing is reprinted into a later week. Supply still unmatched from an earlier week is found by scrolling up, which works because `buildBoard` drops each column's **leading** run of empty bands: `board.demand` starts at the week of the earliest space, `board.supply` at the week of the earliest availability record, and the two often differ. Only the leading run goes — an interior empty week keeps its header — and a column with no records at all starts at the current week. The trim is recomputed on every call, never cached. **Do not add scroll synchronisation** because the rails disagree; that is the design. Expansion is keyed `side:recordId`.
+**Filter and sort state (Phase 4).** `MatchingPreferences` (root) holds both columns' filters and sorts plus the flip, persisted to `localStorage` under the single key **`apg.matching.preferences.v2`** (v1 was abandoned when the supply column's `unmatchedOnly` became `hasUnmatched`; bumping the version drops stale state visibly instead of silently re-enabling a filter), validated field by field on read so a stale or hand-edited value falls back to that field's default rather than emptying a column. Every default lives in `filters/filter-defaults.ts` and **both the opening state and `reset()` read the same constants**, which `filter-defaults.spec.ts` asserts so they cannot drift. Card expansion stays session-only in `CardStateStore`. The flip is CSS `order` on the two column hosts — the components are never destroyed, so nothing is lost across it, and Phase 7's `+ Add` buttons will follow the columns because they live in the column header.
+
+**The availability column has no week filter and must never gain one** (resolved question 17): supply is a state, not an event, and filtering it to one week hides the older unmatched records the backlog exists to surface. A test fails if any key of `DEFAULT_SUPPLY_FILTERS` matches `/week|available.?by/i`. Processor Spaces keep `Delivery week`. **There is also no shared search strip** — design-system.md §12.1 specified one, Phase 4 decided against it and gave its 52px back to the list.
+
+**The backlog, and the per-column trim (Phase 3b, extended in Phase 4).** Every record is drawn **exactly once**, in the band of its own date — nothing is reprinted into a later week. Supply still unmatched from an earlier week is found by scrolling up, which works because `buildBoard` cuts each column down to the weeks its own records occupy: `board.demand` runs from the week of its earliest space to the week of its latest, `board.supply` likewise, and the two often differ. **Both ends are trimmed** — Phase 4 added the trailing half, overturning Phase 3b's rule that a column always ran through to the current week, because filtering to one delivery week left a stack of empty headers below the only band with anything in it. An interior empty week still keeps its header, and a column with no records at all shows the current week alone. The trim is recomputed on every call, never cached. **Do not add scroll synchronisation** because the rails disagree; that is the design. Expansion is keyed `side:recordId`.
 
 **Arithmetic in `web/` is limited to two files, both allow-listed by name in `matching/no-domain-arithmetic.spec.ts`:** `card/fill-meter.ts` (CSS segment widths, clamped — a bar width is not a displayed figure) and `board/matching-board.ts` (band header roll-ups, which must be client-side because Phase 4's filters change what is in the band). That spec is the client analogue of `DomainPurityTests`: it scans `matching/**/*.ts` and fails on `new Date`, `Date.parse`, `Date.now`, `toLocaleDate*`, `Intl.DateTimeFormat`, `getTime()`, or an arithmetic operator next to a quantity field. **If you need a third such site, you are probably missing a DTO field.**
 
@@ -171,7 +182,7 @@ Compute both from the match set; never store a denormalised total. Colour semant
 
 **Match creation.** Dragging one record onto the other prompts for `quantityMatched`, defaulting to `min(unmatched on each side)`. If that default is < 1, refuse with "There is no unmatched quantity". The default price per Kg (by processor × stock class × week-commencing-Sunday) is shown at draft time and stays editable on the match.
 
-**Matching screen layout.** Processor Spaces left, Livestock Availability right. Both lists read-only, each filterable and sortable by every displayed field, each with a "week commencing" (Sunday) column for week-at-a-glance filtering. Default filters: Processor Spaces `Status = Booked`; Availability `Status in (Booked, Pending)` and `Quantity Unmatched > 0`.
+**Matching screen layout.** Processor Spaces left and Livestock Availability right by default, swappable on the flip button. Both lists change no data, and each is filterable and sortable by every displayed field. Both sides show a "week commencing" (Sunday) value, but **only Processor Spaces can be filtered by it** — resolved question 17 removed the availability week filter, and the `.docx`'s p.21 request for one is overridden. Default filters: Processor Spaces `Status = Booked`; Availability `Status in (Booked, Pending)` and `Quantity Unmatched > 0`.
 
 ## Requirements document
 

@@ -1,0 +1,29 @@
+<!--
+  design-system.md 13. Names what is empty, says why, and offers a way out. The glyph is hueless and
+  the panel adds no colour: an empty result is information, not an error.
+-->
+<div class="empty">
+  <span class="material-symbols-outlined glyph" aria-hidden="true">filter_alt_off</span>
+
+  <p class="headline">{{ headline() }}</p>
+
+  @if (active().length > 0) {
+    <dl class="active">
+      @for (filter of active(); track filter.label) {
+        <div class="pair">
+          <dt>{{ filter.label }}</dt>
+          <dd>{{ filter.value }}</dd>
+        </div>
+      }
+    </dl>
+  }
+
+  <div class="actions">
+    <!--
+      Two different things: clearing shows everything that is loaded, including what the default
+      hides; resetting puts the column back to how it opened.
+    -->
+    <button type="button" class="primary" (click)="clear()">Clear filters</button>
+    <button type="button" class="text" (click)="reset()">Reset to default</button>
+  </div>
+</div>

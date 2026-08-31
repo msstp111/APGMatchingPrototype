@@ -51,12 +51,40 @@
   color: lms.$lms-supply-ink;
 }
 
-// --- 2. the reserved filter row (Phase 4) ---
-.filters {
-  height: geo.$filter-row-height;
-  border-bottom: 1px solid lms.$lms-divider;
-  background: lms.$lms-surface;
+// --- 2. away from default (design-system.md 12.3) ---
+// Hueless on purpose: $lms-attention-ink is a grey, and every usable amber lands on the quantity
+// ramp's orange. "You have filtered this column" is information, not a warning.
+.filtered {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  flex: 0 0 auto;
+  height: geo.$filter-chip-height;
+  padding: 0 8px;
+  border: 1px solid lms.$lms-attention-ink;
+  border-radius: geo.$filter-chip-radius;
+  color: lms.$lms-attention-ink;
+  font-size: 11.5px;
+  white-space: nowrap;
 }
+
+.filtered .material-symbols-outlined {
+  font-size: 14px;
+}
+
+.reset {
+  flex: 0 0 auto;
+  border: 0;
+  background: none;
+  padding: 0 2px;
+  color: lms.$lms-petrol;
+  font-family: inherit;
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+}
+
+// The filter row itself is app-column-filters, which sets its own 40px height.
 
 // --- 3. the scrolling list ---
 // The scroll container. The band rails stick relative to THIS, which is why their offset is the

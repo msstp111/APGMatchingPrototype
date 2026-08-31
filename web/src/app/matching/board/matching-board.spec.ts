@@ -137,37 +137,43 @@ describe('buildBoard', () => {
         [],
       );
 
-      // 16 Aug, then the empty 23 Aug, then 30 Aug — a gap in the calendar is information.
+      // 16 Aug, then the empty 23 Aug, then 30 Aug — a gap in the calendar is information, and
+      // trimming both ends is not the same as dropping every empty band.
       expect(board.demand.map((b) => b.week.weekCommencing)).toEqual([
         '2026-08-16',
         '2026-08-23',
         '2026-08-30',
-        '2026-09-06',
       ]);
       expect(board.demand[1].spaces).toEqual([]);
     });
 
     /**
-     * Requirement 2.6. The band range always includes the current week, so a column whose records
-     * are all in the past still runs through to it and shows where "now" is.
+     * **This overturns Phase 3b requirement 2.6**, which had the run always reach the current week so
+     * a past-only column still showed where "now" is. A column now ends at its own last record: with
+     * a week filter applied, running on to today produced a stack of empty headers below the only
+     * band holding anything, which reads as missing data. The `Past` tag on every past band still
+     * says which side of today a record falls on.
      */
-    it('runs through the current week when every record is in the past', () => {
+    it('ends at the last populated week even when that is in the past', () => {
       const board = buildBoard(bands(), [aSpace({ weekCommencing: '2026-08-09' })], []);
 
-      expect(board.demand[0].week.weekCommencing).toBe('2026-08-09');
-      expect(board.demand.some((b) => b.week.isCurrentWeek)).toBe(true);
+      expect(board.demand.map((b) => b.week.weekCommencing)).toEqual(['2026-08-09']);
+      expect(board.demand.some((b) => b.week.isCurrentWeek)).toBe(false);
     });
 
-    it('starts an empty column at the current week rather than rendering nothing', () => {
+    it('shows an empty column the current week alone rather than rendering nothing', () => {
       const board = buildBoard(bands(), [], [anAvailability({ weekCommencing: homeWeek })]);
 
+      expect(board.demand).toHaveLength(1);
       expect(board.demand[0].week.isCurrentWeek).toBe(true);
-      expect(board.demand.every((b) => b.spaces.length === 0)).toBe(true);
+      expect(board.demand[0].spaces).toEqual([]);
     });
 
     it('falls back to the current week for both columns when there is nothing at all', () => {
       const board = buildBoard(bands(), [], []);
 
+      expect(board.demand).toHaveLength(1);
+      expect(board.supply).toHaveLength(1);
       expect(board.demand[0].week.isCurrentWeek).toBe(true);
       expect(board.supply[0].week.isCurrentWeek).toBe(true);
       expect(board.unplaced).toEqual([]);
@@ -187,10 +193,26 @@ describe('buildBoard', () => {
       expect(buildBoard(bands(), [recent], []).demand[0].week.weekCommencing).toBe(homeWeek);
     });
 
-    it('leaves trailing empty weeks alone', () => {
+    /**
+     * The trailing half of the trim. Filtering the demand column to one delivery week is the case
+     * this exists for: the column should show that band and nothing under it.
+     */
+    it('drops trailing empty weeks', () => {
       const board = buildBoard(bands(), [aSpace({ weekCommencing: '2026-08-30' })], []);
 
-      expect(board.demand.map((b) => b.week.weekCommencing)).toEqual(['2026-08-30', '2026-09-06']);
+      expect(board.demand.map((b) => b.week.weekCommencing)).toEqual(['2026-08-30']);
+    });
+
+    /** Both ends move independently, and the two columns trim to their own records as before. */
+    it('trims each end of each column separately', () => {
+      const board = buildBoard(
+        bands(),
+        [aSpace({ weekCommencing: '2026-08-16' })],
+        [anAvailability({ weekCommencing: '2026-09-06' })],
+      );
+
+      expect(board.demand.map((b) => b.week.weekCommencing)).toEqual(['2026-08-16']);
+      expect(board.supply.map((b) => b.week.weekCommencing)).toEqual(['2026-09-06']);
     });
 
     it('hands both columns the same band objects, so nothing can drift between them', () => {

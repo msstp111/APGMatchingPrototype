@@ -23,8 +23,12 @@ $header-strip-height: 28px;
 $band-header-height: 30px;
 $column-header-height: 40px;
 $filter-row-height: 40px; // reserved by Phase 3, filled by Phase 4
-$search-strip-height: 52px; // likewise
+$filter-chip-height: 26px; // design-system.md 12.2
+$filter-chip-radius: 13px; // a pill: half the chip's height (design-system.md 5.3)
 $empty-band-height: 44px;
+// Phase 3's $search-strip-height is gone. design-system.md 12.1's shared search strip was
+// deliberately not built (Phase 4) — the per-column filters cover it, and the 52px it reserved went
+// back to the list, which is what section 8.3 asks to protect.
 $leading-offset: $rail-width + $spine-width; // 54px
 
 // --- line 1's columns (design-system.md 6.1) ---
@@ -148,11 +152,7 @@ $meter-gap: 6px;
 
   .sp-cancelled {
     width: $spine-width;
-    background: repeating-linear-gradient(
-      180deg,
-      lms.$lms-faint 0 6px,
-      transparent 6px 10px
-    );
+    background: repeating-linear-gradient(180deg, lms.$lms-faint 0 6px, transparent 6px 10px);
   }
 }
 

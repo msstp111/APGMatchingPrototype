@@ -1,0 +1,88 @@
+@use '../card-geometry' as geo;
+@use '../../../styles/lms-tokens' as lms;
+
+.empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  padding: 44px 16px;
+  text-align: center;
+  background: lms.$lms-white;
+}
+
+.glyph {
+  font-size: 34px;
+  color: lms.$lms-faint;
+}
+
+.headline {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 500;
+  color: lms.$lms-text;
+}
+
+// The filters restated, in card-meta type. Without these the state says "nothing here" and leaves
+// the operator to guess why (design-system.md 13).
+.active {
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  max-width: 100%;
+}
+
+.pair {
+  display: flex;
+  gap: 6px;
+  justify-content: center;
+  min-width: 0;
+  @include geo.card-meta;
+}
+
+.pair dt {
+  color: lms.$lms-faint;
+}
+
+.pair dd {
+  margin: 0;
+  color: lms.$lms-text-muted;
+  @include geo.truncate;
+}
+
+.actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 4px;
+}
+
+.primary,
+.text {
+  height: 30px;
+  padding: 0 12px;
+  border-radius: 4px;
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 500;
+  letter-spacing: 0.3px;
+  cursor: pointer;
+}
+
+.primary {
+  border: 0;
+  background: lms.$lms-petrol;
+  color: lms.$lms-white;
+}
+
+.text {
+  border: 0;
+  background: none;
+  color: lms.$lms-petrol;
+}
+
+.text:hover,
+.primary:hover {
+  filter: brightness(1.08);
+}

@@ -1,6 +1,7 @@
 using System.Text.Json;
 using Apg.Api.Seeding;
 using Apg.Domain.Entities;
+using Apg.Domain.Matching;
 using Apg.Domain.Time;
 
 namespace Apg.Api.Tests;
@@ -107,6 +108,57 @@ public class SeedDeterminismTests
         Assert.Equal(8, byStatus[MatchStatus.Drafted]);
         Assert.Equal(15, byStatus[MatchStatus.Confirmed]);
         Assert.Equal(2, byStatus[MatchStatus.Cancelled]);
+
+        // Space statuses are pinned the same way, and for the same reason: the matching screen's
+        // default filter is Status = Booked, so this split is what "showing 34 of 40" is made of.
+        var spacesByStatus = SeedFixture.Data.ProcessorSpaces
+            .GroupBy(s => s.Status)
+            .ToDictionary(g => g.Key, g => g.Count());
+
+        Assert.Equal(
+            SeedDataGenerator.ProcessorSpaceCount
+                - SeedDataGenerator.ConfirmedSpaceCount
+                - SeedDataGenerator.CancelledSpaceCount,
+            spacesByStatus[ProcessorSpaceStatus.Booked]);
+        Assert.Equal(SeedDataGenerator.ConfirmedSpaceCount, spacesByStatus[ProcessorSpaceStatus.Confirmed]);
+        Assert.Equal(SeedDataGenerator.CancelledSpaceCount, spacesByStatus[ProcessorSpaceStatus.Cancelled]);
+    }
+
+    /// <summary>
+    /// The two rules the status pass has to respect, asserted against the domain rather than against
+    /// the seeder's own bookkeeping.
+    /// </summary>
+    [Fact]
+    public void Every_confirmed_space_is_one_the_domain_agrees_could_be_confirmed()
+    {
+        var matches = SeedFixture.Data.Matches;
+
+        foreach (var space in SeedFixture.Data.ProcessorSpaces
+                     .Where(s => s.Status == ProcessorSpaceStatus.Confirmed))
+        {
+            var its = matches.Where(m => m.ProcessorSpaceId == space.Id).ToList();
+
+            Assert.Contains(its, MatchQuantities.IsLive);
+            Assert.All(its.Where(MatchQuantities.IsLive), m => Assert.Equal(MatchStatus.Confirmed, m.Status));
+        }
+    }
+
+    /// <summary>
+    /// Cancelling a record never cascades to its matches (a deliberate rule, so APG can arrange
+    /// alternatives before notifying anyone), and the seed shows it rather than leaving a later phase
+    /// to demonstrate it from nothing.
+    /// </summary>
+    [Fact]
+    public void At_least_one_cancelled_space_still_holds_live_matches()
+    {
+        var cancelled = SeedFixture.Data.ProcessorSpaces
+            .Where(s => s.Status == ProcessorSpaceStatus.Cancelled)
+            .Select(s => s.Id)
+            .ToHashSet();
+
+        Assert.Contains(
+            SeedFixture.Data.Matches.Where(MatchQuantities.IsLive),
+            m => cancelled.Contains(m.ProcessorSpaceId));
     }
 
     [Fact]

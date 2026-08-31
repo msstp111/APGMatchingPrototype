@@ -33,7 +33,11 @@ Filterable by every displayed field:
 2.1 **Status** — multi-select. Default `Booked` **and** `Pending`.
 2.2 **Stock class** — multi-select, prominent. The single availability list, which does **not** map
     onto the processor lists. Do not attempt to filter one side by the other's stock class.
-2.3 **Location** — searchable, since there are ~300.
+2.3 **Location** — multi-select with **type-ahead inside the filter control**, since there are ~300.
+    Typing a few letters narrows the list of location *options* so one can be picked to filter by. It
+    is a selection aid for the filter, not a free-text search of the cards. Distinct from the shared
+    search strip (`design-system.md` §12.1), which searches record text across several fields — this
+    is the supply column's **More**-row select (§12.2, `Location (searchable, 299)`).
 2.4 **Transaction type** — multi-select.
 2.5 **Quantity unmatched > 0** — on by default (per the spec).
 

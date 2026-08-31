@@ -44,11 +44,11 @@ export interface BandMeta {
 }
 
 export interface BoardView {
-  /** The demand column's bands, from the week of its own earliest space onward. */
+  /** The demand column's bands: the week of its earliest space to the week of its latest. */
   readonly demand: readonly BandView[];
 
   /**
-   * The supply column's bands, from the week of its own earliest record onward.
+   * The supply column's bands, spanning the weeks its own records occupy.
    *
    * Often a different week from `demand`'s, so the two rails legitimately show different weeks at the
    * same height. They scroll independently and each trims to its own data.
@@ -116,18 +116,26 @@ export function buildBoard(
 }
 
 /**
- * Drops the leading run of bands this column has nothing in, so the column starts at the week of its
- * own earliest surviving record.
+ * Cuts the column down to the span its own records actually occupy: from the week of its earliest
+ * surviving record to the week of its latest.
  *
  * **Each column trims from its own records only.** A shared start week would hide a past-dated space
  * older than the earliest availability record, with nothing on screen to say it had — which is the
  * whole reason one band list no longer serves both columns.
  *
- * Only the *leading* run goes. An empty week between two populated ones keeps its header, because a
- * gap in the calendar is information, and trailing weeks are left alone.
+ * Only the runs at each *end* go. An empty week between two populated ones keeps its header, because
+ * a gap in the calendar is information — trimming both ends is not the same as dropping every empty
+ * band.
  *
- * Nothing is cached: Phase 4 filters the inputs and calls `buildBoard` again, and the first band has
- * to move forward when a filter removes the oldest record.
+ * **The trailing trim overturns Phase 3b's requirement 2.6**, which guaranteed the run always reached
+ * the current week so a column whose records were all in the past still showed where "now" is. With
+ * a week filter on the demand column that guarantee produced a run of empty headers below the only
+ * band holding anything, which reads as missing data rather than as a calendar. What 2.6 was
+ * protecting is still carried: every past band has a grey `Past` tag on its rail and no future band
+ * does, so "am I looking at old stock" does not depend on the current week being on screen.
+ *
+ * Nothing is cached: filtering rebuilds the board, so both ends move when a filter changes which
+ * records survive.
  */
 function trim(
   bands: readonly BandView[],
@@ -136,15 +144,30 @@ function trim(
 ): readonly BandView[] {
   const first = bands.findIndex(hasRecords);
   if (first >= 0) {
-    return bands.slice(first);
+    return bands.slice(first, lastIndexOf(bands, hasRecords) + 1);
   }
 
-  // Nothing in this column at all. Rather than render nothing, start at the current week so the
-  // operator still sees where "now" is; the empty-band rows then say the weeks are empty. The
-  // endpoint always includes the current week, so the -1 fallback is defensive only.
+  // Nothing in this column at all. Rather than render nothing, show the current week alone so the
+  // operator still sees where "now" is; its empty-band row then says the week is empty. The endpoint
+  // always includes the current week, so the -1 fallback is defensive only.
   const current = weeks.findIndex((week) => week.isCurrentWeek);
+  const only = current >= 0 ? current : 0;
 
-  return bands.slice(current >= 0 ? current : 0);
+  return bands.slice(only, only + 1);
+}
+
+/** `Array.prototype.findLastIndex` is ES2023; this codebase does not assume that lib. */
+function lastIndexOf(
+  bands: readonly BandView[],
+  hasRecords: (band: BandView) => boolean,
+): number {
+  for (let i = bands.length - 1; i >= 0; i--) {
+    if (hasRecords(bands[i])) {
+      return i;
+    }
+  }
+
+  return -1;
 }
 
 function freeze(band: BandBuilder): BandView {
