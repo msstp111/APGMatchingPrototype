@@ -1,7 +1,14 @@
 import { HttpClient } from '@angular/common/http';
 import { Injectable, inject } from '@angular/core';
 import { Observable } from 'rxjs';
-import { LivestockAvailabilityDto, ProcessorSpaceDto, WeekBandDto } from './models';
+import {
+  CreateMatchRequest,
+  LivestockAvailabilityDto,
+  MatchProposalDto,
+  MatchWriteResultDto,
+  ProcessorSpaceDto,
+  WeekBandDto,
+} from './models';
 
 /**
  * Calls the API on a same-origin `/api` path. In development the Angular dev server proxies that to
@@ -31,5 +38,36 @@ export class ApiClient {
    */
   weekBands(): Observable<WeekBandDto[]> {
     return this.http.get<WeekBandDto[]>('/api/week-bands');
+  }
+
+  /**
+   * Whether a dropped pair may be matched, and on what terms. Asked at the moment of the drop, before
+   * any dialog opens, because a pair with nothing left to match earns a refusal rather than a dialog.
+   */
+  matchProposal(
+    processorSpaceId: number,
+    livestockAvailabilityId: number,
+  ): Observable<MatchProposalDto> {
+    return this.http.get<MatchProposalDto>('/api/match-proposal', {
+      params: { processorSpaceId, livestockAvailabilityId },
+    });
+  }
+
+  /** Creates one match at status `Drafted`. Never merges into an existing one. */
+  createMatch(request: CreateMatchRequest): Observable<MatchWriteResultDto> {
+    return this.http.post<MatchWriteResultDto>('/api/matches', request);
+  }
+
+  /**
+   * Deletes a drafted match. This is the undo behind the creation snack bar; the server refuses it for
+   * anything past Drafted, which has to be cancelled with a reason instead (Phase 6).
+   */
+  deleteMatch(id: number): Observable<MatchWriteResultDto> {
+    return this.http.delete<MatchWriteResultDto>(`/api/matches/${id}`);
+  }
+
+  /** The carriers the quantity prompt offers. Optional on a match, so this is a convenience. */
+  transportCompanies(): Observable<string[]> {
+    return this.http.get<string[]>('/api/transport-companies');
   }
 }

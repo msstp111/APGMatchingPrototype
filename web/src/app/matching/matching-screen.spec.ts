@@ -1,12 +1,18 @@
 import { provideZonelessChangeDetection } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
-import { of } from 'rxjs';
+import { Subject, of } from 'rxjs';
 import { ApiClient } from '../api/api-client';
-import { LivestockAvailabilityDto, ProcessorSpaceDto, WeekBandDto } from '../api/models';
+import {
+  LivestockAvailabilityDto,
+  MatchWriteResultDto,
+  ProcessorSpaceDto,
+  WeekBandDto,
+} from '../api/models';
 import { MatchingScreen } from './matching-screen';
 import { DEFAULT_SUPPLY_FILTERS } from './filters/filter-defaults';
 import { MatchingPreferences, PREFERENCES_STORAGE_KEY } from './filters/matching-preferences';
-import { anAvailability, aSpace, weeks } from './testing/dto-fixtures';
+import { MatchDrop } from './match/match-drop';
+import { aMatch, anAvailability, aSpace, weeks } from './testing/dto-fixtures';
 
 /**
  * The client's half of the architectural rule: it renders what the DTO gives it.
@@ -45,6 +51,8 @@ describe('Matching screen', () => {
   // 23 Aug is the current week, so both records sit in it.
   const bands: WeekBandDto[] = weeks(3);
 
+  const writes = new Subject<MatchWriteResultDto>();
+
   function configure(
     spaces: readonly ProcessorSpaceDto[] = [space],
     records: readonly LivestockAvailabilityDto[] = [availability],
@@ -62,6 +70,7 @@ describe('Matching screen', () => {
             weekBands: () => of(weekBands),
           },
         },
+        { provide: MatchDrop, useValue: { writes: writes.asObservable() } },
       ],
     }).compileComponents();
   }
@@ -207,6 +216,7 @@ describe('Matching screen', () => {
             weekBands: () => of([]),
           },
         },
+        { provide: MatchDrop, useValue: { writes: writes.asObservable() } },
       ],
     }).compileComponents();
 
@@ -399,6 +409,81 @@ describe('Matching screen', () => {
 
       // The W.C. value itself still shows on both sides — it is the filter that is absent.
       expect(element.textContent).toContain('Week of');
+    });
+  });
+
+  // -------------------------------------------------------------------------------------------
+  // Phase 5 — a write patches both records; a consumed record leaves the default view
+  // -------------------------------------------------------------------------------------------
+
+  describe('after a match is created', () => {
+    it('updates both columns from the write result', async () => {
+      const fixture = await mount();
+
+      writes.next({
+        match: aMatch({ id: 9, status: 'Drafted', quantityMatched: 40 }),
+        space: aSpace({
+          unmatched: 60,
+          quantityStateLabel: 'Under-filled',
+          matches: [aMatch({ id: 9, status: 'Drafted' })],
+        }),
+        availability: anAvailability({
+          unmatched: 50,
+          status: 'Pending',
+          matches: [aMatch({ id: 9, status: 'Drafted' })],
+        }),
+      });
+      await fixture.whenStable();
+
+      const element = fixture.nativeElement as HTMLElement;
+      const demandMeter = element.querySelector('app-space-card .meter')?.getAttribute('title') ?? '';
+      const supplyMeter =
+        element.querySelector('app-availability-card .meter')?.getAttribute('title') ?? '';
+
+      expect(demandMeter).toContain('60');
+      expect(supplyMeter).toContain('50');
+      expect(element.textContent).toContain('1 match · 1 draft');
+    });
+
+    it('removes a fully consumed availability record from the default-filtered view', async () => {
+      const fixture = await mount();
+
+      expect((fixture.nativeElement as HTMLElement).querySelectorAll('app-availability-card')).toHaveLength(
+        1,
+      );
+
+      writes.next({
+        match: aMatch({ id: 9, status: 'Drafted' }),
+        space: aSpace({ unmatched: 10 }),
+        availability: anAvailability({ unmatched: 0, status: 'Pending' }),
+      });
+      await fixture.whenStable();
+
+      expect((fixture.nativeElement as HTMLElement).querySelectorAll('app-availability-card')).toHaveLength(
+        0,
+      );
+    });
+
+    it('puts the record back when the draft is undone', async () => {
+      const fixture = await mount();
+
+      writes.next({
+        match: aMatch({ id: 9, status: 'Drafted' }),
+        space: aSpace({ unmatched: 10 }),
+        availability: anAvailability({ unmatched: 0, status: 'Pending' }),
+      });
+      await fixture.whenStable();
+
+      writes.next({
+        match: null,
+        space: aSpace({ unmatched: 100 }),
+        availability: anAvailability({ unmatched: 777, status: 'Booked' }),
+      });
+      await fixture.whenStable();
+
+      expect((fixture.nativeElement as HTMLElement).querySelectorAll('app-availability-card')).toHaveLength(
+        1,
+      );
     });
   });
 });

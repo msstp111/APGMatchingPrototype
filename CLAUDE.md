@@ -8,9 +8,9 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Current state
 
-Phases 0 to 4 are complete: the solution, the Angular app, EF Core + SQLite and the deterministic seeder are in place, the LMS shell (top bar + sidebar) is built, every computed quantity, status and date rule lives in `Apg.Domain` and reaches the client on the DTO contract, Phase 2 settled the visual language in `Documents/design-system.md`, Phase 3 built the matching screen's two week-banded card lists with expand/collapse, Phase 3b removed the carry-over cards it had shipped and replaced them with the trimmed backlog (resolved question 17), and Phase 4 added per-column filters, sorting within the bands, the column flip and reset-to-default. Phases 5–8 are still to come — see `Documents/BUILD-LOG.md` for what each finished phase actually did.
+Phases 0 to 5 are complete: the solution, the Angular app, EF Core + SQLite and the deterministic seeder are in place, the LMS shell (top bar + sidebar) is built, every computed quantity, status and date rule lives in `Apg.Domain` and reaches the client on the DTO contract, Phase 2 settled the visual language in `Documents/design-system.md`, Phase 3 built the matching screen's two week-banded card lists with expand/collapse, Phase 3b removed the carry-over cards it had shipped and replaced them with the trimmed backlog (resolved question 17), Phase 4 added per-column filters, sorting within the bands, the column flip and reset-to-default, and Phase 5 added drag-to-match (CDK across the two columns, quantity prompt, Drafted matches, undo). Phases 6–8 are still to come — see `Documents/BUILD-LOG.md` for what each finished phase actually did.
 
-**The matching screen still changes no data.** Drag-and-drop is Phase 5, the match dialogs are Phase 6, record creation is Phase 7. Expanding a card, filtering, sorting and flipping the columns are the interactions that exist.
+**The matching screen now creates Drafted matches by dragging a card onto a card in the other column.** Editing, cancelling and confirming them is Phase 6. Record creation is Phase 7. There is no keyboard drag path (resolved question 14).
 
 ### Layout
 
@@ -56,6 +56,7 @@ Run from the repo root unless stated.
 - SQLite lives at `src/Apg.Api/apg.db`, gitignored. The schema is created with `EnsureCreated` — there are no migrations, deliberately. Deleting the file and restarting reproduces identical seed data.
 - `POST /api/dev/reset-database` drops, recreates and re-seeds. Phase 8 adds the button that calls it.
 - The three read endpoints are `GET /api/processor-spaces`, `GET /api/livestock-availability` and `GET /api/week-bands`. Since Phase 1 they return the **DTO contract** — `src/Apg.Api/Contracts/Dtos.cs`, mirrored field for field in `web/src/app/api/models.ts` — carrying every computed field. The raw-record shapes Phase 0 returned are gone.
+- **Write path (Phase 5):** `GET /api/match-proposal?processorSpaceId=&livestockAvailabilityId=` (default, ceiling, refusal, default price — asked at drop, before any dialog), `POST /api/matches` (always a new `Drafted` row; never merges), `DELETE /api/matches/{id}` (Drafted only — the undo, and Phase 6's delete-draft), `GET /api/transport-companies` (`SeedConfig.TransportCompanies`). Create and delete return both parents recomputed (`MatchWriteResultDto`); the client patches the two records by id.
 - **`GET /api/week-bands`** (Phase 3) returns an ordered, gapless `WeekBandDto[]`: every Sunday from the earliest record's week to the latest, always including the current week, each with `weekCommencingLabel` (`23-08-26`), `weekOfLabel` (`23 Aug`), `isCurrentWeek` and `isPastWeek`. It exists because requirement 1.6 wants a header on a week **no record falls in**, and the client cannot name such a week without doing date arithmetic. It is a calendar, not a record set: it carries no record ids, deliberately. The server ships one full list and **the client trims it per column** (Phase 3b) — each column starts at the week of its own earliest record, so the endpoint must keep returning the whole run.
 
 ### Conventions
@@ -77,20 +78,25 @@ Domain rules live in C# in `Apg.Domain` (no EF, no ASP.NET) and reach the client
 - **`src/Apg.Domain/Matching/`** — `MatchQuantities` (both sums, `Tally`, `ForSpace`, `ForAvailability`), `QuantityTally` (`Unmatched`, `State`), `QuantityState` / `MatchSide` / `QuantityStateLabels`, `AvailabilityStatus.Derive`, `ProcessorSpaceRules.CanConfirm`, `MatchCreation` (`Propose`, `DefaultMatchQuantity`, `MaxMatchQuantity`, `NoUnmatchedQuantity`), `RecordCancellation`.
 - **`src/Apg.Domain/Pricing/PriceTable.cs`** — `DefaultPricePerKg`, keyed on the Processor Space stock class.
 - **`src/Apg.Domain/Time/NzTime.cs`** — the *only* home for date rules: `WeekCommencing`, `ToNzDate`, `Today(TimeProvider)`, `CurrentWeekCommencing(TimeProvider)`, `DateLabel`, `WeekLabel`, `AtNzTime`, and from Phase 3 `ShortDateLabel` / `ShortDateLabelFormat` (`d MMM` → `16 Aug`, `1 Sep`) and `WeeksFrom(first, last)` (contiguous inclusive Sundays, both ends normalised — still the source of `/api/week-bands`). Extend this file; never start a second one.
-- **`src/Apg.Api/Contracts/`** — `Dtos.cs`, `MatchingProjection` (computes nothing; calls the domain for every value), `WorkingSetLoader`, `ApiJson` (the wire format, shared with the tests).
+- **`src/Apg.Api/Contracts/`** — `Dtos.cs`, `MatchingProjection` (computes nothing; calls the domain for every value), `WorkingSetLoader`, `PriceTableLoader`, `MatchWriter` (pure over a `WorkingSet` + `PriceTable` — Propose / Reject / Drafted / RejectDelete), `MatchResponses`, `ApiJson` (the wire format, shared with the tests).
 
 **Dates on the wire:** every business date is a `DateOnly` serialising as `yyyy-MM-dd`, and **always ships alongside a preformatted label** in LMS's `dd-MM-yy` (`23-08-26`). Where a date appears in prose rather than in a column it also ships a short label in `d MMM` (`16 Aug`) — `WeekBandDto.WeekOfLabel` and `LivestockAvailabilityDto.AvailableFromShortLabel`; the client supplies only the surrounding word ("Week of", "since"), because the week rail stacks them on separate lines. The client renders the label and must never construct a JavaScript `Date` from the ISO value. Change the formats in `NzTime.DateLabelFormat` / `NzTime.ShortDateLabelFormat`, nowhere else.
 
-### The matching screen (Phases 3, 3b and 4)
+### The matching screen (Phases 3, 3b, 4 and 5)
 
-Under `web/src/app/matching/`. `matching-screen` loads three streams, filters and sorts them, and renders two `matching-column`s; everything below is presentation over already-computed values.
+Under `web/src/app/matching/`. `matching-screen` loads three streams, filters and sorts them, and renders two `matching-column`s; everything below is presentation over already-computed values. A drop asks the server for a proposal, then either refuses or opens the quantity prompt; a create patches both records by id.
 
 ```
-_card-geometry.scss   ALL dimensions + the card-shell/spines/line-1 mixins. Both columns @use it,
-                      so design-system.md 6.1's "identical on both sides" is enforced, not hoped for.
+_card-geometry.scss   ALL dimensions + the card-shell/spines/line-1 mixins + drag target/placeholder.
+                      Both columns @use it, so design-system.md 6.1's "identical on both sides" is enforced.
 board/matching-board.ts   buildBoard(weeks, spaces, availability) → { demand, supply, unplaced }.
                           Pure. The two band runs are trimmed slices of one array.
 board/card-state.ts       root CardStateStore — which cards are expanded (session only)
+drag/drag-state.ts        root DragStore — the card in flight, Escape cancel, drop-state (valid/blocked/same)
+drag/card-drag.ts         acceptsFrom (same-column silent reject) + pairFromDrop (both directions → one pair)
+drag/column-auto-scroll.ts  [columnAutoScroll] on each .list; CDK's own auto-scroll is disabled
+match/match-drop.ts       drop → proposal → snack or dialog → POST → writes$ ; undo is DELETE
+match/quantity-prompt.ts  design-system.md 11.1; default/max/price all from the server
 filters/filter-defaults.ts    THE constants module: filter/sort types + every default, frozen
 filters/filter-service.ts     pure filter + sort + away-from-default + the empty state's summary
 filters/filter-options.ts     option lists derived from the working set, with processor narrowing
@@ -99,11 +105,16 @@ filters/column-filters.ts     the 40px filter row: chips, menus, the location ty
 filters/filtered-empty.ts     the no-results state, with Clear filters / Reset to default
 column/matching-column.ts header (+ Filtered chip and Reset), filter row, sticky 28px strip, .list
 band/week-band.ts         sticky rail, band header, the band's cards, empty-band row
-card/space-card.ts, card/availability-card.ts     the 52px rows
+card/space-card.ts, card/availability-card.ts     the 52px rows — each is a cdkDropList + cdkDrag
 card/card-expansion.ts    fields + both sums + the match table. Shared by both cards.
 card/fill-meter.ts, card/stock-class-tile.ts, card/stock-classes.ts, card/card-chrome.ts
+                          matchSummaryLabel / matchBreakdown are the Phase 6 entry point
 testing/dto-fixtures.ts   DTO builders for the specs only
 ```
+
+**Drag (Phase 5).** Each card is its own `cdkDropList` (sorting disabled, CDK auto-scroll disabled) holding one `cdkDrag`, and both columns sit in one `cdkDropListGroup` on the screen. The drop never transfers arrays — it reads `item.data` and `container.data`, resolves them through `pairFromDrop` (requirement 1.2: one function, both directions), and asks `GET /api/match-proposal`. Same-column enter-predicate returns false (silent no-op). Escape sets a cancelled flag; CDK has no Escape handling of its own, and `cdkDragEnded` fires *before* `cdkDropListDropped`, so the flag must not be cleared on `ended`. CDK's auto-scroll would scroll the *source* column when the pointer is over a band header in the target, so it is replaced by `columnAutoScroll` (48px zone, `$auto-scroll-zone` / `AUTO_SCROLL_ZONE` — one number in two places). **No keyboard drag path.** The default, the ceiling and the refusal string all arrive from the server; `no-domain-arithmetic.spec.ts`'s allow-list is still exactly two files.
+
+**Match affordance (Phase 5 / Phase 6's hook).** Line 2 shows `matchSummaryLabel` — `2 matches · 1 draft` / `1 match · confirmed` / `no matches` — live matches only (cancelled ones never reach the client). The hover `title` is `matchBreakdown`. Opening a match is Phase 6; do not add a click handler here without reading that phase.
 
 **Filtering and sorting attach to `buildBoard`'s inputs, never its output** — `matching-screen` filters and sorts the lists and calls it again, so the band meta totals *and the per-column trim* reshape for free. Sorting the flat list before banding is also what makes a sort reorder cards **within** each week rather than dissolving the bands; there is deliberately no "ungrouped" mode.
 

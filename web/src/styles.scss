@@ -35,6 +35,12 @@ html {
   border-radius: 4px !important;
 }
 
+// The quantity prompt is taller than Material's 65vh content cap; don't force a scrollbar.
+.apg-quantity-prompt .mat-mdc-dialog-content {
+  max-height: none !important;
+  overflow: visible;
+}
+
 body {
   // The existing app is light only; there is no dark mode in LMS v7.
   color-scheme: light;
@@ -54,4 +60,52 @@ body {
     'wght' 300,
     'GRAD' 0,
     'opsz' 24;
+}
+
+// CDK appends the drag preview to <body>, so these rules cannot live on a component.
+.cdk-drag-preview {
+  box-shadow: 0 8px 16px rgb(0 0 0 / 24%);
+  outline: 2px solid #00567e;
+  cursor: grabbing;
+}
+
+// CDK's placeholder follows the pointer into the other column. Hide every one of them: the source
+// row is a stay-behind we render ourselves, not this node.
+.cdk-drag-placeholder {
+  display: none !important;
+  height: 0 !important;
+  min-height: 0 !important;
+  max-height: 0 !important;
+  padding: 0 !important;
+  margin: 0 !important;
+  border: none !important;
+  overflow: hidden !important;
+}
+
+// CDK animates the item back into a list slot. We never transfer, so that motion is a lie.
+.cdk-drag-animating {
+  transition: none !important;
+}
+
+// Escape hides the preview the moment it is pressed; CDK still runs the pointer sequence out.
+body.apg-drag-cancelled .cdk-drag-preview {
+  display: none;
+}
+
+// design-system.md 11.3. The panel class is set by MatchDrop; the action is Material's own button.
+.apg-snack {
+  --mat-snack-bar-container-color: #37393c;
+  --mat-snack-bar-supporting-text-color: #ffffff;
+  --mat-snack-bar-supporting-text-size: 13.5px;
+  --mat-snackbar-text-color: #ffffff;
+  --mat-snack-bar-button-color: #91cdfb;
+  border-radius: 4px;
+  min-height: 48px;
+}
+
+.apg-snack .mat-mdc-button {
+  font-size: 13px;
+  font-weight: 500;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
 }

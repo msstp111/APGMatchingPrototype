@@ -87,13 +87,48 @@
 // The filter row itself is app-column-filters, which sets its own 40px height.
 
 // --- 3. the scrolling list ---
-// The scroll container. The band rails stick relative to THIS, which is why their offset is the
-// strip's height rather than zero.
+// The wrap is the positioned ancestor of the auto-scroll veils, so they stay pinned to the visible
+// edges rather than scrolling with the cards. The list itself is still the scroll container — the
+// band rails stick relative to THIS, which is why their offset is the strip's height rather than zero.
+.list-wrap {
+  flex: 1 1 auto;
+  min-height: 0;
+  position: relative;
+  display: flex;
+  flex-direction: column;
+}
+
 .list {
   flex: 1 1 auto;
   overflow-y: auto;
   overflow-x: hidden;
   position: relative;
+}
+
+// The opposite column during a drag (design-system.md 10). Hue-free: a wash, not a highlight.
+.column.wash {
+  background: lms.$lms-column-wash;
+}
+
+// 48px at each edge of the list, matching $auto-scroll-zone / AUTO_SCROLL_ZONE. Pointer-events none
+// so the veil cannot steal the drop.
+.veil {
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: geo.$auto-scroll-zone;
+  pointer-events: none;
+  z-index: 4;
+}
+
+.veil.top {
+  top: 0;
+  background: linear-gradient(to bottom, rgb(0 86 126 / 14%), transparent);
+}
+
+.veil.bottom {
+  bottom: 0;
+  background: linear-gradient(to top, rgb(0 86 126 / 14%), transparent);
 }
 
 // z-index 3 so it sits over the sticky week rails (1) and the cards.

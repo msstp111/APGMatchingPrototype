@@ -3,6 +3,8 @@ import { DecimalPipe } from '@angular/common';
 import { WeekBand } from '../band/week-band';
 import { BandView, MatchSide } from '../board/matching-board';
 import { LivestockAvailabilityDto, ProcessorSpaceDto } from '../../api/models';
+import { ColumnAutoScroll } from '../drag/column-auto-scroll';
+import { DragStore } from '../drag/drag-state';
 import { ColumnFilters } from '../filters/column-filters';
 import { FilteredEmpty } from '../filters/filtered-empty';
 import { isDemandDefault, isSupplyDefault } from '../filters/filter-service';
@@ -23,12 +25,13 @@ import { MatchingPreferences } from '../filters/matching-preferences';
 @Component({
   selector: 'app-matching-column',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [DecimalPipe, WeekBand, ColumnFilters, FilteredEmpty],
+  imports: [DecimalPipe, WeekBand, ColumnFilters, FilteredEmpty, ColumnAutoScroll],
   templateUrl: './matching-column.html',
   styleUrl: './matching-column.scss',
 })
 export class MatchingColumn {
   private readonly preferences = inject(MatchingPreferences);
+  private readonly drag = inject(DragStore);
 
   readonly side = input.required<MatchSide>();
 
@@ -83,6 +86,11 @@ export class MatchingColumn {
    * week bands would not offer it.
    */
   readonly isFilteredEmpty = computed(() => this.shown() === 0 && this.totalCount() > 0);
+
+  /** The opposite column takes the wash the moment a drag starts (design-system.md 10). */
+  readonly isDropTarget = computed(() => this.drag.isTargetSide(this.side()));
+
+  readonly isDragging = computed(() => this.drag.active() !== null);
 
   reset(): void {
     if (this.isDemand()) {

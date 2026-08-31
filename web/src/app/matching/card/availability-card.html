@@ -3,60 +3,115 @@
   where the processor was, available-from where the delivery date was, available where required was.
   The noun set differs everywhere ("Available"/"Committed"/"Over-committed") so the column is
   identifiable once the two sides can swap position in Phase 4.
+
+  The Phase 5 drag wiring is identical to the demand card's, deliberately: same drop-list wrapper, same
+  handle, same shared predicate and pair resolution. Direction is not a case either side handles.
 -->
-<div class="card" [class.zebra]="zebra()" [class.cancelled]="isCancelled()">
-  <span class="spine" [class]="spine()"></span>
-
-  <div class="cbody">
-    <div class="l1">
-      <app-stock-class-tile [stockClass]="record().stockClass" />
-      <span class="name" [title]="record().locationName || '-'">{{
-        record().locationName || '-'
-      }}</span>
-      <span class="sclass" [title]="record().stockClass">{{ record().stockClass }}</span>
-      <span class="date">{{ record().availableFromLabel }}</span>
-      <span class="qty">{{ record().quantityAvailable }}</span>
-
-      <app-fill-meter
-        [original]="record().quantityAvailable"
-        [matchedInclDraft]="record().matchedInclDraft"
-        [matchedExclDraft]="record().matchedExclDraft"
-        [unmatched]="record().unmatched"
-        [quantityState]="record().quantityState"
-        [quantityStateLabel]="record().quantityStateLabel"
-        side="supply"
-      />
-    </div>
-
-    <div class="l2">
-      <span class="meta">{{ record().farmerName || '-' }} · {{ transactionType() }}</span>
-
-      @if (isOver()) {
-        <!-- "Over-committed", from the DTO. If this ever shows, it is a bug and it is meant to. -->
-        <span class="over" [class]="overInk()">{{ record().quantityStateLabel }}</span>
-      }
-
-      <span class="mcount">{{ matchesLabel() }}</span>
-
-      <span class="status">
-        <span class="material-symbols-outlined sicon" [class.filled]="statusFilled()">{{
-          statusGlyph()
+<div
+  class="target"
+  [class.valid]="dropState() === 'valid'"
+  [class.blocked]="dropState() === 'blocked'"
+  [class.same]="dropState() === 'same'"
+  cdkDropList
+  cdkDropListSortingDisabled
+  cdkDropListAutoScrollDisabled
+  [cdkDropListData]="dragCard()"
+  [cdkDropListEnterPredicate]="accepts"
+  (cdkDropListDropped)="dropped($event)"
+>
+  <ng-template #lines>
+      <div class="l1">
+        <app-stock-class-tile [stockClass]="record().stockClass" />
+        <span class="name" [title]="record().locationName || '-'">{{
+          record().locationName || '-'
         }}</span>
-        {{ record().status }}
-      </span>
+        <span class="sclass" [title]="record().stockClass">{{ record().stockClass }}</span>
+        <span class="date">{{ record().availableFromLabel }}</span>
+        <span class="qty">{{ record().quantityAvailable }}</span>
+
+        <app-fill-meter
+          [original]="record().quantityAvailable"
+          [matchedInclDraft]="record().matchedInclDraft"
+          [matchedExclDraft]="record().matchedExclDraft"
+          [unmatched]="record().unmatched"
+          [quantityState]="record().quantityState"
+          [quantityStateLabel]="record().quantityStateLabel"
+          side="supply"
+        />
+      </div>
+
+      <div class="l2">
+        <span class="meta">{{ record().farmerName || '-' }} · {{ transactionType() }}</span>
+
+        @if (isOver()) {
+          <!-- "Over-committed", from the DTO. If this ever shows, it is a bug and it is meant to. -->
+          <span class="over" [class]="overInk()">{{ record().quantityStateLabel }}</span>
+        }
+
+        <!-- Requirement 5.1: the card says what it already carries. Live matches only. -->
+        <span class="mcount" [title]="matchesTitle()">{{ matchesLabel() }}</span>
+
+        <span class="status">
+          <span class="material-symbols-outlined sicon" [class.filled]="statusFilled()">{{
+            statusGlyph()
+          }}</span>
+          {{ record().status }}
+        </span>
+      </div>
+    </ng-template>
+
+  @if (isSource()) {
+    <div class="card stay" [class.zebra]="zebra()" aria-hidden="true">
+      <span class="spine" [class]="spine()"></span>
+      <div class="cbody">
+        <ng-container [ngTemplateOutlet]="lines" />
+      </div>
+      <span class="chev"></span>
     </div>
+  }
+
+  <div
+    class="card"
+    [class.zebra]="zebra()"
+    [class.cancelled]="isCancelled()"
+    [class.lifted]="isSource()"
+    cdkDrag
+    [cdkDragData]="dragCard()"
+    (cdkDragStarted)="dragStarted()"
+    (cdkDragEnded)="dragEnded()"
+  >
+    <span class="spine" [class]="spine()"></span>
+
+    <div class="cbody" cdkDragHandle>
+      <ng-container [ngTemplateOutlet]="lines" />
+    </div>
+
+    <button
+      matIconButton
+      class="chev"
+      type="button"
+      [attr.aria-expanded]="expanded()"
+      [attr.aria-label]="expanded() ? 'Collapse' : 'Expand'"
+      (click)="toggle()"
+    >
+      <span class="material-symbols-outlined">{{ expanded() ? 'expand_less' : 'expand_more' }}</span>
+    </button>
+
+    <ng-template cdkDragPreview [matchSize]="true">
+      <div class="card">
+        <span class="spine" [class]="spine()"></span>
+        <div class="cbody">
+          <ng-container [ngTemplateOutlet]="lines" />
+        </div>
+      </div>
+    </ng-template>
   </div>
 
-  <button
-    matIconButton
-    class="chev"
-    type="button"
-    [attr.aria-expanded]="expanded()"
-    [attr.aria-label]="expanded() ? 'Collapse' : 'Expand'"
-    (click)="toggle()"
-  >
-    <span class="material-symbols-outlined">{{ expanded() ? 'expand_less' : 'expand_more' }}</span>
-  </button>
+  @if (dropState() === 'valid') {
+    <span class="material-symbols-outlined dropcue">add</span>
+  } @else if (dropState() === 'blocked') {
+    <span class="material-symbols-outlined dropcue" matTooltip="No unmatched quantity">block</span>
+  }
 </div>
 
 @if (expanded()) {

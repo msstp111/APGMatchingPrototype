@@ -1,6 +1,7 @@
 using Apg.Api.Contracts;
 using Apg.Api.Data;
 using Apg.Api.Seeding;
+using Apg.Domain.Entities;
 using Microsoft.EntityFrameworkCore;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -16,6 +17,7 @@ builder.Services.AddDbContext<ApgDbContext>(options => options.UseSqlite($"Data 
 builder.Services.AddSingleton(TimeProvider.System);
 builder.Services.AddScoped<DatabaseSeeder>();
 builder.Services.AddScoped<WorkingSetLoader>();
+builder.Services.AddScoped<PriceTableLoader>();
 
 // The wire format lives in ApiJson so the serialisation tests assert against the same options the
 // host actually uses, rather than against a second copy that could drift from it.
@@ -54,6 +56,91 @@ app.MapGet("/api/week-bands", async (
         TimeProvider clock,
         CancellationToken cancellation) =>
     MatchingProjection.WeekBands(await loader.LoadAsync(cancellation), clock));
+
+// The list a match's transport-company picker offers. Optional at draft time, so this is a
+// convenience rather than a vocabulary: the invented carriers live in SeedConfig with every other
+// invented list, so APG's real ones are a one-file swap.
+app.MapGet("/api/transport-companies", () => SeedConfig.TransportCompanies.Order().ToList());
+
+// --- the write path: creating a match by dragging one record onto the other -------------------
+//
+// Two calls, in this order, and the split is deliberate. The proposal is asked for at the moment of
+// the drop, before any dialog opens, because when there is nothing left to match the answer is a
+// refusal and not a dialog with a disabled button (requirement 3.2). The create then revalidates
+// everything the dialog allowed, because a client is not a source of truth about a domain rule.
+app.MapGet("/api/match-proposal", async (
+        int processorSpaceId,
+        int livestockAvailabilityId,
+        WorkingSetLoader loader,
+        PriceTableLoader priceLoader,
+        CancellationToken cancellation) =>
+{
+    var set = await loader.LoadAsync(cancellation);
+    var prices = await priceLoader.LoadAsync(cancellation);
+
+    var proposal = MatchWriter.Propose(set, prices, processorSpaceId, livestockAvailabilityId);
+
+    return proposal is null
+        ? Results.NotFound(MatchResponses.Message(MatchResponses.NoSuchPair))
+        : Results.Ok(proposal);
+});
+
+app.MapPost("/api/matches", async (
+        CreateMatchRequest request,
+        ApgDbContext db,
+        WorkingSetLoader loader,
+        TimeProvider clock,
+        CancellationToken cancellation) =>
+{
+    var rejection = MatchWriter.Reject(await loader.LoadAsync(cancellation), request);
+
+    if (rejection is not null)
+    {
+        return Results.BadRequest(MatchResponses.Message(rejection));
+    }
+
+    // Unconditionally an insert. Dropping a pair that already matches produces a second, separate
+    // match rather than topping the first one up (resolved question 8) — nothing here looks for one.
+    var match = MatchWriter.Drafted(request, clock);
+
+    db.Matches.Add(match);
+    await db.SaveChangesAsync(cancellation);
+
+    return await MatchResponses.WriteResultAsync(
+        loader,
+        match.ProcessorSpaceId,
+        match.LivestockAvailabilityId,
+        match.Id,
+        cancellation);
+});
+
+// The undo behind the creation snack bar, and the same endpoint Phase 6's "Delete draft" needs. A
+// drafted match is plain-deleted rather than cancelled (resolved question 3); anything past Drafted
+// has to be cancelled with a reason, which is Phase 6's, so this refuses it rather than guessing.
+app.MapDelete("/api/matches/{id:int}", async (
+        int id,
+        ApgDbContext db,
+        WorkingSetLoader loader,
+        CancellationToken cancellation) =>
+{
+    var match = await db.Matches.FirstOrDefaultAsync(m => m.Id == id, cancellation);
+    var rejection = MatchWriter.RejectDelete(match);
+
+    if (rejection is not null)
+    {
+        return match is null
+            ? Results.NotFound(MatchResponses.Message(rejection))
+            : Results.Conflict(MatchResponses.Message(rejection));
+    }
+
+    var spaceId = match!.ProcessorSpaceId;
+    var availabilityId = match.LivestockAvailabilityId;
+
+    db.Matches.Remove(match);
+    await db.SaveChangesAsync(cancellation);
+
+    return await MatchResponses.WriteResultAsync(loader, spaceId, availabilityId, matchId: null, cancellation);
+});
 
 app.MapPost("/api/dev/reset-database", async (DatabaseSeeder seeder) =>
 {

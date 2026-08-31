@@ -26,6 +26,10 @@ $filter-row-height: 40px; // reserved by Phase 3, filled by Phase 4
 $filter-chip-height: 26px; // design-system.md 12.2
 $filter-chip-radius: 13px; // a pill: half the chip's height (design-system.md 5.3)
 $empty-band-height: 44px;
+// One number in two places: the veil in matching-column.scss and AUTO_SCROLL_ZONE in
+// drag/column-auto-scroll.ts. If they disagree, the column scrolls somewhere other than where it
+// says it will.
+$auto-scroll-zone: 48px;
 // Phase 3's $search-strip-height is gone. design-system.md 12.1's shared search strip was
 // deliberately not built (Phase 4) — the per-column filters cover it, and the 52px it reserved went
 // back to the list, which is what section 8.3 asks to protect.
@@ -328,5 +332,58 @@ $meter-gap: 6px;
 
   .q-pink {
     color: lms.$q-pink-ink;
+  }
+
+  // --- Phase 5 drag (design-system.md 10) ---
+  // The drop list is a wrapper around the 52px row. Nothing about it may change the row's height or
+  // the line-1 alignment, so highlights are outlines and the badge is absolutely positioned.
+  .target {
+    position: relative;
+  }
+
+  .target.valid .card {
+    outline: 2px solid lms.$lms-petrol;
+    outline-offset: -2px;
+    background: lms.$lms-petrol-tint;
+  }
+
+  .target.blocked .card {
+    background: #eeeeee;
+    cursor: not-allowed;
+  }
+
+  // Same column: nothing but the cursor. An outline here would be an error for a gesture that
+  // simply does not apply (requirement 1.3).
+  .target.same .card {
+    cursor: no-drop;
+  }
+
+  // Stay-behind while this card is the drag source. Not a CDK placeholder — those move.
+  .card.stay {
+    pointer-events: none;
+  }
+
+  // Out of flow so the stay-behind is the only row height. The copy on the pointer is the preview.
+  .card.lifted {
+    position: absolute;
+    inset: 0;
+    visibility: hidden;
+    pointer-events: none;
+  }
+
+  .dropcue {
+    position: absolute;
+    top: 50%;
+    right: 4px;
+    z-index: 1;
+    transform: translateY(-50%);
+    font-size: 18px;
+    color: lms.$lms-petrol;
+    pointer-events: none;
+  }
+
+  .target.blocked .dropcue {
+    color: lms.$lms-faint;
+    pointer-events: auto;
   }
 }

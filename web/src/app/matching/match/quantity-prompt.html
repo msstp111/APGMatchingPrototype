@@ -1,0 +1,128 @@
+<!--
+  design-system.md 11.1, in its order: both records summarised with their own status spines, the
+  stock-class note, then the three fields. The summaries are read-only on purpose — this dialog is the
+  last point at which the operator can check they grabbed the card they meant to.
+-->
+<h2 mat-dialog-title>Match {{ titleQuantity() }} head</h2>
+
+<mat-dialog-content>
+  <div class="rec">
+    <span class="spine" [class]="spaceSpine"></span>
+
+    <div class="rbody">
+      <div class="rhead">
+        <span class="kicker demand">Processor Space</span>
+        <span class="rstatus">{{ space.status }}</span>
+      </div>
+
+      <div class="rname">
+        <app-stock-class-tile [stockClass]="space.stockClass" />
+        <span class="nm">{{ space.processor }} {{ space.plant }}</span>
+        <span class="cls">{{ space.stockClass }}</span>
+      </div>
+
+      <div class="facts">
+        <span class="fact">
+          <span class="fk">Delivery</span>
+          <span class="fv">{{ space.deliveryDateLabel }}</span>
+        </span>
+        <span class="fact">
+          <span class="fk">Time</span>
+          <span class="fv">{{ space.deliveryTime || 'not set' }}</span>
+        </span>
+        <span class="fact">
+          <span class="fk">Required</span>
+          <span class="fv">{{ space.quantityRequired }}</span>
+        </span>
+        <span class="fact">
+          <span class="fk">Unmatched</span>
+          <span class="fv strong" [class]="spaceUnmatchedInk">{{ space.unmatched }}</span>
+        </span>
+      </div>
+    </div>
+  </div>
+
+  <div class="rec">
+    <span class="spine" [class]="availabilitySpine"></span>
+
+    <div class="rbody">
+      <div class="rhead">
+        <span class="kicker supply">Livestock Availability</span>
+        <span class="rstatus">{{ availability.status }}</span>
+      </div>
+
+      <div class="rname">
+        <app-stock-class-tile [stockClass]="availability.stockClass" />
+        <span class="nm">{{ availability.locationName || '-' }}</span>
+        <span class="cls">{{ availability.stockClass }}</span>
+      </div>
+
+      <div class="facts">
+        <span class="fact">
+          <span class="fk">Available from</span>
+          <span class="fv">{{ availability.availableFromLabel }}</span>
+        </span>
+        <span class="fact">
+          <span class="fk">Transaction type</span>
+          <span class="fv">{{ transactionType }}</span>
+        </span>
+        <span class="fact">
+          <span class="fk">Available</span>
+          <span class="fv">{{ availability.quantityAvailable }}</span>
+        </span>
+        <span class="fact">
+          <span class="fk">Unmatched</span>
+          <span class="fv strong" [class]="availabilityUnmatchedInk">{{
+            availability.unmatched
+          }}</span>
+        </span>
+      </div>
+    </div>
+  </div>
+
+  @if (stockClassesDiffer) {
+    <!-- Information, not a warning: no amber and no warning icon (design-system.md 11.1). -->
+    <p class="note">{{ stockClassNote }}</p>
+  }
+
+  <div class="fields">
+    <mat-form-field appearance="fill" class="f-quantity">
+      <mat-label>Quantity matched</mat-label>
+      <input matInput type="number" [formControl]="quantity" />
+      <span matTextSuffix>head</span>
+
+      @if (quantity.hasError('integer')) {
+        <mat-error>A match is a whole number of head</mat-error>
+      } @else if (quantity.hasError('min') || quantity.hasError('required')) {
+        <mat-error>A match must be at least 1 head</mat-error>
+      } @else {
+        <mat-hint>{{ quantityCaption() }}</mat-hint>
+      }
+    </mat-form-field>
+
+    <mat-form-field appearance="fill" class="f-price">
+      <mat-label>Price per kg</mat-label>
+      <span matTextPrefix>$</span>
+      <input matInput type="number" step="0.01" [formControl]="price" />
+      <span matTextSuffix>/kg</span>
+      <mat-hint>{{ priceHint }}</mat-hint>
+    </mat-form-field>
+
+    <mat-form-field appearance="fill" class="f-transport">
+      <input matInput [formControl]="transport" [matAutocomplete]="carriers" />
+      <mat-autocomplete #carriers="matAutocomplete">
+        @for (company of transportOptions(); track company) {
+          <mat-option [value]="company">{{ company }}</mat-option>
+        }
+      </mat-autocomplete>
+      <mat-hint>Transport company - Can be added later</mat-hint>
+    </mat-form-field>
+  </div>
+</mat-dialog-content>
+
+<mat-dialog-actions align="end">
+  <button matButton mat-dialog-close type="button">Cancel</button>
+  <button matButton="filled" type="button" [disabled]="quantity.invalid" (click)="create()">
+    Create match
+  </button>
+</mat-dialog-actions>

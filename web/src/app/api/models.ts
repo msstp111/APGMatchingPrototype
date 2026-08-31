@@ -74,6 +74,49 @@ export interface MatchDto {
 }
 
 /**
+ * The answer to "may these two records be matched, and on what terms?", asked at the moment of the
+ * drop and before any dialog opens.
+ *
+ * Every figure on it is the server's: the default quantity, the ceiling, the refusal message and the
+ * default price. **The client does not work out a match quantity** — `min(unmatched, unmatched)`, the
+ * supply-side cap and the deliberately absent demand-side cap are domain rules with one
+ * implementation, in C#.
+ */
+export interface MatchProposalDto {
+  readonly isAllowed: boolean;
+  /** Exactly the domain's constant when refused, and rendered as given. Null when allowed. */
+  readonly refusalMessage: string | null;
+  readonly quantity: number;
+  /** The availability record's unmatched figure. There is no ceiling on the space side. */
+  readonly maximum: number;
+  /** Keyed on the **Processor Space** stock class. Null when the table has no entry. */
+  readonly defaultPricePerKg: number | null;
+}
+
+/** A new match, as the quantity prompt submits it. Always created at status `Drafted`. */
+export interface CreateMatchRequest {
+  readonly processorSpaceId: number;
+  readonly livestockAvailabilityId: number;
+  readonly quantityMatched: number;
+  readonly pricePerKg: number | null;
+  readonly transportCompany: string | null;
+}
+
+/**
+ * What creating or deleting a match returns: the match, and **both** parents recomputed.
+ *
+ * Both sides come back together because a match changes both at once, and they are the server's own
+ * recomputation rather than an adjustment made here. The screen replaces the two records it holds by
+ * id, and every derived figure on both cards moves with them.
+ */
+export interface MatchWriteResultDto {
+  /** The created match, or null when this was a deletion. */
+  readonly match: MatchDto | null;
+  readonly space: ProcessorSpaceDto;
+  readonly availability: LivestockAvailabilityDto;
+}
+
+/**
  * One week of the banded timeline both columns are drawn on.
  *
  * This arrives from the server for the same reason every other date does: an interior empty week

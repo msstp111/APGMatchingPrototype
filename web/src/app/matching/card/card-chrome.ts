@@ -1,5 +1,6 @@
 import {
   LivestockAvailabilityStatus,
+  MatchDto,
   MatchStatus,
   ProcessorSpaceStatus,
   QuantityState,
@@ -90,4 +91,49 @@ export function matchCountLabel(count: number): string {
   }
 
   return count === 1 ? '1 match' : `${count} matches`;
+}
+
+/**
+ * The count plus what state those matches are in — `2 matches · 1 draft` (requirement 5.1).
+ *
+ * The count alone was not enough once Phase 5 could create matches: every match this phase makes is a
+ * draft, so a card that said only "2 matches" would look identically settled whether nothing had been
+ * committed or everything had. Drafts are called out because they are the ones still to be actioned;
+ * "confirmed" is stated only when it is true of all of them, so the word cannot be read as applying to
+ * a subset. Cancelled matches are neither shown nor counted (resolved question 4) — they never arrive.
+ *
+ * This drops from line 2 first when the card runs out of room (design-system.md 6.1), which is why it
+ * is one short phrase rather than a breakdown. The breakdown is {@link matchBreakdown}, on the title.
+ */
+export function matchSummaryLabel(matches: readonly MatchDto[]): string {
+  const count = matchCountLabel(matches.length);
+
+  if (matches.length === 0) {
+    return count;
+  }
+
+  const drafts = matches.filter((match) => match.status === 'Drafted').length;
+
+  if (drafts > 0) {
+    return `${count} · ${drafts} draft${drafts === 1 ? '' : 's'}`;
+  }
+
+  return matches.every((match) => match.status === 'Confirmed') ? `${count} · confirmed` : count;
+}
+
+/**
+ * Every state present, in order — `2 drafted · 1 confirmed`. Shown on hover; Phase 6 opens them.
+ */
+export function matchBreakdown(matches: readonly MatchDto[]): string {
+  if (matches.length === 0) {
+    return 'No matches on this record';
+  }
+
+  const order: readonly MatchStatus[] = ['Drafted', 'Notified', 'Confirmed'];
+
+  return order
+    .map((status) => ({ status, count: matches.filter((match) => match.status === status).length }))
+    .filter((group) => group.count > 0)
+    .map((group) => `${group.count} ${group.status.toLowerCase()}`)
+    .join(' · ');
 }

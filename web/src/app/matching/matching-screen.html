@@ -15,7 +15,7 @@
   }
 
   @if (ready()) {
-    <div class="columns" [class.flipped]="flipped()">
+    <div class="columns" cdkDropListGroup [class.flipped]="flipped()">
       <!--
         Each column gets its own trimmed run of bands, so each starts at the week of its own earliest
         surviving record — recomputed whenever a filter changes which record that is. The two often
@@ -23,7 +23,8 @@
         columns scroll independently and neither may be trimmed by the other's data.
 
         The order is CSS, so flipping never destroys a column: no filter, sort or expanded card is
-        lost across it (requirement 5.2).
+        lost across it (requirement 5.2). cdkDropListGroup connects every card drop list so a drag
+        from one column can land on a card in the other without an id list to keep in sync.
       -->
       <app-matching-column
         class="demand"

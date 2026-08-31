@@ -1,0 +1,146 @@
+@use '../card-geometry' as geo;
+@use '../../../styles/lms-tokens' as lms;
+
+// Material caps dialog content at 65vh, which clips this prompt and forces a scrollbar.
+:host mat-dialog-content.mat-mdc-dialog-content {
+  max-height: none;
+  overflow: visible;
+}
+
+// The status spines come from the same mixin the cards use, so the summary block reads as the card the
+// operator just dragged rather than as a second rendering of the same record.
+@include geo.spines;
+
+.rec {
+  display: flex;
+  margin-bottom: 8px;
+  border: 1px solid lms.$lms-divider;
+  border-radius: 4px;
+  background: #fafafa;
+  overflow: hidden;
+}
+
+.rbody {
+  flex: 1 1 auto;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 8px 10px;
+}
+
+.rhead {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.kicker,
+.rstatus,
+.fk {
+  @include geo.micro-caps;
+}
+
+.kicker.demand {
+  color: lms.$lms-petrol;
+}
+
+// The supply column's identity tone. Not a hue: hue is the quantity meter's alone.
+.kicker.supply {
+  color: lms.$lms-supply-ink;
+}
+
+.rname {
+  display: flex;
+  align-items: center;
+  gap: geo.$col-gap;
+  min-width: 0;
+}
+
+.nm {
+  flex: 1 1 auto;
+  min-width: 0;
+  font-size: 13.5px;
+  font-weight: 500;
+  color: lms.$lms-text;
+  @include geo.truncate;
+}
+
+.cls {
+  flex: 0 0 auto;
+  font-size: 13.5px;
+  color: lms.$lms-text-muted;
+}
+
+.facts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 16px;
+}
+
+.fact {
+  display: flex;
+  align-items: baseline;
+  gap: 4px;
+}
+
+.fv {
+  font-size: 12.5px;
+  color: lms.$lms-text;
+  @include geo.numerals;
+}
+
+.fv.strong {
+  font-weight: 500;
+}
+
+.note {
+  margin: 8px 0 12px;
+  padding: 8px 10px;
+  border: 1px solid lms.$lms-divider;
+  border-radius: 4px;
+  background: lms.$lms-white;
+  font-size: 12.5px;
+  color: lms.$lms-text-muted;
+}
+
+// 148px each for the two numbers, the carrier taking the rest — the numbers are three digits and a
+// wide box invites the impression that more is wanted.
+.fields {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+}
+
+.f-quantity,
+.f-price {
+  flex: 0 0 148px;
+}
+
+.f-transport {
+  flex: 1 1 auto;
+}
+
+// The cap message is a sentence, and Material sizes the error line for two or three words.
+.f-quantity {
+  .mat-mdc-form-field-subscript-wrapper {
+    line-height: 1.3;
+  }
+}
+
+.q-under {
+  color: lms.$q-under-ink;
+}
+
+.q-exact {
+  color: lms.$q-exact-ink;
+}
+
+.q-over {
+  color: lms.$q-over-ink;
+}
+
+.q-pink {
+  color: lms.$q-pink-ink;
+}

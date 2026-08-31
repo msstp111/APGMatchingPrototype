@@ -51,6 +51,29 @@ public static class MatchingProjection
     }
 
     /// <summary>
+    /// One space, projected — what a write endpoint returns so a card can be replaced in place.
+    /// </summary>
+    /// <remarks>
+    /// The same <see cref="ToDto(ProcessorSpace, ProjectionContext)"/> the list endpoint uses, over the
+    /// same working set. A second projection path for a single record is how the figure on a card after
+    /// a match would come to differ from the figure on the same card after a reload.
+    /// </remarks>
+    public static ProcessorSpaceDto? SpaceById(WorkingSet set, int id)
+    {
+        var space = set.Spaces.FirstOrDefault(s => s.Id == id);
+
+        return space is null ? null : ToDto(space, new ProjectionContext(set));
+    }
+
+    /// <inheritdoc cref="SpaceById"/>
+    public static LivestockAvailabilityDto? AvailabilityById(WorkingSet set, int id)
+    {
+        var availability = set.Availabilities.FirstOrDefault(a => a.Id == id);
+
+        return availability is null ? null : ToDto(availability, new ProjectionContext(set));
+    }
+
+    /// <summary>
     /// The week bands both columns are drawn on: every Sunday from the earliest record's week to the
     /// latest, in order and with no gaps, and always including the current week.
     /// </summary>

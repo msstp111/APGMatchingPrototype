@@ -1,6 +1,13 @@
+import { CdkDropListGroup } from '@angular/cdk/drag-drop';
 import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { ApiClient } from '../api/api-client';
-import { LivestockAvailabilityDto, ProcessorSpaceDto, WeekBandDto } from '../api/models';
+import {
+  LivestockAvailabilityDto,
+  MatchWriteResultDto,
+  ProcessorSpaceDto,
+  WeekBandDto,
+} from '../api/models';
 import { MatchingColumn } from './column/matching-column';
 import { buildBoard } from './board/matching-board';
 import {
@@ -10,6 +17,7 @@ import {
   sortSpaces,
 } from './filters/filter-service';
 import { MatchingPreferences } from './filters/matching-preferences';
+import { MatchDrop } from './match/match-drop';
 
 /**
  * The matching screen: Processor Spaces and Livestock Availability as week-banded card lists, either
@@ -30,13 +38,14 @@ import { MatchingPreferences } from './filters/matching-preferences';
 @Component({
   selector: 'app-matching-screen',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [MatchingColumn],
+  imports: [MatchingColumn, CdkDropListGroup],
   templateUrl: './matching-screen.html',
   styleUrl: './matching-screen.scss',
 })
 export class MatchingScreen {
   private readonly api = inject(ApiClient);
   private readonly preferences = inject(MatchingPreferences);
+  private readonly matchDrop = inject(MatchDrop);
 
   readonly spaces = signal<readonly ProcessorSpaceDto[]>([]);
   readonly availability = signal<readonly LivestockAvailabilityDto[]>([]);
@@ -93,6 +102,19 @@ export class MatchingScreen {
       next: (bands) => this.weeks.set(bands),
       error: () => this.error.set(UNREACHABLE),
     });
+
+    this.matchDrop.writes.pipe(takeUntilDestroyed()).subscribe((result) => this.applyWrite(result));
+  }
+
+  /**
+   * Both parents arrive already recomputed. Replacing them by id is what makes the meters, the
+   * counts and the derived availability status update without a refetch — and what makes a fully
+   * consumed availability record leave the default-filtered view, because `visibleAvailability`
+   * re-runs over the patched list.
+   */
+  private applyWrite(result: MatchWriteResultDto): void {
+    this.spaces.update((list) => replaceById(list, result.space));
+    this.availability.update((list) => replaceById(list, result.availability));
   }
 
   /**
@@ -108,3 +130,7 @@ export class MatchingScreen {
 }
 
 const UNREACHABLE = 'Could not reach the API. Is it running on http://localhost:5286?';
+
+function replaceById<T extends { readonly id: number }>(list: readonly T[], next: T): T[] {
+  return list.map((item) => (item.id === next.id ? next : item));
+}

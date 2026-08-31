@@ -3,7 +3,7 @@
   it and sticky at top: 0 so it survives scrolling. The strip's cells use the same widths as the
   cards, from _card-geometry.scss.
 -->
-<section class="column" [class.supply]="!isDemand()">
+<section class="column" [class.supply]="!isDemand()" [class.wash]="isDropTarget()">
   <header class="chead">
     <span class="material-symbols-outlined glyph">{{ glyph() }}</span>
     <h2 class="ctitle">{{ title() }}</h2>
@@ -26,7 +26,8 @@
 
   <app-column-filters [side]="side()" [spaces]="spaces()" [availability]="availability()" />
 
-  <div class="list">
+  <div class="list-wrap">
+    <div class="list" columnAutoScroll>
     <div class="strip">
       <span class="s-tile"></span>
       <span class="s-name">{{ isDemand() ? 'Processor' : 'Location' }}</span>
@@ -49,6 +50,12 @@
       @for (band of bands(); track band.week.weekCommencing) {
         <app-week-band [band]="band" [side]="side()" />
       }
+    }
+    </div>
+
+    @if (isDragging()) {
+      <div class="veil top" aria-hidden="true"></div>
+      <div class="veil bottom" aria-hidden="true"></div>
     }
   </div>
 </section>

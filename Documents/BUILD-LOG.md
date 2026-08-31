@@ -1923,3 +1923,279 @@ still cover all three of its classes.
   sum to 100 — the code divides by their total — but a mix that leaves several processors with zero
   spaces would break the stock-class coverage guarantee, and SFF at 4 spaces for 3 classes is already
   the tightest case in the set.
+
+---
+
+## Phase 5 — Drag to Match
+
+**Completed:** 2026-08-31
+**Status:** Complete
+
+### What shipped
+
+The matching screen now writes. Dragging a card onto a card in the other column asks
+`GET /api/match-proposal`, then either shows exactly `"There is no unmatched quantity"` or opens the
+quantity prompt; Create posts a new `Drafted` match and patches both parents by id. Undo is
+`DELETE /api/matches/{id}` for Drafted only. Both directions resolve through one function. Same-column
+drops are a silent no-op. There is no keyboard drag path (resolved question 14).
+
+Later phases can rely on: `MatchWriter` as the pure write path over a `WorkingSet` + `PriceTable`,
+`MatchWriteResultDto` as the patch shape, `DELETE /api/matches/{id}` as the drafted-only delete Phase
+6 will reuse, and `matchSummaryLabel` / `matchBreakdown` on the card as the Phase 6 entry point.
+
+### How the drag was wired
+
+This is the thing the phase document asked the log to record.
+
+Each card host is its own `cdkDropList` (sorting disabled, CDK auto-scroll disabled) holding one
+`cdkDrag`. The handle is `.cbody`, so the chevron still expands. Both columns sit in one
+`cdkDropListGroup` on `matching-screen`. The drop **does not transfer arrays** — it reads `item.data`
+and `container.data`, runs them through `pairFromDrop` in `drag/card-drag.ts` (requirement 1.2: one
+function, both directions, each record placed by its own side), and hands the pair to `MatchDrop`.
+
+`acceptsFrom(side)` is the enter-predicate: same column returns false, so CDK never marks the list as
+receiving, no outline appears, no drop event fires. A target with no unmatched quantity still
+accepts — the refusal is the server's, at drop, in the exact words of requirement 3.2. A silent
+swallow there would leave the operator with no idea why nothing happened.
+
+`DragStore` (`drag/drag-state.ts`) is the one place the screen agrees on the drag in flight: which
+card, whether Escape cancelled it, and each target's `none` / `same` / `valid` / `blocked` look. The
+pointer is **not a signal** — a write per frame would change-detect the whole tree for a value only
+the auto-scroll loop reads. Escape is ours: CDK has no Escape handling, and `cdkDragEnded` fires
+*before* `cdkDropListDropped`, so `end()` must not clear the cancelled flag. The preview lives on
+`<body>`; cancelled and preview styles are in `web/src/styles.scss` because no component stylesheet
+can reach them.
+
+`MatchDrop` asks the proposal **before** opening anything. A refused pair is a snack and no dialog.
+A create publishes `writes$`; `matching-screen.applyWrite` replaces both records by id so filters
+re-run — that is what makes a fully consumed availability record leave the default supply view
+(`hasUnmatched` / status Booked+Pending). Undo publishes the same shape with `match: null`.
+
+Nothing in `web/` recomputes a default, a ceiling or a refusal. The hover blocked cue is a `< 1`
+comparison against the DTO's unmatched figure, the same shape as the supply column's filter.
+`no-domain-arithmetic.spec.ts`'s allow-list is still exactly two files.
+
+### Auto-scroll and long week bands
+
+CDK's own auto-scroll is off (`cdkDropListAutoScrollDisabled`). It scrolls the **source** column
+when the pointer sits over a band header or an empty-band row in the target — those hosts are not
+drop lists, so CDK treats the pointer as still over the list the card left. Across weeks that is the
+common case, so it is replaced.
+
+`[columnAutoScroll]` on each `.list` (`drag/column-auto-scroll.ts`) scrolls the column the pointer is
+actually over. The zone is **48px**, one number in two places: `$auto-scroll-zone` in
+`_card-geometry.scss` draws the veil, `AUTO_SCROLL_ZONE` drives the step. The pointer must be inside
+the column horizontally (a drag over one edge never scrolls the other) and may overshoot the list
+vertically by one zone (past the last card keeps scrolling) but not further (holding over the column
+header does nothing). Step ramps from 2 at the inner boundary to 16 at the edge.
+
+The two columns still scroll independently and their rails still disagree — that is Phase 3b's
+design, and drag does not add scroll synchronisation. Auto-scroll is what makes a past-week
+availability record reachable without dropping, scrolling, and starting again. It has been unit-
+tested through `scrollStep` (jsdom has no layout); the mouse path over real band headers is on the
+browser checklist below and was not exercised in this chat.
+
+### How a card advertises that it already carries matches
+
+Phase 6 hangs its entire entry point off this. Do not invent a second one.
+
+Line 2 of both cards shows `matchSummaryLabel` from `card/card-chrome.ts`:
+
+| Matches on the record | Label |
+| --- | --- |
+| none | `no matches` |
+| mixed, including drafts | `2 matches · 1 draft` |
+| all confirmed | `1 match · confirmed` |
+| notified-only, or mixed without drafts | the count alone |
+
+Drafts are called out because every match this phase creates is a draft, and a card that said only
+"2 matches" would look identically settled whether nothing had been committed or everything had.
+"confirmed" is stated only when it is true of all of them. The hover `title` is `matchBreakdown`
+(`1 drafted · 1 confirmed`), every live status present, in Drafted / Notified / Confirmed order.
+
+**Cancelled matches are neither shown nor counted** (resolved question 4) — they never arrive on the
+DTO. The label is **not clickable**. Opening a match is Phase 6; do not add a click handler here
+without reading that phase.
+
+### Decisions made during the build
+
+1. **Undo shipped in this phase**, not deferred. Requirement 4.5 said "include undo if it is cheap";
+   a mis-drag is the most common mistake this screen will produce, and `DELETE /api/matches/{id}`
+   for Drafted only is the same endpoint Phase 6 needs for delete-draft. The snack offers UNDO for
+   8 seconds. The delete is 404 if missing, 409 if the match is past Drafted.
+
+2. **No Playwright.** jsdom covers `pairFromDrop`, `scrollStep`, `DragStore`, `MatchDrop`, the
+   prompt, and the screen's patch / leave-view / undo. The mouse path over real columns is a written
+   checklist, not a browser suite. Adding Playwright would have been a new runner and a new
+   convention in a phase that already had enough surface.
+
+3. **Every drag is a new match** (resolved question 8). `MatchWriter.Drafted` never looks for an
+   existing pairing. A repeat drop produces a second row; the incl-Draft sum is what updates.
+
+4. **Quantity cap is availability-side only.** Over-filling a space is allowed and reads as blue
+   "Over-filled". The dialog explains the supply cap inline rather than silently clamping.
+
+5. **Price is keyed on the Processor Space stock class**, never the availability class. The two
+   vocabularies do not map; a lookup on the wrong side returns a plausible number for the wrong
+   animal. `MatchWriterTests.The_default_price_is_keyed_on_the_processor_space_stock_class` walks
+   the seed for a pair whose two classes produce different lookups.
+
+6. **Hover blocked is a comparison, not a second proposal.** `DragStore.dropState` compares each
+   side's unmatched to 1. The authoritative refusal is still `GET /api/match-proposal` on drop.
+   That is why an already-over-filled space highlights blocked even though a crafted POST used to
+   be able to add head to it (fixed in review — see below).
+
+7. **CreatedAt comes from `TimeProvider`**, not `DateTime.UtcNow`. Domain purity still holds; the
+   API already had a clock registered.
+
+### Deviations from the phase document
+
+- **Undo was built**, not left for Phase 6. The phase said "if cheap"; it was.
+- **No Playwright / no in-chat browser pass.** Acceptance asked for a mouse-path demo; the
+  mechanics are covered in jsdom and the API was smoked with curl (space 37 × availability 1 →
+  draft 39 @ $6, undo restored, exhausted pair returned the exact refusal). Density, sticky rail,
+  auto-scroll over band headers, Escape in a real pointer sequence, and both-direction drops in the
+  running app are still on the checklist.
+- **No six-dot grab glyph** from design-system.md §10. The handle is the whole `.cbody`. Polish,
+  not a requirement of PHASE-5. Recorded so Phase 8 does not rediscover it as a missing spec item.
+- **CDK may briefly shuffle a card's DOM node into the target list** until change detection
+  restores it. Sorting is disabled and we never splice arrays, but CDK still moves the preview's
+  sibling. If a later phase sees a flash, this is why.
+
+Nothing required by sections 1–5 was skipped except the in-browser mouse verification.
+
+### Review findings
+
+The closing protocol asks for a sonnet subagent. Sonnet was unavailable (usage limit). The review
+ran on the inherit model against the phase document's review focus and the diff. That is a
+deviation from the roadmap's "Closing a phase" step 1, recorded so the next phase does not assume
+a sonnet pass happened.
+
+**Review focus (from PHASE-5):** quantity rules at their boundaries — exact refusal, supply cap,
+deliberately absent demand cap — whether the default price is genuinely keyed on the Processor Space
+stock class; nothing merges or dedupes a repeat pairing; a fully consumed record leaves the
+default-filtered view.
+
+#### Fixed
+
+1. **`MatchWriter.Reject` did not re-run `MatchCreation.Propose`.** The UI refuses when
+   `min(unmatched, unmatched) < 1`, including an already-over-filled space (negative unmatched). A
+   crafted `POST /api/matches` with quantity ≥ 1 could still add head if the availability record had
+   stock, because Reject only checked "record exists, quantity ≥ 1, quantity ≤ availability
+   unmatched". That is the demand-side cap the phase deliberately does not have *for a first fill*,
+   leaking into a pair Propose has already refused. Reject now calls Propose first and returns
+   `NoUnmatchedQuantity` when the pair is not allowed, then still enforces min 1 and the supply
+   ceiling. Tests: `A_pair_with_nothing_left_is_refused_with_the_exact_domain_message` now also
+   Rejects quantity 1; new
+   `Validation_refuses_a_pair_whose_space_is_already_over_filled`.
+
+2. **`quantity-prompt` treated a default price of `0` as missing.** `priceHint` used truthiness of
+   `defaultPricePerKg`, so a real zero would have shown "No default price…". Hint now uses
+   `!= null`. Spec added: `treats a zero default price as a real default, not as missing`.
+
+3. **Duplicate Phase 5 DTOs in `models.ts`.** A second copy of `MatchProposalDto` /
+   `CreateMatchRequest` / `MatchWriteResultDto` sat at EOF. Removed; the copies at the matching
+   contract block stay.
+
+4. **Vacuous repeat-pairing test.** The first version only counted existing live pairings. Rewritten
+   as `A_repeat_pairing_is_still_allowed_and_a_second_draft_adds_to_the_incl_draft_sum`: Propose
+   must be allowed, Reject of quantity 1 must be null, and appending a second `Drafted` must raise
+   `MatchedInclDraft` by that quantity.
+
+5. **Fractional quantity.** The prompt now rejects non-integers (`integerHeads`) with an inline
+   error; `create()` posts `Number(this.quantity.value)`.
+
+6. **Screen write spec read raw `textContent`.** After a patch it now asserts the fill-meter
+   `title` (`N unmatched`) so a layout change cannot hide a stale unmatched figure.
+
+#### Disagreed, not fixed
+
+- **Reviewer said CDK can still scroll the source column over a band header.** Every card list
+  sets `cdkDropListAutoScrollDisabled`, so CDK's `_startScrollingIfNecessary` returns even when it
+  falls back to `_initialContainer`. `ColumnAutoScroll` is the only scroller. Still worth eyeballing
+  on long bands — that is why the checklist names band headers explicitly.
+
+#### Recorded, not defects
+
+- **No keyboard path.** Requirement 2.1–2.2 removed it deliberately. Do not reinstate it.
+- **Custom auto-scroll instead of CDK's.** Required by the week-banded layout; see above.
+- **No demand-side quantity cap.** Requirement 3.4 / resolved question 1. Over-fill is blue
+  "Over-filled".
+- **Match count is not a Phase 6 open control.** Requirement 5.2: surface that they exist; opening
+  is the next phase.
+- **Missing six-dot grab glyph.** Fidelity / polish, not an acceptance miss. A glyph that appears
+  only on hover would resize the 52px row unless reserved space is already there; `cursor: grab` is
+  the only handle cue this phase shipped.
+- **Pointer starts at 0,0 until the first `pointermove`.** Auto-scroll does nothing until the
+  pointer actually moves, which is the first frame of any real drag.
+- **No Playwright.** See deviations.
+- **Same-column drop reports nothing.** Requirement 1.3.
+
+#### Later phases, not this one
+
+- Edit, cancel, confirm a match; cancel-with-reason; delete of anything past Drafted — Phase 6.
+- Confirm-space button — Phase 6 / 7 as that phase specifies.
+- Click-to-open the match affordance — Phase 6. The label and the breakdown are the hook.
+
+### Watch out for
+
+- **`end()` must not clear `cancelled`.** CDK's event order is ended-then-dropped. Clearing the flag
+  on `ended` would make every Escape-cancelled drag fire as a real drop.
+- **Do not turn CDK auto-scroll back on** to "simplify" the custom one. It will scroll the source
+  column over every band header in the target.
+- **Do not add a third file to `no-domain-arithmetic.spec.ts` for this screen.** If you need one,
+  you are probably missing a DTO field. The proposal already carries default, max and refusal.
+- **`applyWrite` replaces by id, it does not refetch.** Filters re-run over the patched lists. A
+  later phase that adds a field the write result does not carry will show a stale card until reload.
+- **Phase 6 should reuse `DELETE /api/matches/{id}`**, not invent a second drafted-delete. Anything
+  past Drafted is 409 here on purpose.
+- **The match affordance is the Phase 6 entry point.** `matchSummaryLabel` / `matchBreakdown` in
+  `card-chrome.ts`, rendered on both cards. Add the click there, do not draw a second chip.
+- **A POST that over-fills a space is allowed the first time** (unmatched still ≥ 1, quantity up to
+  the availability leftover). A POST against a space whose unmatched is already `< 1` is refused.
+  Those are different gates; do not collapse them.
+
+### New commands, dependencies, conventions
+
+No new packages. New endpoints and files:
+
+| What | Where |
+| --- | --- |
+| Proposal / create / delete / transport companies | `GET /api/match-proposal`, `POST /api/matches`, `DELETE /api/matches/{id}`, `GET /api/transport-companies` |
+| Pure write path | `src/Apg.Api/Contracts/MatchWriter.cs` |
+| Wire messages | `MatchResponses.cs`, `MatchProposalDto` / `CreateMatchRequest` / `MatchWriteResultDto` in `Dtos.cs` |
+| Price table load | `PriceTableLoader.cs` (registered in `Program.cs`) |
+| Single-record projection | `MatchingProjection.SpaceById` / `AvailabilityById` |
+| Drag store / pair / auto-scroll | `web/src/app/matching/drag/` |
+| Drop → prompt → write | `web/src/app/matching/match/` |
+| Match line on the card | `matchSummaryLabel` / `matchBreakdown` in `card/card-chrome.ts` |
+
+`GET /api/transport-companies` returns `SeedConfig.TransportCompanies` sorted. The picklist is
+optional at draft.
+
+### Tests
+
+- `tests/Apg.Api.Tests/MatchWriterTests.cs` — default and cap, exact refusal, price key on a
+  differing-class pair, refuse 0 and above supply max, accept over-fill of space, refuse POST onto
+  an already-over-filled space, no merge, delete only Drafted.
+- Angular: `card-drag`, `column-auto-scroll`, `drag-state`, `card-chrome` (match labels),
+  `match-drop`, `quantity-prompt` (including price `0` vs `null`), `matching-screen` write / undo /
+  leave-view.
+
+Close-out run: **122 domain + 88 API**, none skipped. Angular **135 tests across 15 files**.
+`npm run build` succeeds (existing initial-chunk budget warning only — 826 kB vs 500 kB).
+
+### Browser checklist (not verified in this chat)
+
+No browser MCP was available. Before demoing:
+
+- Drag space → availability and availability → space; same pair, same prompt.
+- Drag a past-week availability onto a current-week space.
+- Auto-scroll at both column edges, including while the pointer is over a band header or an empty
+  band in the *target* column (CDK's own auto-scroll failed exactly there).
+- Escape mid-drag: highlights go, preview vanishes, pointer-up creates nothing.
+- Drop on the same column, on a band header, on empty space: nothing, no snack.
+- Drop on a full record: snack `"There is no unmatched quantity"`, no dialog.
+- Create, confirm both meters and the match line update; consume the last of an availability
+  record and watch it leave the default supply view; UNDO puts it back.
+- Density and sticky rail from Phases 3–4 still hold with a card in flight.

@@ -200,6 +200,87 @@ public sealed record WeekBandDto
 }
 
 /// <summary>
+/// The answer to "may these two records be matched, and on what terms?" — computed at the moment of
+/// the drop, before any dialog opens.
+/// </summary>
+/// <remarks>
+/// <para>
+/// It exists so the client never works out a match quantity. The default, the ceiling and the refusal
+/// are <c>Apg.Domain.Matching.MatchCreation</c>'s answers, and the refusal message is its constant
+/// rather than a sentence composed in TypeScript.
+/// </para>
+/// <para>
+/// <b><see cref="Maximum"/> is the availability record's remaining supply and there is no ceiling on
+/// the Processor Space side</b> (resolved question 1). Over-filling demand is permitted and reads as
+/// "Over-filled"; over-committing supply is not, because the farmer does not have the animals.
+/// </para>
+/// </remarks>
+public sealed record MatchProposalDto
+{
+    /// <summary>False when the pair has nothing left to match. Nothing else on the record is useful.</summary>
+    public required bool IsAllowed { get; init; }
+
+    /// <summary>
+    /// Exactly <c>MatchCreation.NoUnmatchedQuantity</c> when refused, null otherwise. The client shows
+    /// this string; it does not compose one.
+    /// </summary>
+    public required string? RefusalMessage { get; init; }
+
+    /// <summary>The quantity the prompt opens at: the smaller of the two unmatched figures.</summary>
+    public required int Quantity { get; init; }
+
+    /// <summary>The highest quantity the operator may enter — the availability's unmatched figure.</summary>
+    public required int Maximum { get; init; }
+
+    /// <summary>
+    /// From the price table, keyed on processor x <b>Processor Space</b> stock class x week commencing
+    /// (resolved question 7). Null when the table has no entry, which the prompt says plainly rather
+    /// than showing a blank or a zero.
+    /// </summary>
+    public required decimal? DefaultPricePerKg { get; init; }
+}
+
+/// <summary>
+/// A new match, as the drag's dialog submits it.
+/// </summary>
+/// <remarks>
+/// Nothing here is <c>required</c>: a malformed body should come back as this API's own validation
+/// message rather than as a serialiser exception. The server revalidates every field regardless of
+/// what the dialog allowed.
+/// </remarks>
+public sealed record CreateMatchRequest
+{
+    public int ProcessorSpaceId { get; init; }
+
+    public int LivestockAvailabilityId { get; init; }
+
+    public int QuantityMatched { get; init; }
+
+    public decimal? PricePerKg { get; init; }
+
+    public string? TransportCompany { get; init; }
+}
+
+/// <summary>
+/// What a write to the match set returns: the match, and <b>both</b> parents recomputed.
+/// </summary>
+/// <remarks>
+/// Both parents ship together because a match changes both sides at once — both matched sums, both
+/// unmatched figures, both quantity states, and the availability record's derived status. Returning
+/// them lets the client update both columns from one response instead of refetching two lists, and
+/// keeps the figures on screen the server's own rather than a client-side adjustment of them.
+/// </remarks>
+public sealed record MatchWriteResultDto
+{
+    /// <summary>The match that was created, or null when it was the deletion of one.</summary>
+    public required MatchDto? Match { get; init; }
+
+    public required ProcessorSpaceDto Space { get; init; }
+
+    public required LivestockAvailabilityDto Availability { get; init; }
+}
+
+/// <summary>
 /// One match, carrying enough of <b>both</b> parents to render inside either one's expanded card.
 /// </summary>
 /// <remarks>

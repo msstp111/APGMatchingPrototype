@@ -5,58 +5,122 @@
 
   Line 2 is unlabelled meta. When it runs out of room it drops from the right — match count first,
   then the over-state label — and the status icon and its word are the last things standing.
+
+  Phase 5 wraps the card in a drop list of its own that holds no items and exists only as a target,
+  with the card itself the draggable inside it. A card is therefore both ends of the gesture, which is
+  what makes both directions identical: there is one wiring, used twice.
 -->
-<div class="card" [class.zebra]="zebra()" [class.cancelled]="isCancelled()">
-  <span class="spine" [class]="spine()"></span>
+<div
+  class="target"
+  [class.valid]="dropState() === 'valid'"
+  [class.blocked]="dropState() === 'blocked'"
+  [class.same]="dropState() === 'same'"
+  cdkDropList
+  cdkDropListSortingDisabled
+  cdkDropListAutoScrollDisabled
+  [cdkDropListData]="dragCard()"
+  [cdkDropListEnterPredicate]="accepts"
+  (cdkDropListDropped)="dropped($event)"
+>
+  <!--
+    CDK hides the dragged node and moves its placeholder into the list under the pointer. The
+    stay-behind is not a CDK placeholder, so it never leaves this row.
+  -->
+  <ng-template #lines>
+      <div class="l1">
+        <app-stock-class-tile [stockClass]="space().stockClass" />
+        <span class="name" [title]="space().processor">{{ space().processor }}</span>
+        <span class="sclass" [title]="space().stockClass">{{ space().stockClass }}</span>
+        <span class="date">{{ space().deliveryDateLabel }}</span>
+        <span class="qty">{{ space().quantityRequired }}</span>
 
-  <div class="cbody">
-    <div class="l1">
-      <app-stock-class-tile [stockClass]="space().stockClass" />
-      <span class="name" [title]="space().processor">{{ space().processor }}</span>
-      <span class="sclass" [title]="space().stockClass">{{ space().stockClass }}</span>
-      <span class="date">{{ space().deliveryDateLabel }}</span>
-      <span class="qty">{{ space().quantityRequired }}</span>
+        <app-fill-meter
+          [original]="space().quantityRequired"
+          [matchedInclDraft]="space().matchedInclDraft"
+          [matchedExclDraft]="space().matchedExclDraft"
+          [unmatched]="space().unmatched"
+          [quantityState]="space().quantityState"
+          [quantityStateLabel]="space().quantityStateLabel"
+          side="demand"
+        />
+      </div>
 
-      <app-fill-meter
-        [original]="space().quantityRequired"
-        [matchedInclDraft]="space().matchedInclDraft"
-        [matchedExclDraft]="space().matchedExclDraft"
-        [unmatched]="space().unmatched"
-        [quantityState]="space().quantityState"
-        [quantityStateLabel]="space().quantityStateLabel"
-        side="demand"
-      />
+      <div class="l2">
+        <span class="meta">{{ space().plant }} · {{ space().deliveryTime || '-' }}</span>
+
+        @if (isOver()) {
+          <!-- The wording is the DTO's quantityStateLabel — "Over-filled" — never composed here. -->
+          <span class="over" [class]="overInk()">{{ space().quantityStateLabel }}</span>
+        }
+
+        <!-- Requirement 5.1: the card says what it already carries. Live matches only. -->
+        <span class="mcount" [title]="matchesTitle()">{{ matchesLabel() }}</span>
+
+        <span class="status">
+          <span class="material-symbols-outlined sicon" [class.filled]="statusFilled()">{{
+            statusGlyph()
+          }}</span>
+          {{ space().status }}
+        </span>
+      </div>
+    </ng-template>
+
+  @if (isSource()) {
+    <div class="card stay" [class.zebra]="zebra()" aria-hidden="true">
+      <span class="spine" [class]="spine()"></span>
+      <div class="cbody">
+        <ng-container [ngTemplateOutlet]="lines" />
+      </div>
+      <span class="chev"></span>
+    </div>
+  }
+
+  <div
+    class="card"
+    [class.zebra]="zebra()"
+    [class.cancelled]="isCancelled()"
+    [class.lifted]="isSource()"
+    cdkDrag
+    [cdkDragData]="dragCard()"
+    (cdkDragStarted)="dragStarted()"
+    (cdkDragEnded)="dragEnded()"
+  >
+    <span class="spine" [class]="spine()"></span>
+
+    <div class="cbody" cdkDragHandle>
+      <ng-container [ngTemplateOutlet]="lines" />
     </div>
 
-    <div class="l2">
-      <span class="meta">{{ space().plant }} · {{ space().deliveryTime || '-' }}</span>
+    <button
+      matIconButton
+      class="chev"
+      type="button"
+      [attr.aria-expanded]="expanded()"
+      [attr.aria-label]="expanded() ? 'Collapse' : 'Expand'"
+      (click)="toggle()"
+    >
+      <span class="material-symbols-outlined">{{ expanded() ? 'expand_less' : 'expand_more' }}</span>
+    </button>
 
-      @if (isOver()) {
-        <!-- The wording is the DTO's quantityStateLabel — "Over-filled" — never composed here. -->
-        <span class="over" [class]="overInk()">{{ space().quantityStateLabel }}</span>
-      }
-
-      <span class="mcount">{{ matchesLabel() }}</span>
-
-      <span class="status">
-        <span class="material-symbols-outlined sicon" [class.filled]="statusFilled()">{{
-          statusGlyph()
-        }}</span>
-        {{ space().status }}
-      </span>
-    </div>
+    <ng-template cdkDragPreview [matchSize]="true">
+      <div class="card">
+        <span class="spine" [class]="spine()"></span>
+        <div class="cbody">
+          <ng-container [ngTemplateOutlet]="lines" />
+        </div>
+      </div>
+    </ng-template>
   </div>
 
-  <button
-    matIconButton
-    class="chev"
-    type="button"
-    [attr.aria-expanded]="expanded()"
-    [attr.aria-label]="expanded() ? 'Collapse' : 'Expand'"
-    (click)="toggle()"
-  >
-    <span class="material-symbols-outlined">{{ expanded() ? 'expand_less' : 'expand_more' }}</span>
-  </button>
+  <!--
+    Absolutely positioned, so a target picking up its badge does not shift a single cell of line 1.
+    Nothing on this screen resizes under the pointer.
+  -->
+  @if (dropState() === 'valid') {
+    <span class="material-symbols-outlined dropcue">add</span>
+  } @else if (dropState() === 'blocked') {
+    <span class="material-symbols-outlined dropcue" matTooltip="No unmatched quantity">block</span>
+  }
 </div>
 
 @if (expanded()) {
