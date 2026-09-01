@@ -115,7 +115,7 @@ public static class MatchingProjection
     private static ProcessorSpaceDto ToDto(ProcessorSpace space, ProjectionContext context)
     {
         var matches = context.MatchesForSpace(space.Id);
-        var tally = MatchQuantities.ForSpace(space, matches);
+        var tally = MatchQuantities.ForSpace(space, matches, context.Cancelled);
 
         return new ProcessorSpaceDto
         {
@@ -141,8 +141,8 @@ public static class MatchingProjection
             // the one class whose entire contract is that it computes nothing — and a rule restated in
             // the projection is the same drift as a rule restated in TypeScript, one layer closer in.
             // The cost is a LINQ filter over one space's matches, forty times per request.
-            CanConfirm = ProcessorSpaceRules.CanConfirm(space, matches),
-            ConfirmBlockedReason = ProcessorSpaceRules.ConfirmBlockedReason(space, matches),
+            CanConfirm = ProcessorSpaceRules.CanConfirm(space, matches, context.Cancelled),
+            ConfirmBlockedReason = ProcessorSpaceRules.ConfirmBlockedReason(space, matches, context.Cancelled),
             Matches = LiveMatchDtos(matches, context),
         };
     }
@@ -152,7 +152,7 @@ public static class MatchingProjection
         ProjectionContext context)
     {
         var matches = context.MatchesForAvailability(availability.Id);
-        var tally = MatchQuantities.ForAvailability(availability, matches);
+        var tally = MatchQuantities.ForAvailability(availability, matches, context.Cancelled);
         var farmer = context.FarmerAt(availability.LocationId);
 
         return new LivestockAvailabilityDto
@@ -171,7 +171,7 @@ public static class MatchingProjection
             AvailabilityDetails = availability.AvailabilityDetails,
             TransactionType = availability.TransactionType,
             Notes = availability.Notes,
-            Status = AvailabilityStatus.Derive(availability, matches),
+            Status = AvailabilityStatus.Derive(availability, matches, context.Cancelled),
             MatchedInclDraft = tally.MatchedInclDraft,
             MatchedExclDraft = tally.MatchedExclDraft,
             Unmatched = tally.Unmatched,
@@ -225,6 +225,11 @@ public static class MatchingProjection
                 Processor = space.Processor,
                 Plant = space.Plant,
                 SpaceStockClass = space.StockClass,
+                // Both parents' statuses ride on the match so the card on the far side can say that a
+                // partner record has been cancelled. Cancelling a record never cascades, so this is a
+                // normal state rather than an error, and the availability side's value is the derived
+                // one — the same computation its own DTO carries, never a second reading of it.
+                SpaceStatus = space.Status,
                 DeliveryDate = space.DeliveryDate,
                 DeliveryDateLabel = NzTime.DateLabel(space.DeliveryDate),
                 DeliveryTime = space.DeliveryTime,
@@ -232,6 +237,10 @@ public static class MatchingProjection
                 FarmerName = farmer?.Name,
                 LocationName = context.LocationName(availability.LocationId),
                 AvailabilityStockClass = availability.StockClass,
+                AvailabilityStatus = AvailabilityStatus.Derive(
+                    availability,
+                    context.MatchesForAvailability(availability.Id),
+                    context.Cancelled),
                 AvailabilityDetails = availability.AvailabilityDetails,
                 AvailableFrom = availability.AvailableFrom,
                 AvailableFromLabel = NzTime.DateLabel(availability.AvailableFrom),
@@ -254,8 +263,20 @@ public static class MatchingProjection
         private readonly Dictionary<int, string> _locationNames;
         private readonly Dictionary<int, Farmer> _farmersByLocation;
 
+        /// <summary>
+        /// Which records are cancelled, read once per request.
+        /// </summary>
+        /// <remarks>
+        /// Every quantity and status rule below takes it, because a match tied to a cancelled record
+        /// stops consuming the <em>other</em> record's quantity — a farmer whose stock was matched to
+        /// a cancelled space has that stock to sell again. It is read from the same working set the
+        /// records come from, so a card and its figures can never disagree about what is cancelled.
+        /// </remarks>
+        public CancelledRecords Cancelled { get; }
+
         public ProjectionContext(WorkingSet set)
         {
+            Cancelled = CancelledRecords.In(set.Spaces, set.Availabilities);
             _bySpace = set.Matches.ToLookup(m => m.ProcessorSpaceId);
             _byAvailability = set.Matches.ToLookup(m => m.LivestockAvailabilityId);
             _spaces = set.Spaces.ToDictionary(s => s.Id);

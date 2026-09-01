@@ -475,6 +475,22 @@ goes first, then the over-state label, then the left-hand meta truncates with an
 icon and its word are the last things standing, because status must be legible on every card in every
 state. The left-hand meta is the only item that truncates; everything else is present or absent.
 
+**Phase 7 addition — the cancelled-partner badge.** When any of a record's matches hangs off a partner
+record that has been **cancelled**, a **solid `$lms-error` square sits behind the expand chevron**,
+with the chevron's `title` naming how many and saying that the matches themselves are not cancelled.
+Nothing is added to line 2, so the drop order above is untouched.
+
+It is an addition to this section rather than something it specified, recorded here because §0 asks to
+be told. Cancelling a record never cascades (Phase 7, 5.2), so a live match under a cancelled parent is
+a normal state — and one nothing else on the row would reveal, since this card's own status, meter and
+counts are all untouched by what happened on the other side.
+
+**It is the one place hue means something other than fill, and that is deliberate** (Mark's direction,
+2026-09-01, having first shipped as a muted grey glyph). What it marks is not a status — it is *work
+outstanding* — and `$lms-error` is a semantic token that is no part of the quantity ramp, so the
+meter's three colours are untouched. The chevron is the control marked because it is the one that opens
+the table naming the match.
+
 ### 6.2 Expanded card
 
 The collapsed row **stays exactly where it is** and the expansion opens below it, so nothing above the
@@ -526,6 +542,17 @@ has three parts in this order:
    `Confirm space` button, enabled from the DTO's `canConfirm`. **When disabled it says why**, beside
    it, in card-meta type: *"Needs at least one confirmed match and no drafts."* A control that greys
    out for unstated reasons is exactly what makes non-technical users think the app is broken.
+
+   **Phase 7 added `Edit` and `Cancel` here, on both sides**, and the supply card gained this row for
+   them — it had none before. They are text buttons rather than stroked ones, muted and `$lms-error`
+   respectively, so the debug scaffolding never outranks the real action beside it. They are here and
+   not on the 52px row for the reason the per-match affordance is: the row has no width to give, and
+   §16.10 pins its trailing edge at 32px.
+
+   **In the match table, a counterparty cell whose record has been cancelled carries a `block` glyph
+   and the word `cancelled` in a solid `$lms-error` box**, white on red. Same reason as the chevron
+   badge above, and the same exception to the no-hue rule: the match is still live, still needs
+   cancelling by hand, and this is the row that says which one.
 
 Expand state is per-card, independent, and held for the session (Phase 3, 5.1).
 
@@ -923,10 +950,23 @@ tracking, 4px radius.
    (This example used to be SFF's `Lambs` against supply's `Lamb`; APG confirmed SFF spells it
    `Lamb` too, so the seed was corrected and the example moved. The vocabularies still do not
    align — `Cattle` against `Mixed Cattle`, `Nat Beef - Ultra` against `GFNB ultra`.)
-3. **Three editable fields**: `Quantity matched` (150px, min 1, max stated in the hint),
-   `Price per kg` (150px), `Transport company` (flexes, autocomplete).
-4. A micro-note under the fields spelling the ceiling out:
-   *"Ceiling 472 = the availability's 177 unmatched **plus this match's own 295**."*
+3. **Three editable fields**: `Quantity matched` (150px, min 1), `Price per kg` (150px),
+   `Transport company` (flexes, autocomplete).
+4. **The ceiling is spelled out in the quantity field's own hint** —
+   *"Ceiling 472 = the availability's 177 unmatched **plus this match's own 295**."* — and becomes that
+   field's `mat-error` when the entry goes past it.
+
+   **This supersedes the "micro-note under the fields" this section used to specify** (changed
+   2026-09-01, at Mark's direction, after the note and the field had spent a phase disagreeing about
+   which owned the sentence). The field a sentence sits in is what says which field it is about, and
+   the ceiling constrains exactly one. There is no note under the row any more; printing it in both
+   places would say the same thing twice, 10px apart.
+
+   **A wrapping hint needs two things, not one**, and this is where every dialog in the app got caught:
+   `subscriptSizing="dynamic"` on the field *and* `height: auto` on the subscript wrapper. Material's
+   hint wrapper is `position: absolute` inside a fixed-height subscript by default, so `height: auto`
+   alone sizes to nothing and the wrapped text paints over whatever follows. Wrapping margins are 8px
+   a side, against Material's default 16px.
 
 **Footer — destructive left, constructive right:**
 
@@ -1086,6 +1126,17 @@ Note the deliberate departure from LMS here: the existing app uses a circular pe
 top right of the content area for create. Ours does not, precisely so these read as tooling rather
 than as the product's create action. If Phase 8 wants the FAB back for a real create flow, that is a
 new decision, not a regression.
+
+**As built (Phase 7), the marking is doubled.** The button carries a `construction` glyph and the
+labels are `+ Add space` / `+ Add record`, with a `title` that says in words that it is a demo tool.
+The **dialog behind it opens with a `# DEMO DATA TOOL #` ribbon** — the shell's dev-flag `#CCD457` on
+`#37393C`, 6px × 10px, with one line of prose: *"Debug scaffolding for demos — not the farmer or agent
+submission form."* That colour is the top bar's own, and it already means "this is not the real thing"
+in this application; it is not a card, a status or a quantity, so it does not touch §3's rule. One
+`app-debug-ribbon` component serves both forms, so Phase 8 has a single place to restyle.
+
+The `Edit` and `Cancel` controls in a card's actions row (§6.2) are the same scaffolding and are
+deliberately quieter than `Confirm space` beside them.
 
 ---
 

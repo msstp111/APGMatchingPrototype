@@ -1,0 +1,61 @@
+<!--
+  design-system.md 11.6's shape — a warning panel with a 3px $lms-error left border — carrying the
+  rule that is actually surprising here. Phase 6's cancel dialog says a cancelled *match* disappears;
+  this one says the opposite thing about a record: it goes, and its matches stay.
+
+  Every match below is listed rather than counted, because "2 matches will not be cancelled" is a
+  claim, and the rows are the evidence for it.
+-->
+<h2 mat-dialog-title>Cancel this {{ recordWord }}?</h2>
+
+<mat-dialog-content>
+  <p class="record">{{ data.title }}</p>
+
+  @if (hasMatches) {
+    <div class="warn">
+      <span class="material-symbols-outlined wicon" aria-hidden="true">warning</span>
+      <div class="wbody">
+        <strong> Its {{ data.matches.length }} {{ matchesWord }} will NOT be cancelled. </strong>
+        Cancelling a record never cascades to its matches — they stay live and have to be cancelled
+        one at a time, from either card. That is deliberate: it lets APG arrange alternatives before
+        anyone is told their booking has gone.
+      </div>
+    </div>
+
+    <table class="survivors">
+      <thead>
+        <tr>
+          <th class="num">Qty</th>
+          <th>{{ isDemand ? 'Farmer &amp; location' : 'Processor &amp; plant' }}</th>
+          <th>Match status</th>
+        </tr>
+      </thead>
+      <tbody>
+        @for (m of data.matches; track m.id) {
+          <tr>
+            <td class="num">{{ m.quantityMatched }}</td>
+            <td>{{ counterparty(m) }}</td>
+            <td>
+              <span class="material-symbols-outlined mstat">{{ matchGlyph(m.status) }}</span>
+              {{ m.status }}
+            </td>
+          </tr>
+        }
+      </tbody>
+    </table>
+  } @else {
+    <p class="none">This record has no matches, so nothing is left behind by cancelling it.</p>
+  }
+
+  <p class="after">
+    A cancelled record leaves both columns' default filters, so it will drop out of view. Tick
+    <em>Cancelled</em> in this column's Status filter to see it again.
+  </p>
+</mat-dialog-content>
+
+<mat-dialog-actions align="end">
+  <button matButton [mat-dialog-close]="false" type="button">Keep it</button>
+  <button matButton="filled" class="danger" [mat-dialog-close]="true" type="button">
+    Cancel {{ isDemand ? 'space' : 'record' }}
+  </button>
+</mat-dialog-actions>

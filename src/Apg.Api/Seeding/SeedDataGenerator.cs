@@ -228,9 +228,14 @@ public static partial class SeedDataGenerator
 
         bool Available(ProcessorSpace space) => !matchSet.LockedSpaceIds.Contains(space.Id);
 
+        // CancelledRecords.None is the truth at this point, not a shortcut: this pass is the only
+        // thing that cancels anything, no space is cancelled until its last few lines, and the seeder
+        // never cancels an availability record at all. The gate would give the same answer with a real
+        // ledger — and it is asked for again, with one, by the test that checks every Confirmed space
+        // is one the domain agrees could be confirmed.
         var confirmable = spaces
             .Where(Available)
-            .Where(s => ProcessorSpaceRules.CanConfirm(s, MatchesFor(s)))
+            .Where(s => ProcessorSpaceRules.CanConfirm(s, MatchesFor(s), CancelledRecords.None))
             .Take(ConfirmedSpaceCount)
             .ToList();
 

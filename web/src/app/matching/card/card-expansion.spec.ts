@@ -45,9 +45,7 @@ describe('Card expansion', () => {
   }
 
   function rows(fixture: ComponentFixture<CardExpansion>): HTMLElement[] {
-    return [
-      ...(fixture.nativeElement as HTMLElement).querySelectorAll<HTMLElement>('tr.openable'),
-    ];
+    return [...(fixture.nativeElement as HTMLElement).querySelectorAll<HTMLElement>('tr.openable')];
   }
 
   beforeEach(() => {
@@ -126,9 +124,63 @@ describe('Card expansion', () => {
    * An availability record's status is derived from its matches and never set, so there is nothing on
    * the supply side to confirm. The action belongs to the demand card alone.
    */
-  it('offers no Confirm action on the supply side at all', async () => {
+  /**
+   * Cancelling a record never cascades, so a live match under a cancelled parent is a normal state —
+   * and the card on the far side is where anyone would look to see whether the matches survived. Icon
+   * and word, no hue: status carries no colour anywhere on this screen.
+   */
+  it('flags a match whose processor space has been cancelled', async () => {
+    const fixture = await mountSupply(
+      anAvailability({ matches: [aMatch({ id: 7, spaceStatus: 'Cancelled' })] }),
+    );
+    const orphan = (fixture.nativeElement as HTMLElement).querySelector('.orphan');
+
+    expect(orphan?.textContent).toContain('space cancelled');
+    expect(orphan?.getAttribute('title')).toContain('The match itself has not');
+  });
+
+  it('flags a match whose availability record has been cancelled, from the demand card', async () => {
+    const fixture = await mountDemand(
+      aSpace({ matches: [aMatch({ id: 7, availabilityStatus: 'Cancelled' })] }),
+    );
+
+    expect((fixture.nativeElement as HTMLElement).querySelector('.orphan')?.textContent).toContain(
+      'record cancelled',
+    );
+  });
+
+  it('says nothing about a match whose parents are both live', async () => {
     const fixture = await mountSupply(anAvailability({ matches: [aMatch({ id: 7 })] }));
 
-    expect((fixture.nativeElement as HTMLElement).querySelector('.actions')).toBeNull();
+    expect((fixture.nativeElement as HTMLElement).querySelector('.orphan')).toBeNull();
+  });
+
+  /**
+   * The badge is a solid `$lms-error` box rather than muted text, at Mark's direction — and that is a
+   * deliberate exception to "status carries no hue". It is not reporting a status: the match is live,
+   * still consuming this record's quantity, and needs somebody to deal with it. jsdom cannot see the
+   * fill, but it can see that the element carrying it is the one styled for it.
+   */
+  it('carries the flag on an element the stylesheet paints, not on loose text', async () => {
+    const fixture = await mountSupply(
+      anAvailability({ matches: [aMatch({ id: 7, spaceStatus: 'Cancelled' })] }),
+    );
+    const orphan = (fixture.nativeElement as HTMLElement).querySelector('.orphan');
+
+    expect(orphan?.tagName.toLowerCase()).toBe('span');
+    expect(orphan?.querySelector('.material-symbols-outlined')?.textContent?.trim()).toBe('block');
+  });
+
+  it('offers no Confirm action on the supply side at all', async () => {
+    const fixture = await mountSupply(anAvailability({ matches: [aMatch({ id: 7 })] }));
+    const actions = (fixture.nativeElement as HTMLElement).querySelector('.actions');
+
+    // The supply side gained an actions row in Phase 7 for Edit and Cancel, so the assertion is on
+    // the button rather than on the row: an availability record's status is derived from its matches
+    // and is never confirmed directly, so there must be no Confirm here.
+    expect(actions).not.toBeNull();
+    expect(actions?.textContent).not.toContain('Confirm');
+    expect(actions?.textContent).toContain('Edit');
+    expect(actions?.textContent).toContain('Cancel');
   });
 });

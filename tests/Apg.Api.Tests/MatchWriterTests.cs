@@ -33,8 +33,8 @@ public class MatchWriterTests
         Assert.NotNull(proposal);
         Assert.True(proposal.IsAllowed);
 
-        var spaceUnmatched = MatchQuantities.ForSpace(space, Set.Matches).Unmatched;
-        var availabilityUnmatched = MatchQuantities.ForAvailability(availability, Set.Matches).Unmatched;
+        var spaceUnmatched = MatchQuantities.ForSpace(space, Set.Matches, SeedFixture.Cancelled).Unmatched;
+        var availabilityUnmatched = MatchQuantities.ForAvailability(availability, Set.Matches, SeedFixture.Cancelled).Unmatched;
 
         Assert.Equal(Math.Min(spaceUnmatched, availabilityUnmatched), proposal.Quantity);
         Assert.Equal(availabilityUnmatched, proposal.Maximum);
@@ -45,7 +45,7 @@ public class MatchWriterTests
     public void A_pair_with_nothing_left_is_refused_with_the_exact_domain_message()
     {
         var exhausted = Set.Availabilities.First(availability =>
-            MatchQuantities.ForAvailability(availability, Set.Matches).Unmatched < 1);
+            MatchQuantities.ForAvailability(availability, Set.Matches, SeedFixture.Cancelled).Unmatched < 1);
         var space = Set.Spaces.First();
 
         var proposal = MatchWriter.Propose(Set, Prices, space.Id, exhausted.Id);
@@ -86,7 +86,7 @@ public class MatchWriterTests
     public void Validation_refuses_zero_and_anything_above_the_availability_unmatched()
     {
         var (space, availability) = FirstAllowedPair();
-        var maximum = MatchQuantities.ForAvailability(availability, Set.Matches).Unmatched;
+        var maximum = MatchQuantities.ForAvailability(availability, Set.Matches, SeedFixture.Cancelled).Unmatched;
 
         Assert.Equal(
             MatchWriter.BelowOneHead,
@@ -99,9 +99,9 @@ public class MatchWriterTests
     public void Validation_refuses_a_pair_whose_space_is_already_over_filled()
     {
         var overFilled = Set.Spaces.First(space =>
-            MatchQuantities.ForSpace(space, Set.Matches).Unmatched < 1);
+            MatchQuantities.ForSpace(space, Set.Matches, SeedFixture.Cancelled).Unmatched < 1);
         var availability = Set.Availabilities.First(availability =>
-            MatchQuantities.ForAvailability(availability, Set.Matches).Unmatched >= 1);
+            MatchQuantities.ForAvailability(availability, Set.Matches, SeedFixture.Cancelled).Unmatched >= 1);
 
         Assert.Equal(
             MatchCreation.NoUnmatchedQuantity,
@@ -112,8 +112,8 @@ public class MatchWriterTests
     public void Validation_accepts_a_quantity_that_over_fills_the_space()
     {
         var (space, availability) = FirstPairWhereSupplyExceedsDemand();
-        var spaceUnmatched = MatchQuantities.ForSpace(space, Set.Matches).Unmatched;
-        var availabilityUnmatched = MatchQuantities.ForAvailability(availability, Set.Matches).Unmatched;
+        var spaceUnmatched = MatchQuantities.ForSpace(space, Set.Matches, SeedFixture.Cancelled).Unmatched;
+        var availabilityUnmatched = MatchQuantities.ForAvailability(availability, Set.Matches, SeedFixture.Cancelled).Unmatched;
 
         Assert.True(availabilityUnmatched > spaceUnmatched);
 
@@ -129,11 +129,11 @@ public class MatchWriterTests
     {
         var alreadyMatched = Set.Matches.First(match =>
             MatchQuantities.IsLive(match)
-            && MatchQuantities.ForSpace(Set.Spaces.First(s => s.Id == match.ProcessorSpaceId), Set.Matches)
+            && MatchQuantities.ForSpace(Set.Spaces.First(s => s.Id == match.ProcessorSpaceId), Set.Matches, SeedFixture.Cancelled)
                 .Unmatched >= 1
             && MatchQuantities.ForAvailability(
                     Set.Availabilities.First(a => a.Id == match.LivestockAvailabilityId),
-                    Set.Matches)
+                    Set.Matches, SeedFixture.Cancelled)
                 .Unmatched >= 1);
 
         var proposal = MatchWriter.Propose(
@@ -153,8 +153,8 @@ public class MatchWriterTests
             new FixedClock(new DateTimeOffset(2026, 8, 31, 10, 0, 0, TimeSpan.FromHours(12))));
 
         var space = Set.Spaces.First(s => s.Id == alreadyMatched.ProcessorSpaceId);
-        var before = MatchQuantities.ForSpace(space, Set.Matches).MatchedInclDraft;
-        var after = MatchQuantities.ForSpace(space, Set.Matches.Append(extra)).MatchedInclDraft;
+        var before = MatchQuantities.ForSpace(space, Set.Matches, SeedFixture.Cancelled).MatchedInclDraft;
+        var after = MatchQuantities.ForSpace(space, Set.Matches.Append(extra), SeedFixture.Cancelled).MatchedInclDraft;
 
         Assert.Equal(before + extra.QuantityMatched, after);
         Assert.Equal(2, Set.Matches.Count(m =>
@@ -241,7 +241,7 @@ public class MatchWriterTests
     {
         foreach (var space in Set.Spaces)
         {
-            var spaceUnmatched = MatchQuantities.ForSpace(space, Set.Matches).Unmatched;
+            var spaceUnmatched = MatchQuantities.ForSpace(space, Set.Matches, SeedFixture.Cancelled).Unmatched;
 
             if (spaceUnmatched < 1)
             {
@@ -250,7 +250,7 @@ public class MatchWriterTests
 
             foreach (var availability in Set.Availabilities)
             {
-                var availabilityUnmatched = MatchQuantities.ForAvailability(availability, Set.Matches).Unmatched;
+                var availabilityUnmatched = MatchQuantities.ForAvailability(availability, Set.Matches, SeedFixture.Cancelled).Unmatched;
 
                 if (availabilityUnmatched > spaceUnmatched)
                 {

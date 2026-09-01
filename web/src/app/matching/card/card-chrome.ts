@@ -137,3 +137,32 @@ export function matchBreakdown(matches: readonly MatchDto[]): string {
     .map((group) => `${group.count} ${group.status.toLowerCase()}`)
     .join(' · ');
 }
+
+/**
+ * How many of a record's matches hang off a **cancelled** partner record — nearly always zero.
+ *
+ * Cancelling a record never cascades to its matches (Phase 7, 5.2), so a live match under a cancelled
+ * parent is a normal state and not an error. It is also invisible from this side unless it is said:
+ * this card's own status is untouched, its meters are untouched, and only the counterparty is gone.
+ * The card shows a `block` glyph beside the match count when this is non-zero, and the expanded match
+ * table names the row.
+ *
+ * It counts a list, which is not a quantity: no head, no sums, nothing derived. The statuses it reads
+ * are both the server's own — the space's stored one and the availability record's derived one.
+ */
+export function cancelledPartnerCount(matches: readonly MatchDto[], side: MatchSide): number {
+  return matches.filter(
+    (match) => (side === 'demand' ? match.availabilityStatus : match.spaceStatus) === 'Cancelled',
+  ).length;
+}
+
+/** The hover text for that glyph, naming what is cancelled and what is emphatically not. */
+export function cancelledPartnerTitle(count: number, side: MatchSide): string {
+  const partner = side === 'demand' ? 'livestock availability record' : 'processor space';
+  const plural = count === 1 ? `${partner} has` : `${partner}s have`;
+
+  return (
+    `${count} matched ${plural} been cancelled. The ${count === 1 ? 'match' : 'matches'} ` +
+    `themselves have not — cancelling a record never cascades.`
+  );
+}

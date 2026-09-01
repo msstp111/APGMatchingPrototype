@@ -51,19 +51,21 @@ public static class MatchCreation
     /// resolved question 1 forbids.
     /// <para>
     /// A Cancelled match consumed no supply in the first place, so nothing is added back for one;
-    /// doing so would hand out the same animals twice.
+    /// doing so would hand out the same animals twice. <b>The same is true of a match whose Processor
+    /// Space has been cancelled</b>, which likewise consumes nothing — so the add-back is conditional
+    /// on the match having been subtracted, not merely on it being live.
     /// </para>
     /// </remarks>
     public static int MaxMatchQuantity(
         LivestockAvailability availability,
         IEnumerable<Match> availabilityMatches,
-        Match existingMatch)
+        Match existingMatch,
+        CancelledRecords cancelled)
     {
-        var unmatched = MatchQuantities.ForAvailability(availability, availabilityMatches).Unmatched;
+        var unmatched = MatchQuantities.ForAvailability(availability, availabilityMatches, cancelled).Unmatched;
+        var consumed = MatchQuantities.IsLive(existingMatch) && !cancelled.SpaceOf(existingMatch);
 
-        return MatchQuantities.IsLive(existingMatch)
-            ? unmatched + existingMatch.QuantityMatched
-            : unmatched;
+        return consumed ? unmatched + existingMatch.QuantityMatched : unmatched;
     }
 
     /// <summary>
@@ -77,10 +79,12 @@ public static class MatchCreation
         ProcessorSpace space,
         IEnumerable<Match> spaceMatches,
         LivestockAvailability availability,
-        IEnumerable<Match> availabilityMatches)
+        IEnumerable<Match> availabilityMatches,
+        CancelledRecords cancelled)
     {
-        var spaceUnmatched = MatchQuantities.ForSpace(space, spaceMatches).Unmatched;
-        var availabilityUnmatched = MatchQuantities.ForAvailability(availability, availabilityMatches).Unmatched;
+        var spaceUnmatched = MatchQuantities.ForSpace(space, spaceMatches, cancelled).Unmatched;
+        var availabilityUnmatched =
+            MatchQuantities.ForAvailability(availability, availabilityMatches, cancelled).Unmatched;
 
         var quantity = DefaultMatchQuantity(spaceUnmatched, availabilityUnmatched);
 

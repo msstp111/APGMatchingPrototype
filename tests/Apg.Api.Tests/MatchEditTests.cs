@@ -44,7 +44,7 @@ public class MatchEditTests
     {
         var (match, availability) = MostOfItsRecordsSupply();
 
-        var unmatched = MatchQuantities.ForAvailability(availability, Seed.Matches).Unmatched;
+        var unmatched = MatchQuantities.ForAvailability(availability, Seed.Matches, SeedFixture.Cancelled).Unmatched;
         var ceiling = MatchWriter.EditCeiling(Seed, match);
 
         Assert.Equal(unmatched + match.QuantityMatched, ceiling);
@@ -72,9 +72,16 @@ public class MatchEditTests
 
     /// <summary>
     /// The other failure mode — the requirements document's "originally available". The ceiling may
-    /// never reach a record's original quantity while another live match is holding part of it, which
-    /// is exactly the over-commit the pink state exists to flag.
+    /// never reach a record's original quantity while another match is <em>holding</em> part of it,
+    /// which is exactly the over-commit the pink state exists to flag.
     /// </summary>
+    /// <remarks>
+    /// "Holding" is the load-bearing word, and it is narrower than "live": a sibling match tied to a
+    /// <b>cancelled</b> Processor Space consumes none of this record's supply, so the ceiling
+    /// legitimately rises by its quantity. The seed has three such matches, and this test would read
+    /// the ceiling as 26 rather than 58 on one of them if it counted siblings the way the arithmetic
+    /// no longer does.
+    /// </remarks>
     [Fact]
     public void The_ceiling_never_permits_over_committing_a_record()
     {
@@ -83,9 +90,9 @@ public class MatchEditTests
             var availability = Seed.Availabilities.First(a => a.Id == match.LivestockAvailabilityId);
             var ceiling = MatchWriter.EditCeiling(Seed, match);
 
-            var siblings = Seed.Matches
-                .Where(MatchQuantities.IsLive)
-                .Where(m => m.LivestockAvailabilityId == availability.Id && m.Id != match.Id)
+            var siblings = MatchQuantities
+                .ConsumingAvailability(availability, Seed.Matches, SeedFixture.Cancelled)
+                .Where(m => m.Id != match.Id)
                 .Sum(m => m.QuantityMatched);
 
             Assert.Equal(availability.QuantityAvailable - siblings, ceiling);
@@ -312,7 +319,7 @@ public class MatchEditTests
         var set = Clone();
 
         var availability = set.Availabilities.First(a =>
-            MatchQuantities.ForAvailability(a, set.Matches) is { Unmatched: 0 }
+            MatchQuantities.ForAvailability(a, set.Matches, SeedFixture.Cancelled) is { Unmatched: 0 }
             && set.Matches.Any(m =>
                 m.LivestockAvailabilityId == a.Id && m.Status == MatchStatus.Drafted));
 
@@ -391,7 +398,7 @@ public class MatchEditTests
     [Fact]
     public void A_space_the_domain_agrees_about_may_be_confirmed_and_others_are_told_why()
     {
-        var confirmable = Seed.Spaces.First(s => ProcessorSpaceRules.CanConfirm(s, Seed.Matches));
+        var confirmable = Seed.Spaces.First(s => ProcessorSpaceRules.CanConfirm(s, Seed.Matches, SeedFixture.Cancelled));
         var withDrafts = Seed.Spaces.First(s =>
             s.Status == ProcessorSpaceStatus.Booked
             && SeedFixture.MatchesForSpace(s.Id).Any(m => m.Status == MatchStatus.Drafted));
@@ -411,7 +418,7 @@ public class MatchEditTests
     public void Confirming_a_space_changes_its_status_and_no_match()
     {
         var set = Clone();
-        var space = set.Spaces.First(s => ProcessorSpaceRules.CanConfirm(s, set.Matches));
+        var space = set.Spaces.First(s => ProcessorSpaceRules.CanConfirm(s, set.Matches, SeedFixture.Cancelled));
         var before = set.Matches
             .Where(m => m.ProcessorSpaceId == space.Id)
             .Select(m => (m.Id, m.QuantityMatched, m.Status))
@@ -477,7 +484,7 @@ public class MatchEditTests
     private static bool CeilingExceedsDemand(WorkingSet set, Match match)
     {
         var space = set.Spaces.First(s => s.Id == match.ProcessorSpaceId);
-        var others = MatchQuantities.ForSpace(space, set.Matches).MatchedInclDraft - match.QuantityMatched;
+        var others = MatchQuantities.ForSpace(space, set.Matches, SeedFixture.Cancelled).MatchedInclDraft - match.QuantityMatched;
 
         return others + MatchWriter.EditCeiling(set, match) > space.QuantityRequired;
     }

@@ -9,6 +9,7 @@ import { ColumnFilters } from '../filters/column-filters';
 import { FilteredEmpty } from '../filters/filtered-empty';
 import { isDemandDefault, isSupplyDefault } from '../filters/filter-service';
 import { MatchingPreferences } from '../filters/matching-preferences';
+import { RecordActions } from '../record/record-actions';
 
 /**
  * One side of the matching screen: a header, the filter row, a sticky column-header strip, and a
@@ -32,6 +33,7 @@ import { MatchingPreferences } from '../filters/matching-preferences';
 export class MatchingColumn {
   private readonly preferences = inject(MatchingPreferences);
   private readonly drag = inject(DragStore);
+  private readonly records = inject(RecordActions);
 
   readonly side = input.required<MatchSide>();
 
@@ -91,6 +93,28 @@ export class MatchingColumn {
   readonly isDropTarget = computed(() => this.drag.isTargetSide(this.side()));
 
   readonly isDragging = computed(() => this.drag.active() !== null);
+
+  /**
+   * The debug add control's hover text. It says what the button is, not what it does, because what it
+   * is is the thing worth knowing: this is scaffolding for demos, not the submission form a farmer or
+   * an agent would ever see.
+   */
+  readonly addTitle = computed(() =>
+    this.isDemand()
+      ? 'Demo tool: add a Processor Space. Not the real create flow.'
+      : 'Demo tool: add a Livestock Availability record. Not the farmer or agent submission form.',
+  );
+
+  /** Opens the debug form for this column's own record type (requirements 1.1 and 1.2). */
+  add(): void {
+    if (this.isDemand()) {
+      this.records.addSpace();
+
+      return;
+    }
+
+    this.records.addAvailability();
+  }
 
   reset(): void {
     if (this.isDemand()) {

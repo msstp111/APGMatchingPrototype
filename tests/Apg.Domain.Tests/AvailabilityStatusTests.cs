@@ -14,7 +14,7 @@ public class AvailabilityStatusTests
     {
         var availability = Given.Availability(quantityAvailable: 100);
 
-        Assert.Equal(LivestockAvailabilityStatus.Booked, AvailabilityStatus.Derive(availability, []));
+        Assert.Equal(LivestockAvailabilityStatus.Booked, AvailabilityStatus.Derive(availability, [], CancelledRecords.None));
     }
 
     [Fact]
@@ -24,7 +24,7 @@ public class AvailabilityStatusTests
         var availability = Given.Availability(quantityAvailable: 100);
         var matches = Given.Matches((40, MatchStatus.Cancelled), (60, MatchStatus.Cancelled));
 
-        Assert.Equal(LivestockAvailabilityStatus.Booked, AvailabilityStatus.Derive(availability, matches));
+        Assert.Equal(LivestockAvailabilityStatus.Booked, AvailabilityStatus.Derive(availability, matches, CancelledRecords.None));
     }
 
     [Fact]
@@ -33,7 +33,7 @@ public class AvailabilityStatusTests
         var availability = Given.Availability(quantityAvailable: 100);
         var matches = Given.Matches((40, MatchStatus.Confirmed));
 
-        Assert.Equal(LivestockAvailabilityStatus.Pending, AvailabilityStatus.Derive(availability, matches));
+        Assert.Equal(LivestockAvailabilityStatus.Pending, AvailabilityStatus.Derive(availability, matches, CancelledRecords.None));
     }
 
     [Fact]
@@ -42,7 +42,7 @@ public class AvailabilityStatusTests
         var availability = Given.Availability(quantityAvailable: 100);
         var matches = Given.Matches((60, MatchStatus.Confirmed), (40, MatchStatus.Confirmed));
 
-        Assert.Equal(LivestockAvailabilityStatus.Confirmed, AvailabilityStatus.Derive(availability, matches));
+        Assert.Equal(LivestockAvailabilityStatus.Confirmed, AvailabilityStatus.Derive(availability, matches, CancelledRecords.None));
     }
 
     [Fact]
@@ -55,7 +55,7 @@ public class AvailabilityStatusTests
             (40, MatchStatus.Confirmed),
             (25, MatchStatus.Cancelled));
 
-        Assert.Equal(LivestockAvailabilityStatus.Confirmed, AvailabilityStatus.Derive(availability, matches));
+        Assert.Equal(LivestockAvailabilityStatus.Confirmed, AvailabilityStatus.Derive(availability, matches, CancelledRecords.None));
     }
 
     /// <summary>
@@ -68,8 +68,8 @@ public class AvailabilityStatusTests
         var availability = Given.Availability(quantityAvailable: 100);
         var matches = Given.Matches((60, MatchStatus.Confirmed), (40, MatchStatus.Drafted));
 
-        Assert.Equal(0, MatchQuantities.ForAvailability(availability, matches).Unmatched);
-        Assert.Equal(LivestockAvailabilityStatus.Pending, AvailabilityStatus.Derive(availability, matches));
+        Assert.Equal(0, MatchQuantities.ForAvailability(availability, matches, CancelledRecords.None).Unmatched);
+        Assert.Equal(LivestockAvailabilityStatus.Pending, AvailabilityStatus.Derive(availability, matches, CancelledRecords.None));
     }
 
     [Fact]
@@ -80,7 +80,7 @@ public class AvailabilityStatusTests
         var availability = Given.Availability(quantityAvailable: 100);
         var matches = Given.Matches((60, MatchStatus.Confirmed), (40, MatchStatus.Notified));
 
-        Assert.Equal(LivestockAvailabilityStatus.Pending, AvailabilityStatus.Derive(availability, matches));
+        Assert.Equal(LivestockAvailabilityStatus.Pending, AvailabilityStatus.Derive(availability, matches, CancelledRecords.None));
     }
 
     /// <summary>
@@ -93,8 +93,8 @@ public class AvailabilityStatusTests
         var availability = Given.Availability(quantityAvailable: 100);
         var matches = Given.Matches((60, MatchStatus.Confirmed), (60, MatchStatus.Confirmed));
 
-        Assert.Equal(-20, MatchQuantities.ForAvailability(availability, matches).Unmatched);
-        Assert.Equal(LivestockAvailabilityStatus.Pending, AvailabilityStatus.Derive(availability, matches));
+        Assert.Equal(-20, MatchQuantities.ForAvailability(availability, matches, CancelledRecords.None).Unmatched);
+        Assert.Equal(LivestockAvailabilityStatus.Pending, AvailabilityStatus.Derive(availability, matches, CancelledRecords.None));
     }
 
     [Fact]
@@ -107,7 +107,7 @@ public class AvailabilityStatusTests
             status: LivestockAvailabilityStatus.Cancelled);
         var matches = Given.Matches((60, MatchStatus.Confirmed), (40, MatchStatus.Confirmed));
 
-        Assert.Equal(LivestockAvailabilityStatus.Cancelled, AvailabilityStatus.Derive(availability, matches));
+        Assert.Equal(LivestockAvailabilityStatus.Cancelled, AvailabilityStatus.Derive(availability, matches, CancelledRecords.None));
     }
 
     [Fact]
@@ -120,7 +120,7 @@ public class AvailabilityStatusTests
             status: LivestockAvailabilityStatus.Booked);
         var matches = Given.Matches((100, MatchStatus.Confirmed));
 
-        Assert.Equal(LivestockAvailabilityStatus.Confirmed, AvailabilityStatus.Derive(availability, matches));
+        Assert.Equal(LivestockAvailabilityStatus.Confirmed, AvailabilityStatus.Derive(availability, matches, CancelledRecords.None));
     }
 
     [Fact]
@@ -134,6 +134,6 @@ public class AvailabilityStatusTests
             Given.Match(80, MatchStatus.Drafted, id: 2, availabilityId: 2),
         };
 
-        Assert.Equal(LivestockAvailabilityStatus.Confirmed, AvailabilityStatus.Derive(availability, allMatches));
+        Assert.Equal(LivestockAvailabilityStatus.Confirmed, AvailabilityStatus.Derive(availability, allMatches, CancelledRecords.None));
     }
 }

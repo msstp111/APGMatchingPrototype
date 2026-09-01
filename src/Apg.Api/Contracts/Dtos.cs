@@ -343,6 +343,18 @@ public sealed record MatchDto
 
     public required string SpaceStockClass { get; init; }
 
+    /// <summary>
+    /// The Processor Space's <b>stored</b> status.
+    /// </summary>
+    /// <remarks>
+    /// Denormalised here for the same reason the plant and the delivery date are: a match is rendered
+    /// inside the <em>other</em> record's card, which holds none of its counterparty's own fields.
+    /// Phase 7 needs it because cancelling a record never cascades — a live match hanging off a
+    /// cancelled parent is a normal, deliberate state, and the card on the far side has to be able to
+    /// say so rather than leave it to be inferred.
+    /// </remarks>
+    public required ProcessorSpaceStatus SpaceStatus { get; init; }
+
     /// <summary>ISO <c>yyyy-MM-dd</c>.</summary>
     public required DateOnly DeliveryDate { get; init; }
 
@@ -358,6 +370,12 @@ public sealed record MatchDto
     public required string? LocationName { get; init; }
 
     public required string AvailabilityStockClass { get; init; }
+
+    /// <summary>
+    /// The availability record's <b>derived</b> status — the same value its own DTO carries, computed
+    /// the same way. See <see cref="SpaceStatus"/> for why both sides' statuses ride on a match.
+    /// </summary>
+    public required LivestockAvailabilityStatus AvailabilityStatus { get; init; }
 
     public required string? AvailabilityDetails { get; init; }
 
@@ -439,4 +457,196 @@ public sealed record UpdateMatchRequest
 public sealed record CancelMatchRequest
 {
     public MatchCancellationReason? Reason { get; init; }
+}
+
+// -------------------------------------------------------------------------------------------------
+// Phase 7 — debug record creation.
+//
+// These types serve the "+ Add" forms, which are demo scaffolding rather than the farmer/agent
+// submission journey (deferred past pass 1). The endpoints behind them are nonetheless as strict as
+// the match ones: a form is not a source of truth about a vocabulary.
+// -------------------------------------------------------------------------------------------------
+
+/// <summary>
+/// The vocabularies a create form picks from.
+/// </summary>
+/// <remarks>
+/// <para>
+/// The filter row derives its options from the records that are loaded, which is right for a filter
+/// and wrong for a form: a stock class no record happens to use is still a valid choice for a new one.
+/// So these come from <c>SeedConfig</c>, the single file the roadmap designates for every invented
+/// list (resolved question 11), and swapping in APG's real values stays a one-file edit.
+/// </para>
+/// <para>
+/// <b>The two stock-class vocabularies ship side by side and are never cross-referenced.</b> A
+/// Processor Space's classes are that processor's own; an availability record's come from one separate
+/// list; there is no mapping between them and nothing here may grow one.
+/// </para>
+/// </remarks>
+public sealed record ReferenceDataDto
+{
+    public required IReadOnlyList<ProcessorOptionDto> Processors { get; init; }
+
+    /// <summary>The single supply-side list. Not a processor's, and never validated against one.</summary>
+    public required IReadOnlyList<string> AvailabilityStockClasses { get; init; }
+
+    public required IReadOnlyList<TransactionType> TransactionTypes { get; init; }
+}
+
+/// <summary>One processor, with the two lists that are its own: its plants and its stock classes.</summary>
+/// <remarks>
+/// Nested rather than three parallel maps so the pickers cannot come to disagree about which plant
+/// belongs to whom — choosing a processor selects one object and both dependent lists with it.
+/// </remarks>
+public sealed record ProcessorOptionDto
+{
+    public required string Name { get; init; }
+
+    public required IReadOnlyList<string> Plants { get; init; }
+
+    public required IReadOnlyList<string> StockClasses { get; init; }
+}
+
+/// <summary>
+/// A location and the farmer it belongs to, for the availability form's location picker.
+/// </summary>
+/// <remarks>
+/// Each location belongs to exactly one farmer (resolved question 10), so picking the location settles
+/// the farmer. The farmer's name and mobile ride along so the form can show back who was just chosen
+/// without a call per keystroke.
+/// </remarks>
+public sealed record LocationOptionDto
+{
+    public required int Id { get; init; }
+
+    public required string Name { get; init; }
+
+    public required string? FarmerName { get; init; }
+
+    public required string? FarmerMobile { get; init; }
+}
+
+/// <summary>
+/// What a record write returns: the record it touched, and the recomputed week calendar.
+/// </summary>
+/// <remarks>
+/// <para>
+/// One record, not both. Creating, editing or cancelling a Processor Space touches no availability
+/// record, and the reverse — including on a cancellation, which deliberately leaves every match, and
+/// therefore every counterparty record, exactly as it was.
+/// </para>
+/// <para>
+/// <b><see cref="Weeks"/> is the load-bearing field.</b> The client places a record into a band by
+/// string equality on its week-commencing Sunday against the calendar from
+/// <c>GET /api/week-bands</c>, and a record whose week is not in that list places nowhere and
+/// disappears off the screen. A create — or an edit that moves a date — can extend or shrink the run,
+/// so the recomputed calendar comes back with every write. The alternative is a second round trip, or
+/// advancing a date in TypeScript, which the architecture forbids.
+/// </para>
+/// </remarks>
+public sealed record RecordWriteResultDto
+{
+    public required ProcessorSpaceDto? Space { get; init; }
+
+    public required LivestockAvailabilityDto? Availability { get; init; }
+
+    public required IReadOnlyList<WeekBandDto> Weeks { get; init; }
+}
+
+/// <summary>
+/// A new Processor Space, as the debug form submits it.
+/// </summary>
+/// <remarks>
+/// Nothing is <c>required</c> and the date is nullable, so a missing field comes back as this API's own
+/// validation message rather than as a serialiser exception. <b>Status is not here</b>: a space is
+/// <c>Booked</c> on creation and moves only by explicit APG action (requirement 2.8).
+/// </remarks>
+public sealed record CreateProcessorSpaceRequest
+{
+    public string? Processor { get; init; }
+
+    public string? Plant { get; init; }
+
+    public string? StockClass { get; init; }
+
+    public int QuantityRequired { get; init; }
+
+    /// <summary>ISO <c>yyyy-MM-dd</c>. Past dates are allowed — APG enter records after the fact.</summary>
+    public DateOnly? DeliveryDate { get; init; }
+
+    /// <summary>One optional free-text field in pass 1 (resolved question 9).</summary>
+    public string? DeliveryTime { get; init; }
+
+    public string? Notes { get; init; }
+}
+
+/// <summary>
+/// The editable fields of an existing Processor Space (requirement 4.2).
+/// </summary>
+/// <remarks>
+/// <b>Processor and stock class are absent on purpose.</b> Requirement 4.2 lists quantity required,
+/// plant, delivery date, delivery time and notes and no more: the processor and the class are what the
+/// meatworks booked, and re-pointing an existing slot at a different processor would silently re-key
+/// its default price and invalidate the plant on it. The form renders both read-only.
+/// </remarks>
+public sealed record UpdateProcessorSpaceRequest
+{
+    public string? Plant { get; init; }
+
+    public int QuantityRequired { get; init; }
+
+    public DateOnly? DeliveryDate { get; init; }
+
+    public string? DeliveryTime { get; init; }
+
+    public string? Notes { get; init; }
+}
+
+/// <summary>A new Livestock Availability record, as the debug form submits it.</summary>
+/// <remarks>
+/// <b>Transaction type is captured as a plain value.</b> Selecting <c>FinanceStock</c> opens no
+/// Purchase list and draws nothing down against <c>purchases.csv</c> — that linkage is deferred past
+/// pass 1, and its absence here is deliberate rather than unfinished.
+/// </remarks>
+public sealed record CreateLivestockAvailabilityRequest
+{
+    public string? StockClass { get; init; }
+
+    public int QuantityAvailable { get; init; }
+
+    /// <summary>The farmer follows from this (resolved question 10); no farmer id is stored.</summary>
+    public int LocationId { get; init; }
+
+    public DateOnly? AvailableFrom { get; init; }
+
+    public string? AvailabilityDetails { get; init; }
+
+    public TransactionType? TransactionType { get; init; }
+
+    public string? Notes { get; init; }
+}
+
+/// <summary>
+/// Every attribute of an existing availability record (requirement 4.3), which really is every one.
+/// </summary>
+/// <remarks>
+/// The same fields as the create request, and a separate type anyway: the two coincide today by
+/// accident of the spec rather than by rule, and sharing one would make requirement 4.2's deliberately
+/// shorter demand-side list look like an oversight instead of a decision.
+/// </remarks>
+public sealed record UpdateLivestockAvailabilityRequest
+{
+    public string? StockClass { get; init; }
+
+    public int QuantityAvailable { get; init; }
+
+    public int LocationId { get; init; }
+
+    public DateOnly? AvailableFrom { get; init; }
+
+    public string? AvailabilityDetails { get; init; }
+
+    public TransactionType? TransactionType { get; init; }
+
+    public string? Notes { get; init; }
 }

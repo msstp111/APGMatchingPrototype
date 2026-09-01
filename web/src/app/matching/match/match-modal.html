@@ -101,8 +101,16 @@
     <p class="note">{{ stockClassNote }}</p>
   }
 
+  <!--
+    subscriptSizing="dynamic" on every field here, and it is not decoration. By default Material's
+    hint and error wrappers are `position: absolute` inside a fixed-height subscript, so a hint that
+    wraps overflows it silently and paints over whatever follows — which is what the first browser
+    pass saw. `dynamic` is Material's own switch to `position: static`: the wrapped hint then takes
+    real space and pushes the rest of the dialog down. The `height: auto` in the stylesheet cannot do
+    it alone, because an absolutely positioned child contributes no height to size to.
+  -->
   <div class="fields">
-    <mat-form-field appearance="fill" class="f-quantity">
+    <mat-form-field appearance="fill" class="f-quantity" subscriptSizing="dynamic">
       <mat-label>Quantity matched</mat-label>
       <input matInput type="number" [formControl]="quantity" />
       <span matTextSuffix>head</span>
@@ -111,12 +119,20 @@
         <mat-error>A match is a whole number of head</mat-error>
       } @else if (quantity.hasError('min') || quantity.hasError('required')) {
         <mat-error>To reduce a match to nothing, cancel or delete it</mat-error>
+      } @else if (quantity.hasError('max')) {
+        <mat-error>{{ ceilingNote }}</mat-error>
       } @else {
-        <mat-hint>{{ quantityCaption() }}</mat-hint>
+        <!--
+          The ceiling, spelled out, in the field it constrains. It replaces the bare `max 32`, which
+          invited exactly the question the requirements document answers wrongly — and it wraps here
+          rather than sitting in a note below the row, because the field it sits in is what says which
+          field it is about.
+        -->
+        <mat-hint>{{ ceilingNote }}</mat-hint>
       }
     </mat-form-field>
 
-    <mat-form-field appearance="fill" class="f-price">
+    <mat-form-field appearance="fill" class="f-price" subscriptSizing="dynamic">
       <mat-label>Price per kg</mat-label>
       <span matTextPrefix>$</span>
       <input matInput type="number" step="0.01" [formControl]="price" />
@@ -125,7 +141,7 @@
       <mat-hint>{{ priceHint }}</mat-hint>
     </mat-form-field>
 
-    <mat-form-field appearance="fill" class="f-transport">
+    <mat-form-field appearance="fill" class="f-transport" subscriptSizing="dynamic">
       <mat-label>Transport company</mat-label>
       <input matInput [formControl]="transport" [matAutocomplete]="carriers" />
       <mat-autocomplete #carriers="matAutocomplete">
@@ -136,23 +152,14 @@
       <mat-hint>Optional</mat-hint>
     </mat-form-field>
   </div>
-
-  <!--
-    The ceiling is a note rather than a hint because it is not about one field: it explains a rule that
-    spans the match, and design-system.md 11.4.4 asks for it "under the fields". It is also the one
-    sentence here long enough that no field's subscript would hold it.
-
-    It is there because "max 85" invites exactly the question the requirements document answers
-    wrongly. The price's provenance stays in the price field's own hint, where the field says which
-    field it is about.
-  -->
-  <p class="ceiling">{{ ceilingNote }}</p>
 </mat-dialog-content>
 
 <mat-dialog-actions class="footer">
   @if (canDelete) {
     <!-- No reason, no warning: a mis-drag is not a decision anyone has to account for. -->
-    <button matButton class="destructive-text" type="button" (click)="delete()">Delete draft</button>
+    <button matButton class="destructive-text" type="button" (click)="delete()">
+      Delete draft
+    </button>
   }
 
   @if (canCancel) {
@@ -165,12 +172,7 @@
 
   <button matButton mat-dialog-close type="button">Close</button>
 
-  <button
-    matButton
-    type="button"
-    [disabled]="quantity.invalid || !changed()"
-    (click)="save()"
-  >
+  <button matButton type="button" [disabled]="quantity.invalid || !changed()" (click)="save()">
     Save changes
   </button>
 

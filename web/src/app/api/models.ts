@@ -28,9 +28,7 @@ export type LivestockAvailabilityStatus = 'Booked' | 'Pending' | 'Confirmed' | '
 export type MatchStatus = 'Drafted' | 'Notified' | 'Confirmed' | 'Cancelled';
 
 export type MatchCancellationReason =
-  | 'ChangeFromAgentOrFarmer'
-  | 'ChangeFromProcessor'
-  | 'InternalDecisionByApg';
+  'ChangeFromAgentOrFarmer' | 'ChangeFromProcessor' | 'InternalDecisionByApg';
 
 export type TransactionType = 'FinanceStock' | 'GrazingStock' | 'Other';
 
@@ -57,6 +55,15 @@ export interface MatchDto {
   readonly processor: string;
   readonly plant: string;
   readonly spaceStockClass: string;
+  /**
+   * The Processor Space's stored status, and below it the availability record's derived one.
+   *
+   * Both parents' statuses ride on a match because a match is rendered inside the *other* record's
+   * card, which holds none of its counterparty's own fields. Cancelling a record never cascades, so a
+   * live match under a cancelled parent is a normal state — and the far side has to be able to say so
+   * rather than leave it to be inferred.
+   */
+  readonly spaceStatus: ProcessorSpaceStatus;
   /** ISO `yyyy-MM-dd`. Render `deliveryDateLabel` instead. */
   readonly deliveryDate: string;
   readonly deliveryDateLabel: string;
@@ -67,6 +74,7 @@ export interface MatchDto {
   readonly farmerName: string | null;
   readonly locationName: string | null;
   readonly availabilityStockClass: string;
+  readonly availabilityStatus: LivestockAvailabilityStatus;
   readonly availabilityDetails: string | null;
   /** ISO `yyyy-MM-dd`. Render `availableFromLabel` instead. */
   readonly availableFrom: string;
@@ -267,4 +275,109 @@ export interface LivestockAvailabilityDto {
   readonly weekCommencing: string;
   readonly weekCommencingLabel: string;
   readonly matches: readonly MatchDto[];
+}
+
+// -------------------------------------------------------------------------------------------------
+// Phase 7 — debug record creation. Mirrors `src/Apg.Api/Contracts/Dtos.cs`, field for field.
+// -------------------------------------------------------------------------------------------------
+
+/**
+ * The vocabularies the two debug forms pick from.
+ *
+ * **Not derived from the loaded records**, unlike the filter row's options: a stock class no record
+ * happens to use is still a valid choice for a new one. These come from `SeedConfig` on the server,
+ * the single home for every invented list, so APG's real values stay a one-file swap.
+ *
+ * The two stock-class vocabularies sit side by side here and are never cross-referenced. A processor's
+ * classes are its own; supply has one separate list; there is no mapping and nothing may build one.
+ */
+export interface ReferenceDataDto {
+  readonly processors: readonly ProcessorOptionDto[];
+  readonly availabilityStockClasses: readonly string[];
+  readonly transactionTypes: readonly TransactionType[];
+}
+
+/** One processor with the two lists that are its own — choosing it selects both. */
+export interface ProcessorOptionDto {
+  readonly name: string;
+  readonly plants: readonly string[];
+  readonly stockClasses: readonly string[];
+}
+
+/**
+ * A location and the farmer it belongs to. Picking the location settles the farmer (resolved question
+ * 10), and the name comes back so the form can show who was chosen.
+ */
+export interface LocationOptionDto {
+  readonly id: number;
+  readonly name: string;
+  readonly farmerName: string | null;
+  readonly farmerMobile: string | null;
+}
+
+/**
+ * What a record write returns: the one record it touched, and the recomputed week calendar.
+ *
+ * **`weeks` is not optional bookkeeping.** A record is placed into a band by string equality on its
+ * week-commencing Sunday against the calendar, so a record whose week is not in the list places
+ * nowhere and disappears. A create — or an edit that moves a date — can move that range, and naming a
+ * new week in TypeScript would mean advancing a date here, which the architecture forbids.
+ */
+export interface RecordWriteResultDto {
+  readonly space: ProcessorSpaceDto | null;
+  readonly availability: LivestockAvailabilityDto | null;
+  readonly weeks: readonly WeekBandDto[];
+}
+
+/** A new Processor Space. Status is absent: a space is `Booked` on creation and moves by APG action. */
+export interface CreateProcessorSpaceRequest {
+  readonly processor: string;
+  readonly plant: string;
+  readonly stockClass: string;
+  readonly quantityRequired: number;
+  /** ISO `yyyy-MM-dd`, straight off a native date input. Past dates are allowed. */
+  readonly deliveryDate: string;
+  readonly deliveryTime: string | null;
+  readonly notes: string | null;
+}
+
+/**
+ * The editable fields of an existing space (requirement 4.2).
+ *
+ * **Processor and stock class are deliberately absent**: they are what the meatworks booked, and
+ * re-pointing a slot at another processor would re-key its default price and invalidate its plant.
+ */
+export interface UpdateProcessorSpaceRequest {
+  readonly plant: string;
+  readonly quantityRequired: number;
+  readonly deliveryDate: string;
+  readonly deliveryTime: string | null;
+  readonly notes: string | null;
+}
+
+/**
+ * A new Livestock Availability record.
+ *
+ * Transaction type is a plain value: choosing `FinanceStock` opens no Purchase list and draws nothing
+ * down against `purchases.csv`. That linkage is deferred past pass 1 and its absence is deliberate.
+ */
+export interface CreateLivestockAvailabilityRequest {
+  readonly stockClass: string;
+  readonly quantityAvailable: number;
+  readonly locationId: number;
+  readonly availableFrom: string;
+  readonly availabilityDetails: string | null;
+  readonly transactionType: TransactionType;
+  readonly notes: string | null;
+}
+
+/** Every attribute of an existing availability record (requirement 4.3), which really is every one. */
+export interface UpdateLivestockAvailabilityRequest {
+  readonly stockClass: string;
+  readonly quantityAvailable: number;
+  readonly locationId: number;
+  readonly availableFrom: string;
+  readonly availabilityDetails: string | null;
+  readonly transactionType: TransactionType;
+  readonly notes: string | null;
 }

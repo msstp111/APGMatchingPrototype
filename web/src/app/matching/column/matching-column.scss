@@ -84,6 +84,36 @@
   cursor: pointer;
 }
 
+// design-system.md 14: the debug "+ Add" control. A 26px stroked button, 12px text, petrol on white
+// with a #BDBDBD ring — visibly lighter than any primary action on the screen, and deliberately NOT
+// LMS's circular petrol create FAB, so it reads as tooling rather than as the product's own create.
+// If Phase 8 wants the FAB back for a real create flow, that is a new decision, not a regression.
+.add {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  height: 26px;
+  padding: 0 8px;
+  border: 1px solid lms.$lms-rule-strong;
+  border-radius: 3px;
+  background: #ffffff;
+  color: lms.$lms-petrol;
+  font-family: inherit;
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+}
+
+.add:hover {
+  background: lms.$lms-hover;
+}
+
+.add .material-symbols-outlined {
+  font-size: 15px;
+  line-height: 15px;
+}
+
 // The filter row itself is app-column-filters, which sets its own 40px height.
 
 // --- 3. the scrolling list ---

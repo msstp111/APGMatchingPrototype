@@ -4,6 +4,7 @@ import { MatButtonModule } from '@angular/material/button';
 import { LivestockAvailabilityDto, MatchStatus, ProcessorSpaceDto } from '../../api/models';
 import { MatchSide } from '../board/matching-board';
 import { MatchActions } from '../match/match-actions';
+import { RecordActions } from '../record/record-actions';
 import { matchStatusIcon, quantityClass, transactionTypeLabel } from './card-chrome';
 
 /**
@@ -31,6 +32,7 @@ import { matchStatusIcon, quantityClass, transactionTypeLabel } from './card-chr
 })
 export class CardExpansion {
   private readonly actions = inject(MatchActions);
+  private readonly records = inject(RecordActions);
 
   readonly side = input.required<MatchSide>();
 
@@ -56,6 +58,15 @@ export class CardExpansion {
     return quantityClass(record.quantityState, this.side());
   }
 
+  /**
+   * Already cancelled, on whichever side this is. The Cancel control is disabled rather than left to
+   * fail: the server refuses a second cancellation, and the card itself already says why — a cancelled
+   * card is desaturated with its title struck through, so the cause is on screen.
+   */
+  readonly isCancelled = computed(
+    () => (this.space()?.status ?? this.availability()?.status) === 'Cancelled',
+  );
+
   /** Cancelled matches never reach the client, so every row here is live (resolved question 4). */
   isConfirmed(status: MatchStatus): boolean {
     return status === 'Confirmed';
@@ -67,6 +78,52 @@ export class CardExpansion {
    */
   openMatch(matchId: number): void {
     this.actions.open(matchId);
+  }
+
+  /**
+   * The debug edit form for whichever record this expansion belongs to (requirement 4.1).
+   *
+   * One method for both sides, because the card knows which of its two inputs is set and the service
+   * knows nothing about cards. The demand form edits five fields; the supply form edits every
+   * attribute (requirements 4.2 and 4.3).
+   */
+  editRecord(): void {
+    const space = this.space();
+
+    if (space) {
+      this.records.editSpace(space);
+
+      return;
+    }
+
+    const availability = this.availability();
+
+    if (availability) {
+      this.records.editAvailability(availability);
+    }
+  }
+
+  /**
+   * Cancels this record — and **not** its matches (requirement 5.2).
+   *
+   * The matches listed in the table above survive untouched and have to be cancelled one at a time.
+   * The dialog names every one of them before the fact, because a rule this surprising should not be
+   * discovered afterwards.
+   */
+  cancelRecord(): void {
+    const space = this.space();
+
+    if (space) {
+      this.records.cancelSpace(space);
+
+      return;
+    }
+
+    const availability = this.availability();
+
+    if (availability) {
+      this.records.cancelAvailability(availability);
+    }
   }
 
   /**

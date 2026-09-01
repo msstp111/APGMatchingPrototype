@@ -1,5 +1,6 @@
 using Apg.Api.Seeding;
 using Apg.Domain.Entities;
+using Apg.Domain.Matching;
 
 namespace Apg.Api.Tests;
 
@@ -21,6 +22,18 @@ public static class SeedFixture
     public static IReadOnlyList<Location> Locations => LazyLocations.Value;
 
     public static SeedData Data => LazyData.Value;
+
+    /// <summary>
+    /// Which seeded records are cancelled, for the rules that need to know.
+    /// </summary>
+    /// <remarks>
+    /// The seed holds two cancelled Processor Spaces, both deliberately still holding live matches, so
+    /// this is <b>not</b> <see cref="CancelledRecords.None"/> and a test that passed None would be
+    /// asserting arithmetic no endpoint performs: a match tied to a cancelled space stops consuming the
+    /// availability record's supply.
+    /// </remarks>
+    public static CancelledRecords Cancelled =>
+        CancelledRecords.In(Data.ProcessorSpaces, Data.Availabilities);
 
     public static List<Match> MatchesForSpace(int spaceId) =>
         Data.Matches.Where(m => m.ProcessorSpaceId == spaceId).ToList();

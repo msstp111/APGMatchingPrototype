@@ -162,3 +162,42 @@
   font-size: 11.5px;
   color: lms.$lms-text-muted;
 }
+
+// The two debug controls, quieter than Confirm beside them: text buttons rather than stroked, so the
+// scaffolding never outranks the real action on the card (design-system.md 14's reasoning, applied
+// inside a card instead of a header).
+.dbg {
+  --mat-button-text-label-text-color: #{lms.$lms-text-muted};
+  font-size: 12px;
+}
+
+.dbg.danger {
+  --mat-button-text-label-text-color: #{lms.$lms-error};
+}
+
+// A cancelled counterparty, on a match that is still live.
+//
+// A SOLID $lms-error BOX, at Mark's direction, and it is a deliberate exception to the rule that
+// status carries no hue: this is not a status being reported, it is work outstanding. Cancelling a
+// record never cascades, so the match below is still live, still consuming quantity on this record,
+// and still needing someone to deal with it — and quietly greying that fact is how it gets missed.
+// $lms-error is the token design-system.md 2 already reserves for "consequential" and is not a member
+// of the quantity ramp, so the meter's three colours are untouched.
+.orphan {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  margin-left: 6px;
+  padding: 1px 5px;
+  border-radius: 2px;
+  background: lms.$lms-error;
+  color: #ffffff;
+  font-size: 11px;
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+.orphan .material-symbols-outlined {
+  font-size: 14px;
+  line-height: 14px;
+}

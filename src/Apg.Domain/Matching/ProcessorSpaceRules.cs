@@ -58,8 +58,11 @@ public static class ProcessorSpaceRules
     /// implementation of the gate to produce that sentence is how the two would come to disagree.
     /// </para>
     /// </remarks>
-    public static bool CanConfirm(ProcessorSpace space, IEnumerable<Match> matches) =>
-        ConfirmBlockedReason(space, matches) is null;
+    public static bool CanConfirm(
+        ProcessorSpace space,
+        IEnumerable<Match> matches,
+        CancelledRecords cancelled) =>
+        ConfirmBlockedReason(space, matches, cancelled) is null;
 
     /// <summary>
     /// Why <paramref name="space"/> may not be confirmed, or null when it may.
@@ -69,7 +72,10 @@ public static class ProcessorSpaceRules
     /// decision has already been taken, the space is cancelled, or the matches are not all agreed yet.
     /// A single catch-all sentence would read as wrong on two of the three.
     /// </remarks>
-    public static string? ConfirmBlockedReason(ProcessorSpace space, IEnumerable<Match> matches)
+    public static string? ConfirmBlockedReason(
+        ProcessorSpace space,
+        IEnumerable<Match> matches,
+        CancelledRecords cancelled)
     {
         switch (space.Status)
         {
@@ -86,12 +92,13 @@ public static class ProcessorSpaceRules
                 return NotOpenForConfirmation;
         }
 
-        var live = matches
-            .Where(m => m.ProcessorSpaceId == space.Id)
-            .Where(MatchQuantities.IsLive)
-            .ToList();
+        // The matches that actually fill this space: a match to a cancelled availability record fills
+        // nothing, so it neither satisfies the gate nor blocks it. A space whose only match is one of
+        // those has nothing confirmed against it and cannot be confirmed — which is the same answer
+        // its meter gives, now that the match no longer counts towards it.
+        var live = MatchQuantities.ConsumingSpace(space, matches, cancelled);
 
-        return live.Count > 0 && live.TrueForAll(m => m.Status == MatchStatus.Confirmed)
+        return live.Count > 0 && live.All(m => m.Status == MatchStatus.Confirmed)
             ? null
             : NeedsConfirmedMatches;
     }

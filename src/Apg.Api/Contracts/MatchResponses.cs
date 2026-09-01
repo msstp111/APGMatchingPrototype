@@ -1,11 +1,12 @@
 namespace Apg.Api.Contracts;
 
 /// <summary>
-/// What the two match-write endpoints send back.
+/// What every write endpoint sends back — the match ones, and from Phase 7 the record ones too.
 /// </summary>
 /// <remarks>
-/// A class of its own rather than local functions in <c>Program.cs</c>, so both endpoints share one
-/// success shape and one error shape and the client has exactly one field to read a message from.
+/// A class of its own rather than local functions in <c>Program.cs</c>, so every endpoint shares one
+/// success shape per kind of write and <b>one error shape</b>, and the client has exactly one field to
+/// read a message from however the write failed.
 /// </remarks>
 public static class MatchResponses
 {
@@ -68,6 +69,48 @@ public static class MatchResponses
             : Results.Ok(space);
     }
 
+
+    /// <summary>
+    /// One record, re-read and re-projected after a Phase 7 write, and the recomputed week calendar.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// One record and not both, because a record write touches one side. That is true even of a
+    /// cancellation, which leaves every match — and so every counterparty record — exactly as it was.
+    /// </para>
+    /// <para>
+    /// The calendar comes back with it because a create, or an edit that moves a date, can move the
+    /// range of weeks the two columns are drawn on. A record whose week is not in the client's band
+    /// list places nowhere and vanishes off the screen, and the client cannot name a new week itself
+    /// without doing date arithmetic in the browser.
+    /// </para>
+    /// </remarks>
+    public static async Task<IResult> RecordResultAsync(
+        WorkingSetLoader loader,
+        TimeProvider clock,
+        int? spaceId,
+        int? availabilityId,
+        CancellationToken cancellation)
+    {
+        var set = await loader.LoadAsync(cancellation);
+        var space = spaceId is null ? null : MatchingProjection.SpaceById(set, spaceId.Value);
+        var availability = availabilityId is null
+            ? null
+            : MatchingProjection.AvailabilityById(set, availabilityId.Value);
+
+        if (space is null && availability is null)
+        {
+            return Results.NotFound(Message(
+                spaceId is null ? RecordWriter.NoSuchAvailability : MatchWriter.NoSuchSpace));
+        }
+
+        return Results.Ok(new RecordWriteResultDto
+        {
+            Space = space,
+            Availability = availability,
+            Weeks = MatchingProjection.WeekBands(set, clock),
+        });
+    }
     /// <summary>The one shape an error comes back in.</summary>
     public static object Message(string message) => new { message };
 }

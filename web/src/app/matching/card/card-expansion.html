@@ -60,7 +60,25 @@
             -->
             <tr class="openable" title="Open this match" (click)="openMatch(m.id)">
               <td class="num">{{ m.quantityMatched }}</td>
-              <td>{{ m.farmerName || '-' }}<span class="sub">{{ m.locationName || '-' }}</span></td>
+              <!--
+                A cancelled partner is flagged here rather than inferred. Cancelling a record never
+                cascades to its matches, so this match is still live under a record that is not — and
+                the operator who cancelled the other side needs to be able to see that from this card.
+                Icon and word, no hue: status carries no colour anywhere on this screen.
+              -->
+              <td>
+                {{ m.farmerName || '-' }}
+                @if (m.availabilityStatus === 'Cancelled') {
+                  <span
+                    class="orphan"
+                    title="This match's availability record has been cancelled. The match itself has not."
+                  >
+                    <span class="material-symbols-outlined" aria-hidden="true">block</span>
+                    record cancelled
+                  </span>
+                }
+                <span class="sub">{{ m.locationName || '-' }}</span>
+              </td>
               <!-- The counterparty's class: the two vocabularies do not map, and that is the point. -->
               <td class="muted">{{ m.availabilityStockClass }}</td>
               <td>
@@ -94,8 +112,30 @@
       from its matches, never set.
     -->
     <div class="actions">
-      <button matButton="outlined" type="button" [disabled]="!s.canConfirm" (click)="confirmSpace()">
+      <button
+        matButton="outlined"
+        type="button"
+        [disabled]="!s.canConfirm"
+        (click)="confirmSpace()"
+      >
         Confirm space
+      </button>
+
+      <!--
+        Phase 7's debug controls sit beside Confirm rather than on the 52px row, which has no width for
+        them (design-system.md 6.2 item 4, 16.10). Cancelling does NOT cancel the matches listed above:
+        the dialog lists them before the fact and they stay on this table afterwards.
+      -->
+      <button matButton type="button" class="dbg" (click)="editRecord()">Edit</button>
+      <button
+        matButton
+        type="button"
+        class="dbg danger"
+        [disabled]="isCancelled()"
+        title="Cancelling a space does not cancel its matches"
+        (click)="cancelRecord()"
+      >
+        Cancel
       </button>
 
       @if (confirmBlockedReason(); as reason) {
@@ -165,7 +205,19 @@
             <!-- The same row, the same match, the same modal — opened by id from either side. -->
             <tr class="openable" title="Open this match" (click)="openMatch(m.id)">
               <td class="num">{{ m.quantityMatched }}</td>
-              <td>{{ m.processor }}<span class="sub">{{ m.plant }}</span></td>
+              <td>
+                {{ m.processor }}
+                @if (m.spaceStatus === 'Cancelled') {
+                  <span
+                    class="orphan"
+                    title="This match's processor space has been cancelled. The match itself has not."
+                  >
+                    <span class="material-symbols-outlined" aria-hidden="true">block</span>
+                    space cancelled
+                  </span>
+                }
+                <span class="sub">{{ m.plant }}</span>
+              </td>
               <td class="muted">{{ m.spaceStockClass }}</td>
               <!-- The delivery time rides in this cell rather than taking a column: seven fit, eight
                    do not (design-system.md 6.2). -->
@@ -197,6 +249,22 @@
           }
         </tbody>
       </table>
+    </div>
+
+    <!-- The same two controls as the demand side. There is no Confirm here: an availability record's
+         status is derived from its matches, never set. -->
+    <div class="actions">
+      <button matButton type="button" class="dbg" (click)="editRecord()">Edit</button>
+      <button
+        matButton
+        type="button"
+        class="dbg danger"
+        [disabled]="isCancelled()"
+        title="Cancelling a record does not cancel its matches"
+        (click)="cancelRecord()"
+      >
+        Cancel
+      </button>
     </div>
   }
 </div>

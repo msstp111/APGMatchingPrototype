@@ -14,7 +14,7 @@ public class QuantityRuleTests
     {
         var space = Given.Space(quantityRequired: 100);
 
-        var tally = MatchQuantities.ForSpace(space, []);
+        var tally = MatchQuantities.ForSpace(space, [], CancelledRecords.None);
 
         Assert.Equal(0, tally.MatchedInclDraft);
         Assert.Equal(0, tally.MatchedExclDraft);
@@ -28,7 +28,7 @@ public class QuantityRuleTests
         var space = Given.Space(quantityRequired: 100);
         var matches = Given.Matches((40, MatchStatus.Cancelled), (25, MatchStatus.Cancelled));
 
-        var tally = MatchQuantities.ForSpace(space, matches);
+        var tally = MatchQuantities.ForSpace(space, matches, CancelledRecords.None);
 
         Assert.Equal(0, tally.MatchedInclDraft);
         Assert.Equal(0, tally.MatchedExclDraft);
@@ -46,7 +46,7 @@ public class QuantityRuleTests
         var space = Given.Space(quantityRequired: 100);
         var matches = Given.Matches((30, MatchStatus.Drafted), (45, MatchStatus.Confirmed));
 
-        var tally = MatchQuantities.ForSpace(space, matches);
+        var tally = MatchQuantities.ForSpace(space, matches, CancelledRecords.None);
 
         Assert.Equal(75, tally.MatchedInclDraft);
         Assert.Equal(45, tally.MatchedExclDraft);
@@ -62,7 +62,7 @@ public class QuantityRuleTests
         var space = Given.Space(quantityRequired: 100);
         var matches = Given.Matches((30, MatchStatus.Drafted), (45, MatchStatus.Confirmed));
 
-        Assert.Equal(25, MatchQuantities.ForSpace(space, matches).Unmatched);
+        Assert.Equal(25, MatchQuantities.ForSpace(space, matches, CancelledRecords.None).Unmatched);
     }
 
     [Fact]
@@ -75,7 +75,7 @@ public class QuantityRuleTests
             (30, MatchStatus.Confirmed),
             (40, MatchStatus.Cancelled));
 
-        var tally = MatchQuantities.ForSpace(space, matches);
+        var tally = MatchQuantities.ForSpace(space, matches, CancelledRecords.None);
 
         // Notified is live and not a draft, so it counts towards both sums.
         Assert.Equal(60, tally.MatchedInclDraft);
@@ -89,7 +89,7 @@ public class QuantityRuleTests
         var space = Given.Space(quantityRequired: 90);
         var matches = Given.Matches((50, MatchStatus.Confirmed), (40, MatchStatus.Drafted));
 
-        var tally = MatchQuantities.ForSpace(space, matches);
+        var tally = MatchQuantities.ForSpace(space, matches, CancelledRecords.None);
 
         Assert.Equal(0, tally.Unmatched);
         Assert.Equal(QuantityState.Exact, tally.State);
@@ -101,7 +101,7 @@ public class QuantityRuleTests
         var availability = Given.Availability(quantityAvailable: 60);
         var matches = Given.Matches((35, MatchStatus.Confirmed), (25, MatchStatus.Confirmed));
 
-        var tally = MatchQuantities.ForAvailability(availability, matches);
+        var tally = MatchQuantities.ForAvailability(availability, matches, CancelledRecords.None);
 
         Assert.Equal(0, tally.Unmatched);
         Assert.Equal(QuantityState.Exact, tally.State);
@@ -117,7 +117,7 @@ public class QuantityRuleTests
         var space = Given.Space(quantityRequired: 100);
         var matches = Given.Matches((70, MatchStatus.Confirmed), (45, MatchStatus.Drafted));
 
-        var tally = MatchQuantities.ForSpace(space, matches);
+        var tally = MatchQuantities.ForSpace(space, matches, CancelledRecords.None);
 
         Assert.Equal(115, tally.MatchedInclDraft);
         Assert.Equal(-15, tally.Unmatched);
@@ -134,7 +134,7 @@ public class QuantityRuleTests
         var availability = Given.Availability(quantityAvailable: 50);
         var matches = Given.Matches((40, MatchStatus.Confirmed), (30, MatchStatus.Confirmed));
 
-        var tally = MatchQuantities.ForAvailability(availability, matches);
+        var tally = MatchQuantities.ForAvailability(availability, matches, CancelledRecords.None);
 
         Assert.Equal(-20, tally.Unmatched);
         Assert.Equal(QuantityState.Over, tally.State);
@@ -159,8 +159,8 @@ public class QuantityRuleTests
             Given.Match(40, MatchStatus.Confirmed, id: 4, spaceId: 2, availabilityId: 1),
         };
 
-        Assert.Equal(50, MatchQuantities.ForSpace(space, allMatches).MatchedInclDraft);
-        Assert.Equal(70, MatchQuantities.ForAvailability(availability, allMatches).MatchedInclDraft);
+        Assert.Equal(50, MatchQuantities.ForSpace(space, allMatches, CancelledRecords.None).MatchedInclDraft);
+        Assert.Equal(70, MatchQuantities.ForAvailability(availability, allMatches, CancelledRecords.None).MatchedInclDraft);
     }
 
     [Theory]

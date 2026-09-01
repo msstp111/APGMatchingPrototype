@@ -109,3 +109,24 @@ body.apg-drag-cancelled .cdk-drag-preview {
   letter-spacing: 0.5px;
   text-transform: uppercase;
 }
+
+// --- Form-field labels inside dialogs -----------------------------------------------------------
+//
+// Phase 6's browser pass left an open question: none of the three field labels was visible in either
+// dialog, and the suspicion was density. It is. Material's own density table
+// (@angular/material/form-field/_m3-form-field.scss, get-density-tokens) sets
+// `form-field-filled-label-display: none` from density -2 downwards — so at our -2 every
+// `appearance="fill"` field is silently unlabelled, and it would have been for every form Phase 7
+// adds as well.
+//
+// Fixed here rather than per dialog, so the quantity prompt and the match modal are fixed by the same
+// change as the record forms. The four values below are Material's own density -1 row, restored
+// wholesale rather than hand-tuned: a taller container without the matching label padding leaves the
+// label sitting on the value. Only dialogs are relaxed. The 40px filter row is what -2 exists for, and
+// it holds no form fields at all — every control on it is a chip and a menu.
+.mat-mdc-dialog-container .mat-mdc-form-field {
+  --mat-form-field-container-height: 52px;
+  --mat-form-field-filled-label-display: block;
+  --mat-form-field-filled-with-label-container-padding-top: 22px;
+  --mat-form-field-filled-with-label-container-padding-bottom: 6px;
+}

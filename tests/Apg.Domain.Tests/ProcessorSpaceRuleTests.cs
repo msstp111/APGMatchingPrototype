@@ -13,7 +13,7 @@ public class ProcessorSpaceRuleTests
     {
         var space = Given.Space(quantityRequired: 100);
 
-        Assert.False(ProcessorSpaceRules.CanConfirm(space, []));
+        Assert.False(ProcessorSpaceRules.CanConfirm(space, [], CancelledRecords.None));
     }
 
     [Fact]
@@ -22,7 +22,7 @@ public class ProcessorSpaceRuleTests
         var space = Given.Space(quantityRequired: 100);
         var matches = Given.Matches((40, MatchStatus.Drafted), (30, MatchStatus.Drafted));
 
-        Assert.False(ProcessorSpaceRules.CanConfirm(space, matches));
+        Assert.False(ProcessorSpaceRules.CanConfirm(space, matches, CancelledRecords.None));
     }
 
     /// <summary>
@@ -35,7 +35,7 @@ public class ProcessorSpaceRuleTests
         var space = Given.Space(quantityRequired: 100);
         var matches = Given.Matches((60, MatchStatus.Confirmed), (40, MatchStatus.Drafted));
 
-        Assert.False(ProcessorSpaceRules.CanConfirm(space, matches));
+        Assert.False(ProcessorSpaceRules.CanConfirm(space, matches, CancelledRecords.None));
     }
 
     /// <summary>
@@ -48,7 +48,7 @@ public class ProcessorSpaceRuleTests
         var space = Given.Space(quantityRequired: 100);
         var matches = Given.Matches((60, MatchStatus.Confirmed), (40, MatchStatus.Notified));
 
-        Assert.False(ProcessorSpaceRules.CanConfirm(space, matches));
+        Assert.False(ProcessorSpaceRules.CanConfirm(space, matches, CancelledRecords.None));
     }
 
     [Fact]
@@ -57,7 +57,7 @@ public class ProcessorSpaceRuleTests
         var space = Given.Space(quantityRequired: 100);
         var matches = Given.Matches((60, MatchStatus.Confirmed));
 
-        Assert.True(ProcessorSpaceRules.CanConfirm(space, matches));
+        Assert.True(ProcessorSpaceRules.CanConfirm(space, matches, CancelledRecords.None));
     }
 
     [Fact]
@@ -68,8 +68,8 @@ public class ProcessorSpaceRuleTests
         var space = Given.Space(quantityRequired: 500);
         var matches = Given.Matches((60, MatchStatus.Confirmed));
 
-        Assert.Equal(QuantityState.Under, MatchQuantities.ForSpace(space, matches).State);
-        Assert.True(ProcessorSpaceRules.CanConfirm(space, matches));
+        Assert.Equal(QuantityState.Under, MatchQuantities.ForSpace(space, matches, CancelledRecords.None).State);
+        Assert.True(ProcessorSpaceRules.CanConfirm(space, matches, CancelledRecords.None));
     }
 
     [Fact]
@@ -79,8 +79,8 @@ public class ProcessorSpaceRuleTests
         var confirmedAndCancelled = Given.Matches((60, MatchStatus.Confirmed), (40, MatchStatus.Cancelled));
         var cancelledOnly = Given.Matches((40, MatchStatus.Cancelled));
 
-        Assert.True(ProcessorSpaceRules.CanConfirm(space, confirmedAndCancelled));
-        Assert.False(ProcessorSpaceRules.CanConfirm(space, cancelledOnly));
+        Assert.True(ProcessorSpaceRules.CanConfirm(space, confirmedAndCancelled, CancelledRecords.None));
+        Assert.False(ProcessorSpaceRules.CanConfirm(space, cancelledOnly, CancelledRecords.None));
     }
 
     [Theory]
@@ -93,7 +93,7 @@ public class ProcessorSpaceRuleTests
         var space = Given.Space(quantityRequired: 100, status: status);
         var matches = Given.Matches((60, MatchStatus.Confirmed));
 
-        Assert.False(ProcessorSpaceRules.CanConfirm(space, matches));
+        Assert.False(ProcessorSpaceRules.CanConfirm(space, matches, CancelledRecords.None));
     }
 
     [Fact]
@@ -106,7 +106,7 @@ public class ProcessorSpaceRuleTests
             Given.Match(60, MatchStatus.Confirmed, id: 1, spaceId: 2),
         };
 
-        Assert.False(ProcessorSpaceRules.CanConfirm(space, otherSpacesMatches));
+        Assert.False(ProcessorSpaceRules.CanConfirm(space, otherSpacesMatches, CancelledRecords.None));
     }
 
     /// <summary>
@@ -120,13 +120,13 @@ public class ProcessorSpaceRuleTests
 
         Assert.Equal(
             ProcessorSpaceRules.NeedsConfirmedMatches,
-            ProcessorSpaceRules.ConfirmBlockedReason(space, []));
+            ProcessorSpaceRules.ConfirmBlockedReason(space, [], CancelledRecords.None));
 
         Assert.Equal(
             ProcessorSpaceRules.NeedsConfirmedMatches,
             ProcessorSpaceRules.ConfirmBlockedReason(
                 space,
-                Given.Matches((60, MatchStatus.Confirmed), (40, MatchStatus.Drafted))));
+                Given.Matches((60, MatchStatus.Confirmed), (40, MatchStatus.Drafted)), CancelledRecords.None));
     }
 
     [Fact]
@@ -137,7 +137,7 @@ public class ProcessorSpaceRuleTests
 
         Assert.Equal(
             ProcessorSpaceRules.AlreadyConfirmed,
-            ProcessorSpaceRules.ConfirmBlockedReason(space, matches));
+            ProcessorSpaceRules.ConfirmBlockedReason(space, matches, CancelledRecords.None));
     }
 
     [Fact]
@@ -148,7 +148,7 @@ public class ProcessorSpaceRuleTests
 
         Assert.Equal(
             ProcessorSpaceRules.SpaceIsCancelled,
-            ProcessorSpaceRules.ConfirmBlockedReason(space, matches));
+            ProcessorSpaceRules.ConfirmBlockedReason(space, matches, CancelledRecords.None));
     }
 
     /// <summary>
@@ -176,8 +176,8 @@ public class ProcessorSpaceRuleTests
         foreach (var matches in cases)
         {
             Assert.Equal(
-                ProcessorSpaceRules.CanConfirm(space, matches),
-                ProcessorSpaceRules.ConfirmBlockedReason(space, matches) is null);
+                ProcessorSpaceRules.CanConfirm(space, matches, CancelledRecords.None),
+                ProcessorSpaceRules.ConfirmBlockedReason(space, matches, CancelledRecords.None) is null);
         }
     }
 

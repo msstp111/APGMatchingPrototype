@@ -37,18 +37,55 @@ public static class MatchQuantities
     }
 
     /// <summary>
+    /// The matches that consume a Processor Space's quantity: its own, still live, and <b>not</b> tied
+    /// to a cancelled availability record.
+    /// </summary>
+    /// <remarks>
+    /// Public because two other rules need exactly this set — the confirm gate, and nothing else may
+    /// re-derive it. Note which status is consulted: tallying a space asks about the <em>availability
+    /// record</em> on the other end, never about the space itself. A cancelled space's own figures are
+    /// untouched by its own cancellation.
+    /// </remarks>
+    public static IReadOnlyList<Match> ConsumingSpace(
+        ProcessorSpace space,
+        IEnumerable<Match> matches,
+        CancelledRecords cancelled) =>
+        matches
+            .Where(m => m.ProcessorSpaceId == space.Id && IsLive(m) && !cancelled.AvailabilityOf(m))
+            .ToList();
+
+    /// <inheritdoc cref="ConsumingSpace"/>
+    public static IReadOnlyList<Match> ConsumingAvailability(
+        LivestockAvailability availability,
+        IEnumerable<Match> matches,
+        CancelledRecords cancelled) =>
+        matches
+            .Where(m => m.LivestockAvailabilityId == availability.Id && IsLive(m) && !cancelled.SpaceOf(m))
+            .ToList();
+
+    /// <summary>
     /// A Processor Space's arithmetic. Filters <paramref name="matches"/> by the space's own id, so
     /// handing it the whole match set is safe rather than silently wrong — the failure mode of the
     /// alternative is a plausible number that is not this record's.
     /// </summary>
-    public static QuantityTally ForSpace(ProcessorSpace space, IEnumerable<Match> matches) =>
-        Tally(space.QuantityRequired, matches.Where(m => m.ProcessorSpaceId == space.Id).ToList());
+    /// <remarks>
+    /// <paramref name="cancelled"/> is required rather than optional because the answer is wrong
+    /// without it and wrong in the direction that hides supply: a match to a cancelled availability
+    /// record would go on filling this space forever. Pass <see cref="CancelledRecords.None"/> only
+    /// when there genuinely are no records — a unit test over hand-built matches.
+    /// </remarks>
+    public static QuantityTally ForSpace(
+        ProcessorSpace space,
+        IEnumerable<Match> matches,
+        CancelledRecords cancelled) =>
+        Tally(space.QuantityRequired, ConsumingSpace(space, matches, cancelled));
 
-    /// <summary>
-    /// A Livestock Availability record's arithmetic, scoped the same way.
-    /// </summary>
-    public static QuantityTally ForAvailability(LivestockAvailability availability, IEnumerable<Match> matches) =>
+    /// <inheritdoc cref="ForSpace"/>
+    public static QuantityTally ForAvailability(
+        LivestockAvailability availability,
+        IEnumerable<Match> matches,
+        CancelledRecords cancelled) =>
         Tally(
             availability.QuantityAvailable,
-            matches.Where(m => m.LivestockAvailabilityId == availability.Id).ToList());
+            ConsumingAvailability(availability, matches, cancelled));
 }

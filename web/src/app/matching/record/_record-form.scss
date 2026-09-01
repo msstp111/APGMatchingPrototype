@@ -1,0 +1,112 @@
+// Shared by both debug forms, so the demand and supply dialogs cannot drift apart in layout the way
+// two hand-styled forms would.
+@use '../card-geometry' as geo;
+@use '../../../styles/lms-tokens' as lms;
+
+// Material caps dialog content at 65vh, which would clip a form of eight fields and put a scrollbar
+// inside a panel short enough to read whole. The same override both Phase 5 and Phase 6 dialogs make.
+:host mat-dialog-content.mat-mdc-dialog-content {
+  max-height: none;
+  overflow: visible;
+}
+
+// LOAD BEARING, and it looks like tidying. Material's subscript wrapper is a fixed height, so a hint
+// or an error that wraps overflows it and lands on whatever follows — which is exactly what the first
+// browser pass found in both Phase 5 and Phase 6 dialogs. `auto` lets it push instead.
+.fields .mat-mdc-form-field-subscript-wrapper {
+  height: auto;
+}
+
+.fields {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0 12px;
+}
+
+.fields mat-form-field {
+  flex: 1 1 180px;
+  min-width: 0;
+}
+
+// A read-only field, for the attributes an edit may not change (requirement 4.2). Styled as a field
+// rather than as prose so the form still reads as one row of fields.
+.fixed {
+  flex: 1 1 180px;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 2px;
+  height: 52px;
+  padding: 0 12px;
+  background: lms.$lms-attention-bg;
+  border-bottom: 1px solid lms.$lms-rule-strong;
+}
+
+.flabel {
+  font-size: 11px;
+  color: lms.$lms-text-muted;
+}
+
+.fvalue {
+  font-size: 13px;
+  color: lms.$lms-text;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.f-notes {
+  flex: 1 1 100%;
+}
+
+// A consequence, not a validation failure: the field stays valid and the button stays enabled.
+// $lms-error rather than an amber, because every usable amber lands on the quantity ramp's orange.
+.warn {
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+  margin: 4px 0 0;
+  font-size: 12.5px;
+  line-height: 17px;
+  color: lms.$lms-error;
+  @include geo.numerals;
+}
+
+.wicon {
+  font-size: 17px;
+  line-height: 17px;
+  flex: 0 0 auto;
+}
+
+.note {
+  margin: 10px 0 0;
+  font-size: 12px;
+  line-height: 16px;
+  color: lms.$lms-text-muted;
+}
+
+// The farmer that the chosen location settled, under the field that settled them.
+.farmer {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: lms.$lms-text;
+  font-size: 12.5px;
+}
+
+.ficon {
+  font-size: 17px;
+  line-height: 17px;
+  color: lms.$lms-text-muted;
+}
+
+.fmob {
+  color: lms.$lms-text-muted;
+  @include geo.numerals;
+}
+
+.f-details,
+.f-notes {
+  flex: 1 1 100%;
+}

@@ -32,26 +32,33 @@ public static class AvailabilityStatus
     /// <item><description>Anything else → <see cref="LivestockAvailabilityStatus.Pending"/>.</description></item>
     /// </list>
     /// </remarks>
+    /// <remarks>
+    /// <b>"Live" here means the matches that consume this record's supply</b>, which excludes one
+    /// tied to a cancelled Processor Space as surely as a Cancelled one: neither holds any of this
+    /// farmer's stock. A record whose only match is to a cancelled space is therefore <c>Booked</c>
+    /// with everything unmatched — which is the truth, and it is the red badge on the card, not this
+    /// status, that says somebody still has a match to tidy up.
+    /// </remarks>
     public static LivestockAvailabilityStatus Derive(
         LivestockAvailability availability,
-        IEnumerable<Match> matches)
+        IEnumerable<Match> matches,
+        CancelledRecords cancelled)
     {
         if (availability.Status == LivestockAvailabilityStatus.Cancelled)
         {
             return LivestockAvailabilityStatus.Cancelled;
         }
 
-        var scoped = matches.Where(m => m.LivestockAvailabilityId == availability.Id).ToList();
-        var live = scoped.Where(MatchQuantities.IsLive).ToList();
+        var consuming = MatchQuantities.ConsumingAvailability(availability, matches, cancelled);
 
-        if (live.Count == 0)
+        if (consuming.Count == 0)
         {
             return LivestockAvailabilityStatus.Booked;
         }
 
-        var unmatched = MatchQuantities.Tally(availability.QuantityAvailable, scoped).Unmatched;
+        var unmatched = MatchQuantities.ForAvailability(availability, matches, cancelled).Unmatched;
 
-        return unmatched == 0 && live.TrueForAll(m => m.Status == MatchStatus.Confirmed)
+        return unmatched == 0 && consuming.All(m => m.Status == MatchStatus.Confirmed)
             ? LivestockAvailabilityStatus.Confirmed
             : LivestockAvailabilityStatus.Pending;
     }

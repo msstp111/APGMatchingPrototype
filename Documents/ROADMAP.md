@@ -266,8 +266,17 @@ the numbers. It also matches the existing app, where status is plain uncoloured 
 
 Everything below is **computed, never stored**:
 
-- `matchedInclDraft` = sum of `quantityMatched` where status ≠ Cancelled.
-- `matchedExclDraft` = sum where status not in (Cancelled, Drafted). Labelled "Quantity Matched".
+- `matchedInclDraft` = sum of `quantityMatched` where status ≠ Cancelled **and the match's
+  counterparty record is not cancelled**.
+- `matchedExclDraft` = same set, less the Drafted ones. Labelled "Quantity Matched".
+- **A match consumes nothing from a record once the record on the *other* end is cancelled** (decided
+  2026-09-01, during Phase 7). Cancelling still does not cascade — the match keeps its status and has
+  to be cancelled by hand — but a farmer whose stock was matched to a cancelled space has that stock to
+  sell again, and the screen must say so. The rule is **asymmetric**: it is always the counterparty's
+  status that decides, so a cancelled record's own figures are unchanged by its own cancellation. It
+  lives in `MatchQuantities.ConsumingSpace` / `ConsumingAvailability`, and every rule downstream of
+  them — both sums, the derived availability status, the confirm gate, the drag default and the edit
+  ceiling — takes a `CancelledRecords` because none of them is right without it.
 - `unmatched` = original quantity − `matchedInclDraft`.
 - Processor Space colours: orange < required, green = required, blue > required.
 - Availability colours: orange < available, green = available, **pink** > available (a bug flag —
@@ -277,7 +286,8 @@ Everything below is **computed, never stored**:
 - Processor Space status: `Booked` on create, `Confirmed` by APG action, `Cancelled` explicit.
   **Not derived.**
 - Cancelling either record **never** cascades to its matches. This is deliberate: it lets APG arrange
-  alternatives before notifying anyone.
+  alternatives before notifying anyone. It does, however, release the *other* record's quantity — see
+  the bullet above; the match survives untouched, it simply stops holding stock that has nowhere to go.
 - Match creation default quantity = `min(unmatched_space, unmatched_availability)`; if that is < 1,
   refuse with "There is no unmatched quantity".
 

@@ -296,6 +296,175 @@ app.MapPost("/api/processor-spaces/{id:int}/confirm", async (
     return await MatchResponses.SpaceResultAsync(loader, id, cancellation);
 });
 
+// --- Phase 7: debug record creation ------------------------------------------------------------
+//
+// These back the "+ Add" controls on the two columns, which are demo scaffolding rather than the
+// farmer/agent submission journey (deferred past pass 1). The forms are debug tooling; the rules
+// below are not. A processor's plants and stock classes are its own, and the server checks that
+// whatever the form allowed.
+//
+// Every one of them answers RecordWriteResultDto: the one record it touched, and the recomputed week
+// calendar. A record whose week is not in the client's band list places nowhere and vanishes off the
+// screen, and only the server can name a week no record used to fall in.
+
+// The vocabularies the forms pick from. Straight off SeedConfig, so APG's real lists stay a one-file
+// swap - and deliberately not derived from the loaded records, the way the filter row's options are:
+// a stock class nothing uses yet is still a valid choice for a new record.
+app.MapGet("/api/reference-data", () => RecordWriter.ReferenceData());
+
+// ~300 locations, each with the one farmer it belongs to (resolved question 10), so picking the
+// location in the availability form settles the farmer and the form can show back who was chosen.
+app.MapGet("/api/locations", async (WorkingSetLoader loader, CancellationToken cancellation) =>
+    RecordWriter.Locations(await loader.LoadAsync(cancellation)));
+
+app.MapPost("/api/processor-spaces", async (
+        CreateProcessorSpaceRequest request,
+        ApgDbContext db,
+        WorkingSetLoader loader,
+        TimeProvider clock,
+        CancellationToken cancellation) =>
+{
+    if (RecordWriter.RejectCreateSpace(request) is { } rejection)
+    {
+        return Results.BadRequest(MatchResponses.Message(rejection));
+    }
+
+    var space = RecordWriter.NewSpace(request);
+
+    db.ProcessorSpaces.Add(space);
+    await db.SaveChangesAsync(cancellation);
+
+    return await MatchResponses.RecordResultAsync(loader, clock, space.Id, null, cancellation);
+});
+
+// Quantity required, plant, delivery date, delivery time and notes (requirement 4.2). The processor
+// and the stock class are what the meatworks booked and are not editable.
+app.MapPut("/api/processor-spaces/{id:int}", async (
+        int id,
+        UpdateProcessorSpaceRequest request,
+        ApgDbContext db,
+        WorkingSetLoader loader,
+        TimeProvider clock,
+        CancellationToken cancellation) =>
+{
+    var space = await db.ProcessorSpaces.FirstOrDefaultAsync(s => s.Id == id, cancellation);
+    var rejection = RecordWriter.RejectUpdateSpace(space, request);
+
+    if (rejection is not null)
+    {
+        return space is null
+            ? Results.NotFound(MatchResponses.Message(rejection))
+            : Results.BadRequest(MatchResponses.Message(rejection));
+    }
+
+    RecordWriter.ApplySpace(space!, request);
+    await db.SaveChangesAsync(cancellation);
+
+    return await MatchResponses.RecordResultAsync(loader, clock, id, null, cancellation);
+});
+
+// Cancelling a record. THE MATCHES ARE NOT TOUCHED, and that is the whole point (requirement 5.2):
+// they stay live on their own cards and have to be cancelled separately, which is what lets APG
+// arrange alternatives before anyone is notified. The domain helper takes no match collection at all,
+// so this endpoint has nothing to cascade with even if it wanted to - and note that it deliberately
+// does not refuse a record that holds live matches either.
+app.MapPost("/api/processor-spaces/{id:int}/cancel", async (
+        int id,
+        ApgDbContext db,
+        WorkingSetLoader loader,
+        TimeProvider clock,
+        CancellationToken cancellation) =>
+{
+    var space = await db.ProcessorSpaces.FirstOrDefaultAsync(s => s.Id == id, cancellation);
+    var rejection = RecordWriter.RejectCancelSpace(space);
+
+    if (rejection is not null)
+    {
+        return space is null
+            ? Results.NotFound(MatchResponses.Message(rejection))
+            : Results.Conflict(MatchResponses.Message(rejection));
+    }
+
+    RecordCancellation.CancelProcessorSpace(space!);
+    await db.SaveChangesAsync(cancellation);
+
+    return await MatchResponses.RecordResultAsync(loader, clock, id, null, cancellation);
+});
+
+app.MapPost("/api/livestock-availability", async (
+        CreateLivestockAvailabilityRequest request,
+        ApgDbContext db,
+        WorkingSetLoader loader,
+        TimeProvider clock,
+        CancellationToken cancellation) =>
+{
+    if (RecordWriter.RejectCreateAvailability(await loader.LoadAsync(cancellation), request) is { } rejection)
+    {
+        return Results.BadRequest(MatchResponses.Message(rejection));
+    }
+
+    var availability = RecordWriter.NewAvailability(request);
+
+    db.LivestockAvailabilities.Add(availability);
+    await db.SaveChangesAsync(cancellation);
+
+    return await MatchResponses.RecordResultAsync(loader, clock, null, availability.Id, cancellation);
+});
+
+// Every attribute (requirement 4.3) - including the quantity, and including a quantity below what is
+// already matched. That is not an oversight: it is the one intended route to the pink "Over-committed"
+// state, because a farmer really can sell stock elsewhere (requirements 4.4 and 4.5). The form warns
+// and names the consequence; the server does not refuse it.
+app.MapPut("/api/livestock-availability/{id:int}", async (
+        int id,
+        UpdateLivestockAvailabilityRequest request,
+        ApgDbContext db,
+        WorkingSetLoader loader,
+        TimeProvider clock,
+        CancellationToken cancellation) =>
+{
+    var availability = await db.LivestockAvailabilities.FirstOrDefaultAsync(a => a.Id == id, cancellation);
+    var set = await loader.LoadAsync(cancellation);
+    var rejection = RecordWriter.RejectUpdateAvailability(set, availability, request);
+
+    if (rejection is not null)
+    {
+        return availability is null
+            ? Results.NotFound(MatchResponses.Message(rejection))
+            : Results.BadRequest(MatchResponses.Message(rejection));
+    }
+
+    RecordWriter.ApplyAvailability(availability!, request);
+    await db.SaveChangesAsync(cancellation);
+
+    return await MatchResponses.RecordResultAsync(loader, clock, null, id, cancellation);
+});
+
+// As above, and the same in every respect that matters: the record's matches survive untouched, and
+// the record keeps deriving as Cancelled while they hang off it. That is the intended state.
+app.MapPost("/api/livestock-availability/{id:int}/cancel", async (
+        int id,
+        ApgDbContext db,
+        WorkingSetLoader loader,
+        TimeProvider clock,
+        CancellationToken cancellation) =>
+{
+    var availability = await db.LivestockAvailabilities.FirstOrDefaultAsync(a => a.Id == id, cancellation);
+    var rejection = RecordWriter.RejectCancelAvailability(availability);
+
+    if (rejection is not null)
+    {
+        return availability is null
+            ? Results.NotFound(MatchResponses.Message(rejection))
+            : Results.Conflict(MatchResponses.Message(rejection));
+    }
+
+    RecordCancellation.CancelAvailability(availability!);
+    await db.SaveChangesAsync(cancellation);
+
+    return await MatchResponses.RecordResultAsync(loader, clock, null, id, cancellation);
+});
+
 app.MapPost("/api/dev/reset-database", async (DatabaseSeeder seeder) =>
 {
     await seeder.ResetAsync();

@@ -117,12 +117,19 @@ export class MatchingScreen {
    * this screen quietly asserting something the server did not say.
    */
   private applyPatch(patch: RecordPatch): void {
+    // The calendar first, and only when the write carried one: a record created for a week these
+    // columns were not drawn on has to bring that week with it, or it would place into no band at all
+    // and simply not appear. Only Phase 7's record writes can move the range; a match has no date.
+    if (patch.weeks) {
+      this.weeks.set(patch.weeks);
+    }
+
     if (patch.space) {
-      this.spaces.update((list) => replaceById(list, patch.space!));
+      this.spaces.update((list) => upsertById(list, patch.space!));
     }
 
     if (patch.availability) {
-      this.availability.update((list) => replaceById(list, patch.availability!));
+      this.availability.update((list) => upsertById(list, patch.availability!));
     }
   }
 
@@ -140,6 +147,15 @@ export class MatchingScreen {
 
 const UNREACHABLE = 'Could not reach the API. Is it running on http://localhost:5286?';
 
-function replaceById<T extends { readonly id: number }>(list: readonly T[], next: T): T[] {
-  return list.map((item) => (item.id === next.id ? next : item));
+/**
+ * Replaces a record by id, or appends it when this screen has never seen it.
+ *
+ * The append is Phase 7's: a record created from the debug form is not in either list yet, and
+ * replacing by id alone would drop it silently — the one failure mode where nothing errors and nothing
+ * appears. Position does not matter, because both lists are sorted before they are banded.
+ */
+function upsertById<T extends { readonly id: number }>(list: readonly T[], next: T): T[] {
+  return list.some((item) => item.id === next.id)
+    ? list.map((item) => (item.id === next.id ? next : item))
+    : [...list, next];
 }

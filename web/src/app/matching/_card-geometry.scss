@@ -316,6 +316,16 @@ $meter-gap: 6px;
     color: lms.$lms-text;
   }
 
+  // A match under a cancelled partner record (Phase 7, 5.3). It sits with the match count, which is
+  // the first thing to drop when line 2 runs short, so the drop order in design-system.md 6.1 is
+  // unchanged: the status icon and its word are still the last things standing.
+  .orphan {
+    flex: 0 0 auto;
+    font-size: 15px;
+    line-height: 15px;
+    color: lms.$lms-faint;
+  }
+
   .status {
     flex: 0 0 auto;
     display: inline-flex;
@@ -336,6 +346,22 @@ $meter-gap: 6px;
   .chev {
     @include chevron-button;
     align-self: center;
+  }
+
+  // A record holding a match whose partner record has been cancelled (Phase 7, 5.3).
+  //
+  // A SOLID $lms-error square behind the chevron, at Mark's direction, and the same exception the
+  // match table's badge makes: this is not a status being reported — the card's own status is
+  // untouched — it is work outstanding on a collapsed card, and the chevron is the control that opens
+  // the very table explaining it. Square rather than the chevron's usual round, so it reads as the
+  // same badge as the one inside.
+  //
+  // $lms-error is a semantic token and no part of the quantity ramp, so the meter's three colours are
+  // untouched. It is the one place hue says something other than fill, and it says "deal with this".
+  .chev.orphaned {
+    background: lms.$lms-error;
+    border-radius: 2px;
+    color: #ffffff;
   }
 
   // The over-state ink, for line 2's literal label. Hue here is the quantity ramp's, not status's.

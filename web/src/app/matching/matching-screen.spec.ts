@@ -485,6 +485,93 @@ describe('Matching screen', () => {
   });
 
   // -------------------------------------------------------------------------------------------
+  // Phase 7 — records arriving, and the calendar moving under them
+  // -------------------------------------------------------------------------------------------
+
+  describe('debug record writes', () => {
+    /**
+     * A created record is not in either list yet, so a patch that only replaced by id would drop it
+     * silently — the one failure mode where nothing errors and nothing appears.
+     */
+    it('adds a record it has never seen rather than dropping it', async () => {
+      const fixture = await mount();
+
+      writes.next({
+        space: aSpace({ id: 99, processor: 'THE-NEW-SPACE', weekCommencing: '2026-08-23' }),
+      });
+      await fixture.whenStable();
+
+      // This fixture's own DOM, not text(): that helper mounts a fresh screen, which would reload
+      // the stubbed lists and lose the patch under test.
+      const host = fixture.nativeElement as HTMLElement;
+
+      expect(host.querySelectorAll('app-space-card')).toHaveLength(2);
+      expect(host.textContent).toContain('THE-NEW-SPACE');
+    });
+
+    /**
+     * A record created for a week the columns were not drawn on has to bring that week with it, or it
+     * would place into no band at all. The server sends the recomputed calendar with every record
+     * write for exactly this.
+     */
+    it('adopts the recomputed calendar so a record beyond it still lands in a band', async () => {
+      const fixture = await mount();
+
+      const far = aSpace({ id: 99, processor: 'FAR-FUTURE', weekCommencing: '2026-09-20' });
+
+      const host = fixture.nativeElement as HTMLElement;
+
+      // Without the new weeks the record is unplaced and invisible — the failure this guards.
+      writes.next({ space: far });
+      await fixture.whenStable();
+      expect(host.textContent).not.toContain('FAR-FUTURE');
+
+      writes.next({ space: far, weeks: weeks(3, 8) });
+      await fixture.whenStable();
+
+      expect(host.textContent).toContain('FAR-FUTURE');
+    });
+
+    /**
+     * A record whose match hangs off a cancelled partner gets a solid red square behind its chevron,
+     * on the collapsed card, so the outstanding work is visible without expanding anything. It is the
+     * chevron because that is the control which opens the table naming the match.
+     */
+    it('badges the chevron of a record whose match has a cancelled partner', async () => {
+      const fixture = await mount();
+      const host = fixture.nativeElement as HTMLElement;
+
+      expect(host.querySelector('app-space-card .chev.orphaned')).toBeNull();
+
+      writes.next({
+        space: aSpace({ matches: [aMatch({ id: 3, availabilityStatus: 'Cancelled' })] }),
+      });
+      await fixture.whenStable();
+
+      const chevron = host.querySelector('app-space-card .chev.orphaned');
+
+      expect(chevron).not.toBeNull();
+      expect(chevron?.getAttribute('title')).toContain('never cascades');
+
+      // And it goes when the partner is live again — this is a view of the data, not a sticky flag.
+      writes.next({ space: aSpace({ matches: [aMatch({ id: 3 })] }) });
+      await fixture.whenStable();
+
+      expect(host.querySelector('app-space-card .chev.orphaned')).toBeNull();
+    });
+
+    it('leaves the calendar alone when a write did not carry one', async () => {
+      const fixture = await mount();
+      const before = fixture.componentInstance.weeks().length;
+
+      writes.next({ space: aSpace({ unmatched: 5 }) });
+      await fixture.whenStable();
+
+      expect(fixture.componentInstance.weeks().length).toBe(before);
+    });
+  });
+
+  // -------------------------------------------------------------------------------------------
   // Phase 6 — a match is managed; a space is confirmed
   // -------------------------------------------------------------------------------------------
 

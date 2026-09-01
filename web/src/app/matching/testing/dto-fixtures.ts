@@ -124,12 +124,16 @@ export function aMatch(overrides: Partial<MatchDto> = {}): MatchDto {
     processor: 'ANZCO',
     plant: 'Rangitikei',
     spaceStockClass: 'Nat Beef - Premium',
+    // Both parents' statuses ride on a match, so a card can flag a partner record that has been
+    // cancelled. Live under a cancelled parent is a normal state — cancelling never cascades.
+    spaceStatus: 'Booked',
     deliveryDate: '2026-08-27',
     deliveryDateLabel: '27-08-26',
     deliveryTime: 'Morning',
     farmerName: 'Mark Dale',
     locationName: 'Alford Farms HQ',
     availabilityStockClass: 'Prime',
+    availabilityStatus: 'Pending',
     availabilityDetails: null,
     availableFrom: '2026-08-24',
     availableFromLabel: '24-08-26',

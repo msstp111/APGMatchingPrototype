@@ -548,7 +548,7 @@ public class DtoProjectionTests
         foreach (var dto in spaces)
         {
             var space = SeedFixture.Data.ProcessorSpaces.Single(s => s.Id == dto.Id);
-            var tally = MatchQuantities.ForSpace(space, SeedFixture.Data.Matches);
+            var tally = MatchQuantities.ForSpace(space, SeedFixture.Data.Matches, SeedFixture.Cancelled);
 
             Assert.Equal(tally.MatchedInclDraft, dto.MatchedInclDraft);
             Assert.Equal(tally.MatchedExclDraft, dto.MatchedExclDraft);
@@ -561,11 +561,11 @@ public class DtoProjectionTests
         foreach (var dto in availabilities)
         {
             var availability = SeedFixture.Data.Availabilities.Single(a => a.Id == dto.Id);
-            var tally = MatchQuantities.ForAvailability(availability, SeedFixture.Data.Matches);
+            var tally = MatchQuantities.ForAvailability(availability, SeedFixture.Data.Matches, SeedFixture.Cancelled);
 
             Assert.Equal(tally.Unmatched, dto.Unmatched);
             Assert.Equal(
-                AvailabilityStatus.Derive(availability, SeedFixture.Data.Matches),
+                AvailabilityStatus.Derive(availability, SeedFixture.Data.Matches, SeedFixture.Cancelled),
                 dto.Status);
             Assert.Equal(DayOfWeek.Sunday, dto.WeekCommencing.DayOfWeek);
             Assert.NotNull(dto.FarmerName);

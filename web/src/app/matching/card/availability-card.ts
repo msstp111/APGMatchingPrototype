@@ -18,6 +18,8 @@ import { CardExpansion } from './card-expansion';
 import { FillMeter } from './fill-meter';
 import { StockClassTile } from './stock-class-tile';
 import {
+  cancelledPartnerCount,
+  cancelledPartnerTitle,
   matchBreakdown,
   matchSummaryLabel,
   quantityClass,
@@ -89,6 +91,11 @@ export class AvailabilityCard {
 
   /** With none, the label is a statement rather than a way in, so it stays plain text. */
   readonly hasMatches = computed(() => this.record().matches.length > 0);
+
+  /** @see SpaceCard.orphanedCount — the same flag, counting cancelled processor spaces. */
+  readonly orphanedCount = computed(() => cancelledPartnerCount(this.record().matches, 'supply'));
+
+  readonly orphanedTitle = computed(() => cancelledPartnerTitle(this.orphanedCount(), 'supply'));
 
   readonly expanded = computed(() => this.state.isExpanded('supply', this.record().id));
 

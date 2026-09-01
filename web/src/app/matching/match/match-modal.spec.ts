@@ -104,13 +104,40 @@ describe('Match modal', () => {
    * the over-commit the pink state exists to flag. The note spells the real rule out on screen so the
    * question does not have to be asked.
    */
-  it('spells the ceiling out as unmatched plus this match own quantity', async () => {
+  /**
+   * The ceiling sentence lives in the quantity field's own hint, not in a note under the row: the
+   * field a sentence sits in is what says which field it is about, and this one constrains exactly
+   * one. It replaced a bare `max 472`, which invited the very question the requirements document
+   * answers wrongly — why not the record's *original* quantity?
+   */
+  it('spells the ceiling out in the quantity field own hint', async () => {
     const fixture = await mount(context());
-    const notes = (fixture.nativeElement as HTMLElement).querySelector('.ceiling')?.textContent ?? '';
+    const host = fixture.nativeElement as HTMLElement;
+    const hint = host.querySelector('.f-quantity mat-hint')?.textContent ?? '';
 
-    expect(notes).toContain('Ceiling 472');
-    expect(notes).toContain('177 unmatched');
-    expect(notes).toContain('own 295');
+    expect(hint).toContain('Ceiling 472');
+    expect(hint).toContain('177 unmatched');
+    expect(hint).toContain('own 295');
+
+    // And nowhere else: the note it used to sit in is gone, so the sentence cannot appear twice.
+    expect(host.querySelector('.ceiling')).toBeNull();
+  });
+
+  /**
+   * A wrapped hint has to push the dialog down rather than paint over it. That takes two things, and
+   * only one of them is CSS: Material's hint wrapper is `position: absolute` inside a fixed-height
+   * subscript unless the field is told otherwise, and `height: auto` cannot size to an absolutely
+   * positioned child. jsdom has no layout, but it can see whether the attribute that switches it is
+   * there — which is the half a stylesheet edit would silently drop.
+   */
+  it('lets every field subscript take real space, so a wrapped hint pushes rather than overlaps', async () => {
+    const fixture = await mount(context());
+    const host = fixture.nativeElement as HTMLElement;
+    const fields = host.querySelectorAll('.fields mat-form-field');
+    const dynamic = host.querySelectorAll('.fields .mat-mdc-form-field-subscript-dynamic-size');
+
+    expect(fields.length).toBe(3);
+    expect(dynamic.length).toBe(3);
   });
 
   /**

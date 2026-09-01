@@ -50,6 +50,13 @@ writing the current week is **w/c 30 Aug** and the bands run 23-08 (past) throug
 changes to the figure. The pass also found three rendering defects in the match modal, all since fixed
 (see the Phase 6 entry in `BUILD-LOG.md`, "First browser pass"). Everything else below is still unrun.
 
+**Phase 7 closed one open question without a browser.** Phase 6's pass reported that no `mat-label`
+was visible in either dialog and left the cause open. It is Material's own density table: from density
+`-2` down, `form-field-filled-label-display` is `none`, and the theme runs at `-2`. `web/src/styles.scss`
+now restores Material's `-1` row for dialog form fields only. **That fix is itself unverified on
+screen** — section H's first item is the check, and it is the highest-value item in this file, because
+it is a claim about every dialog rather than one screen.
+
 ---
 
 ## A. Density and geometry — the numbers the design stands or falls on
@@ -230,6 +237,73 @@ behaviour. Those are decisions, not defects.
 
 ---
 
+## H. Debug record creation (Phase 7)
+
+**Everything in this section is demo scaffolding, not the farmer/agent submission flow.** The first
+item is the one to run first: it is a claim about every dialog in the app, not just these two.
+
+- [ ] **Field labels are visible in every dialog.** Open the match modal (a card's match line →
+      a table row) and check that `Quantity matched`, `Price per kg` and `Transport company` are
+      *legible above their values*. Phase 6's browser pass found all three missing and could not
+      explain it; the cause was Material's density table, which hides a filled field's label from
+      density `-2` down, and `web/src/styles.scss` now restores the `-1` row for dialog form fields
+      only. **If they are still invisible, that fix is wrong and every form in the app is unlabelled.**
+      Check the quantity prompt (any drag) and both record forms in the same pass.
+- [ ] The quantity prompt's transport field still carries its name in the **hint** rather than a
+      `mat-label`, which is Mark's own decision (Phase 6, "do not re-tidy it") — but it was made while
+      no label was rendering anywhere. Now that labels show, decide whether it still reads right beside
+      two labelled fields. **A judgement call, not a defect.**
+- [ ] **`+ Add space` and `+ Add record` sit at the right of each column header**, are 26px stroked
+      with a tools glyph, and are visibly lighter than anything else on the screen (§14).
+- [ ] **They follow the columns across the flip.** Press the flip button; each stays with its own
+      column.
+- [ ] **Both forms open with a `# DEMO DATA TOOL #` ribbon** in the dev-flag yellow-green, and a line
+      saying it is not the farmer's real submission form. Nobody watching should mistake it.
+- [ ] **The date fields are native date inputs** and render in the local `dd/mm/yyyy` form. Type a date
+      and check the record lands in the right week band.
+- [ ] **Add a Processor Space** for next week: choose ANZCO and confirm the stock class menu holds only
+      ANZCO's seven classes and the plant menu only ANZCO's seven plants. Then **switch the processor to
+      SFF** and confirm the plant and stock class **clear** rather than keeping an ANZCO value.
+- [ ] The new space **appears immediately, in the correct week band**, and can be dragged onto.
+      A space created for a week **beyond the loaded calendar** (try three months out) must still
+      appear — the columns re-band on the write. Note it will add interior empty weeks between "now"
+      and it; that is the calendar being honest, not a bug (§9.3).
+- [ ] A space dated **outside the seeded price table** (weeks −4 to +8) reports `No default price for …`
+      at the drag. Correct, and worth knowing before it looks like a bug in a demo.
+- [ ] **Add a Livestock Availability record**: type three letters into Location, pick one, and confirm
+      the **farmer's name and mobile appear under the field**. Choose **Finance Stock** and confirm
+      **nothing opens** — no Purchase list. That absence is a requirement, not an omission.
+- [ ] **Edit a space** (expand a card → `Edit`): processor and stock class are **read-only**; plant,
+      quantity, delivery date, time and notes are editable.
+- [ ] **The pink state, the intended way.** Expand availability **#6** (144 available, 124 matched
+      across 3 matches — re-check the ids against the live data if the seed has moved), `Edit`, and set
+      the quantity to **100**. The field grows a warning naming 124 head; saving asks once more, naming
+      the consequence; agreeing writes it. **The meter goes pink, the numeral reads `-24`, and the card
+      says `Over-committed`.** The three matches are unchanged. This is the only route to that state.
+- [ ] Declining that prompt writes **nothing** and says nothing.
+- [ ] **Cancel a record holding live matches.** Expand a space with two or more matches → `Cancel`.
+      The dialog **lists every match by quantity, status and counterparty** and says they will not be
+      cancelled. Confirm, and then check all four places the survivors show up:
+      1. the snack says *"its N matches are untouched"*;
+      2. its `SHOW IT` action ticks `Cancelled` into that column's Status filter and **the card comes
+         back**, still listing every match;
+      3. the **other column's** cards carry a `block` glyph on line 2 beside the match count;
+      4. expanding one of those shows `space cancelled` in the counterparty cell of the match row.
+- [ ] The cancelled record's own matches still appear in **its** expanded table too.
+- [ ] **The red badge, both places.** The counterparty card's chevron sits on a solid red square, and
+      expanding it shows `space cancelled` / `record cancelled` in a red box in the match row. Hover
+      the chevron: the title says the matches themselves are not cancelled.
+- [ ] **The freed quantity.** Against the seeded data, availability **#30** reads **251** unmatched of
+      330 (143 head are matched to cancelled space #7 and no longer count), **#48** reads 220 and
+      derives `Booked`, and **#10** reads 32 and is *in* the supply column — it read 0 and was filtered
+      out before this rule. Cancelled spaces #7 and #16 keep their own figures: 63 and 143 matched.
+- [ ] **The match modal's hints.** Open any match: the quantity field's hint reads
+      `Ceiling N = the availability's M unmatched, plus this match's own K.`, wraps inside its own
+      150px field, and **pushes the fields below it down rather than painting over them**. There is no
+      separate ceiling note under the row. Type a quantity above the ceiling: the same sentence appears
+      as a red error. Then check the price hint wraps the same way.
+- [ ] Cancelling the same record twice is refused with a message rather than silently repeated.
+
 ## Things that look wrong and are correct
 
 Do not report these. Each is a decision with a reason recorded.
@@ -246,6 +320,12 @@ Do not report these. Each is a decision with a reason recorded.
 | **No six-dot grab glyph** on hover | Not built. `cursor: grab` is the only handle cue. Phase 8's, if wanted. (§10.) |
 | **Nothing responds to the keyboard** for dragging | Resolved question 14: a mouse is assumed at all times. Its absence is a decision. |
 | The first week is **all ANZCO** | Chance, not arithmetic — the mix is 70/20/10 shuffled. The aliasing bug that caused it was fixed after Phase 4. |
+| A cancelled record's **matches are still there**, on both cards | The rule this whole phase exists to show. Cancelling a record never cascades — it lets APG arrange alternatives before anyone is notified. Cancel them separately. (Phase 7, 5.2.) |
+| …but the counterparty's **unmatched went up** when the record was cancelled | Not a cascade: the match is untouched, it just stops holding stock that has nowhere to go. Always the *other* record's figures — a cancelled record's own are unchanged. (Phase 7 addendum, 3.) |
+| A record reads **`Booked`** while wearing the red badge | Nothing is holding its stock (so: Booked) and a match still needs cancelling by hand (so: the badge). Both are true. |
+| A cancelled record **vanishes from the column** | It has left both default filters. `SHOW IT` on the snack, or ticking `Cancelled` in the Status filter, brings it back. (Phase 7, 5.4.) |
+| A record created **months out** adds a run of empty week bands | Interior empty weeks keep their headers: a gap in the calendar is information. Only the runs at each *end* are trimmed. (§9.3.) |
+| A brand-new space says **`no default price`** when dragged | The seeded price table runs weeks −4 to +8. Beyond it there is honestly no price, and the prompt says so rather than inventing one. (§11.1.) |
 
 ## Recording the result
 

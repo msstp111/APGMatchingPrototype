@@ -18,6 +18,8 @@ import { CardExpansion } from './card-expansion';
 import { FillMeter } from './fill-meter';
 import { StockClassTile } from './stock-class-tile';
 import {
+  cancelledPartnerCount,
+  cancelledPartnerTitle,
   matchBreakdown,
   matchSummaryLabel,
   quantityClass,
@@ -86,6 +88,17 @@ export class SpaceCard {
 
   /** With none, the label is a statement rather than a way in, so it stays plain text. */
   readonly hasMatches = computed(() => this.space().matches.length > 0);
+
+  /**
+   * How many of this space's matches sit under a cancelled availability record.
+   *
+   * Nearly always zero, and worth a glyph when it is not: cancelling a record never cascades, so those
+   * matches are still live and still counted in this card's own figures while the record on the other
+   * end has gone. Nothing else on this card would say so.
+   */
+  readonly orphanedCount = computed(() => cancelledPartnerCount(this.space().matches, 'demand'));
+
+  readonly orphanedTitle = computed(() => cancelledPartnerTitle(this.orphanedCount(), 'demand'));
 
   readonly expanded = computed(() => this.state.isExpanded('demand', this.space().id));
 

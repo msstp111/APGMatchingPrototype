@@ -30,6 +30,30 @@ public static class RecordCancellation
     public static void CancelAvailability(LivestockAvailability availability) =>
         availability.Status = LivestockAvailabilityStatus.Cancelled;
 
+    /// <summary>Refused when a record has already been cancelled — there is nothing left to do to it.</summary>
+    public const string SpaceAlreadyCancelled = "This processor space is already cancelled";
+
+    /// <inheritdoc cref="SpaceAlreadyCancelled"/>
+    public const string AvailabilityAlreadyCancelled =
+        "This livestock availability record is already cancelled";
+
+    /// <summary>
+    /// Whether a Processor Space may be cancelled: anything but an already-cancelled one.
+    /// </summary>
+    /// <remarks>
+    /// It takes the space and nothing else, for the same reason
+    /// <see cref="CancelProcessorSpace"/> does. A gate that had to be handed the match set would be a
+    /// gate that could come to depend on it — "no, there are matches" is exactly the cascade this file
+    /// exists to make impossible. A Confirmed space is cancellable: a booking can fall through after it
+    /// has been agreed, which is the case cancelling is for.
+    /// </remarks>
+    public static bool CanCancelProcessorSpace(ProcessorSpace space) =>
+        space.Status != ProcessorSpaceStatus.Cancelled;
+
+    /// <inheritdoc cref="CanCancelProcessorSpace"/>
+    public static bool CanCancelAvailability(LivestockAvailability availability) =>
+        availability.Status != LivestockAvailabilityStatus.Cancelled;
+
     /// <summary>
     /// Cancels a single match, which is the only way a match's status ever becomes Cancelled. A
     /// reason is required: the three are a change from the agent or farmer, a change from the

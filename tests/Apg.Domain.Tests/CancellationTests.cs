@@ -55,7 +55,7 @@ public class CancellationTests
         var matches = LiveMatches();
 
         RecordCancellation.CancelAvailability(availability);
-        var tally = MatchQuantities.ForAvailability(availability, matches);
+        var tally = MatchQuantities.ForAvailability(availability, matches, CancelledRecords.None);
 
         Assert.Equal(100, tally.MatchedInclDraft);
         Assert.Equal(60, tally.MatchedExclDraft);
@@ -95,9 +95,9 @@ public class CancellationTests
         Assert.Equal(LivestockAvailabilityStatus.Booked, availability.Status);
         Assert.Equal(
             LivestockAvailabilityStatus.Pending,
-            AvailabilityStatus.Derive(availability, matches));
-        Assert.Equal(40, MatchQuantities.ForAvailability(availability, matches).MatchedInclDraft);
-        Assert.Equal(60, MatchQuantities.ForAvailability(availability, matches).Unmatched);
+            AvailabilityStatus.Derive(availability, matches, CancelledRecords.None));
+        Assert.Equal(40, MatchQuantities.ForAvailability(availability, matches, CancelledRecords.None).MatchedInclDraft);
+        Assert.Equal(60, MatchQuantities.ForAvailability(availability, matches, CancelledRecords.None).Unmatched);
     }
 
     /// <summary>
@@ -158,6 +158,51 @@ public class CancellationTests
             .GetMethods()
             .Where(m => m.Name is nameof(RecordCancellation.CancelProcessorSpace)
                 or nameof(RecordCancellation.CancelAvailability))
+            .SelectMany(m => m.GetParameters())
+            .ToList();
+
+        Assert.NotEmpty(parameters);
+        Assert.DoesNotContain(parameters, p => typeof(IEnumerable<Match>).IsAssignableFrom(p.ParameterType));
+    }
+
+    /// <summary>
+    /// The only thing that stops a record being cancelled is having been cancelled already.
+    /// </summary>
+    /// <remarks>
+    /// Emphatically <b>not</b> "it still has matches" (Phase 7, 5.2). A Confirmed space is cancellable
+    /// too: a booking can fall through after it has been agreed, which is the case cancelling exists
+    /// for.
+    /// </remarks>
+    [Fact]
+    public void Anything_but_an_already_cancelled_record_may_be_cancelled()
+    {
+        var space = Given.Space(quantityRequired: 100);
+        var availability = Given.Availability(quantityAvailable: 100);
+
+        Assert.True(RecordCancellation.CanCancelProcessorSpace(space));
+        Assert.True(RecordCancellation.CanCancelAvailability(availability));
+
+        space.Status = ProcessorSpaceStatus.Confirmed;
+        availability.Status = LivestockAvailabilityStatus.Confirmed;
+
+        Assert.True(RecordCancellation.CanCancelProcessorSpace(space));
+        Assert.True(RecordCancellation.CanCancelAvailability(availability));
+
+        RecordCancellation.CancelProcessorSpace(space);
+        RecordCancellation.CancelAvailability(availability);
+
+        Assert.False(RecordCancellation.CanCancelProcessorSpace(space));
+        Assert.False(RecordCancellation.CanCancelAvailability(availability));
+    }
+
+    /// <summary>The gates are as blind to the match set as the acts they guard — same reason.</summary>
+    [Fact]
+    public void Neither_cancel_gate_accepts_a_match_collection_either()
+    {
+        var parameters = typeof(RecordCancellation)
+            .GetMethods()
+            .Where(m => m.Name is nameof(RecordCancellation.CanCancelProcessorSpace)
+                or nameof(RecordCancellation.CanCancelAvailability))
             .SelectMany(m => m.GetParameters())
             .ToList();
 

@@ -1,0 +1,138 @@
+<!--
+  A debug form, and it says so: the ribbon at the top is the same yellow-green flag the shell's top bar
+  carries, because nobody watching a demo should mistake this for the farmer's real submission form
+  (requirement 1.3).
+
+  Nothing here computes. The over-fill caption compares what was typed against the DTO's own
+  matched-incl-draft figure and states both; the consequence itself is never worked out in this file.
+-->
+<h2 mat-dialog-title>{{ title }}</h2>
+
+<mat-dialog-content>
+  <app-debug-ribbon />
+
+  @if (cancelledNote) {
+    <p class="warn">
+      <span class="material-symbols-outlined wicon" aria-hidden="true">block</span>
+      {{ cancelledNote }}
+    </p>
+  }
+
+  <form [formGroup]="form" class="fields">
+    @if (isEdit) {
+      <!--
+        Requirement 4.2 makes neither of these editable. They are what the meatworks booked: changing
+        the processor would re-key the space's default price and invalidate its plant in one stroke.
+      -->
+      <div class="fixed">
+        <span class="flabel">Processor</span>
+        <span class="fvalue">{{ space!.processor }}</span>
+      </div>
+
+      <div class="fixed">
+        <span class="flabel">Stock class</span>
+        <span class="fvalue">{{ space!.stockClass }}</span>
+      </div>
+    } @else {
+      <mat-form-field appearance="fill" class="f-processor">
+        <mat-label>Processor</mat-label>
+        <mat-select formControlName="processor" (selectionChange)="onProcessorChange()">
+          @for (option of data.reference.processors; track option.name) {
+            <mat-option [value]="option.name">{{ option.name }}</mat-option>
+          }
+        </mat-select>
+        <mat-error>Choose a processor</mat-error>
+      </mat-form-field>
+
+      <!--
+        This processor's own list, and no other's. Changing the processor clears a selection that is
+        no longer on the menu rather than leaving it stale — see onProcessorChange.
+      -->
+      <!--
+        No [disabled] binding on any of these: Angular warns when one is used with a reactive form
+        directive, and it would be warning about the right thing — the enabled state would then live
+        in the template rather than in the form. An empty menu plus the hint says the same thing.
+      -->
+      <mat-form-field appearance="fill" class="f-class">
+        <mat-label>Stock class</mat-label>
+        <mat-select formControlName="stockClass">
+          @for (stockClass of stockClasses(); track stockClass) {
+            <mat-option [value]="stockClass">{{ stockClass }}</mat-option>
+          }
+        </mat-select>
+        @if (stockClasses().length === 0) {
+          <mat-hint>Choose a processor first</mat-hint>
+        } @else {
+          <mat-error>Choose a stock class</mat-error>
+        }
+      </mat-form-field>
+    }
+
+    <mat-form-field appearance="fill" class="f-plant">
+      <mat-label>Plant</mat-label>
+      <mat-select formControlName="plant">
+        @for (plant of plants(); track plant) {
+          <mat-option [value]="plant">{{ plant }}</mat-option>
+        }
+      </mat-select>
+      @if (plants().length === 0) {
+        <mat-hint>Choose a processor first</mat-hint>
+      } @else {
+        <mat-error>Choose a plant</mat-error>
+      }
+    </mat-form-field>
+
+    <mat-form-field appearance="fill" class="f-qty">
+      <mat-label>Quantity required</mat-label>
+      <input matInput type="number" formControlName="quantityRequired" />
+      <span matTextSuffix>head</span>
+      @if (form.controls.quantityRequired.hasError('integer')) {
+        <mat-error>A quantity is a whole number of head</mat-error>
+      } @else {
+        <mat-error>At least 1 head</mat-error>
+      }
+    </mat-form-field>
+
+    <!--
+      A native date input, deliberately: its value IS the ISO yyyy-MM-dd string the API wants, and the
+      browser renders it in the local format itself. A Material datepicker would hand this form a
+      JavaScript Date, which is the one thing no file under matching/ may construct.
+    -->
+    <mat-form-field appearance="fill" class="f-date">
+      <mat-label>Delivery date</mat-label>
+      <input matInput type="date" formControlName="deliveryDate" />
+      <mat-error>Choose a delivery date</mat-error>
+    </mat-form-field>
+
+    <mat-form-field appearance="fill" class="f-time">
+      <mat-label>Delivery time</mat-label>
+      <input matInput formControlName="deliveryTime" />
+      <mat-hint>Optional, free text</mat-hint>
+    </mat-form-field>
+
+    <mat-form-field appearance="fill" class="f-notes">
+      <mat-label>Notes</mat-label>
+      <textarea matInput rows="2" formControlName="notes"></textarea>
+    </mat-form-field>
+  </form>
+
+  @if (overFillCaption(); as caption) {
+    <p class="warn">
+      <span class="material-symbols-outlined wicon" aria-hidden="true">warning</span>
+      {{ caption }}
+    </p>
+  }
+
+  @if (!isEdit) {
+    <p class="note">
+      A new space is created Booked. Confirming one is a separate, explicit action.
+    </p>
+  }
+</mat-dialog-content>
+
+<mat-dialog-actions align="end">
+  <button matButton mat-dialog-close type="button">Cancel</button>
+  <button matButton="filled" type="button" (click)="save()">
+    {{ isEdit ? 'Save changes' : 'Add space' }}
+  </button>
+</mat-dialog-actions>

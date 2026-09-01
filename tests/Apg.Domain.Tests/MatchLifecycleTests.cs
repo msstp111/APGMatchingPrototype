@@ -105,13 +105,13 @@ public class MatchLifecycleTests
 
         Assert.Equal(
             LivestockAvailabilityStatus.Pending,
-            AvailabilityStatus.Derive(availability, matches));
+            AvailabilityStatus.Derive(availability, matches, CancelledRecords.None));
 
         MatchLifecycle.Confirm(matches[1]);
 
         Assert.Equal(
             LivestockAvailabilityStatus.Confirmed,
-            AvailabilityStatus.Derive(availability, matches));
+            AvailabilityStatus.Derive(availability, matches, CancelledRecords.None));
     }
 
     /// <summary>

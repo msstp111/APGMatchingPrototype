@@ -4,6 +4,7 @@ import {
   LivestockAvailabilityDto,
   MatchWriteResultDto,
   ProcessorSpaceDto,
+  WeekBandDto,
 } from '../../api/models';
 
 /**
@@ -19,6 +20,16 @@ import {
 export interface RecordPatch {
   readonly space?: ProcessorSpaceDto | null;
   readonly availability?: LivestockAvailabilityDto | null;
+
+  /**
+   * The recomputed week calendar, on a Phase 7 record write and on nothing else.
+   *
+   * A match write cannot move it: a match has no date of its own. A record write can — creating a
+   * space three months out, or moving an existing one, changes which weeks the columns are drawn on —
+   * and a record whose week is missing from the client's band list places into no band at all and
+   * disappears off the screen. Absent means "not affected", as everywhere else in this shape.
+   */
+  readonly weeks?: readonly WeekBandDto[];
 }
 
 /**

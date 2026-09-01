@@ -50,7 +50,7 @@ public static class MatchWriter
         // One call, one rule. Propose is the single entry point Phase 1 built for a drag: it applies
         // the min() default, the supply-side ceiling and the refusal condition together, so there is
         // no way to get one of the three from here and the others from somewhere else.
-        var proposal = MatchCreation.Propose(space, set.Matches, availability, set.Matches);
+        var proposal = MatchCreation.Propose(space, set.Matches, availability, set.Matches, Cancelled(set));
 
         return new MatchProposalDto
         {
@@ -86,7 +86,7 @@ public static class MatchWriter
 
         // The same gate the drop uses. Without this, a POST could add head to a space whose unmatched
         // is already below 1 — Propose refuses that pair, and the write path must too.
-        var proposal = MatchCreation.Propose(space, set.Matches, availability, set.Matches);
+        var proposal = MatchCreation.Propose(space, set.Matches, availability, set.Matches, Cancelled(set));
 
         if (!proposal.IsAllowed)
         {
@@ -98,7 +98,7 @@ public static class MatchWriter
             return BelowOneHead;
         }
 
-        var unmatched = MatchQuantities.ForAvailability(availability, set.Matches).Unmatched;
+        var unmatched = MatchQuantities.ForAvailability(availability, set.Matches, Cancelled(set)).Unmatched;
         var maximum = MatchCreation.MaxMatchQuantity(unmatched);
 
         return request.QuantityMatched > maximum
@@ -179,7 +179,7 @@ public static class MatchWriter
 
         return availability is null
             ? match.QuantityMatched
-            : MatchCreation.MaxMatchQuantity(availability, set.Matches, match);
+            : MatchCreation.MaxMatchQuantity(availability, set.Matches, match, Cancelled(set));
     }
 
     /// <summary>
@@ -229,7 +229,7 @@ public static class MatchWriter
     public static string? RejectSpaceConfirm(WorkingSet set, ProcessorSpace? space) =>
         space is null
             ? NoSuchSpace
-            : ProcessorSpaceRules.ConfirmBlockedReason(space, set.Matches);
+            : ProcessorSpaceRules.ConfirmBlockedReason(space, set.Matches, Cancelled(set));
 
     /// <summary>
     /// Everything the match modal opens with, or null when there is no such match to open.
@@ -293,6 +293,16 @@ public static class MatchWriter
             Status = MatchStatus.Drafted,
             CreatedAt = clock.GetUtcNow(),
         };
+
+    /// <summary>Which records are cancelled, for the rules below.</summary>
+    /// <remarks>
+    /// A match tied to a cancelled record stops consuming the <b>other</b> record's quantity, so every
+    /// figure this class validates against — the proposal, the supply cap, the edit ceiling — has to be
+    /// computed knowing which records those are. Built per call rather than cached: this class is pure
+    /// over a working set that is re-read after every write.
+    /// </remarks>
+    private static CancelledRecords Cancelled(WorkingSet set) =>
+        CancelledRecords.In(set.Spaces, set.Availabilities);
 
     private static ProcessorSpace? Space(WorkingSet set, int id) =>
         set.Spaces.FirstOrDefault(s => s.Id == id);

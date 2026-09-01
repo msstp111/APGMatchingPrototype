@@ -1,0 +1,89 @@
+@use '../card-geometry' as geo;
+@use '../../../styles/lms-tokens' as lms;
+
+.record {
+  margin: 0 0 12px;
+  font-size: 13.5px;
+  font-weight: 500;
+  color: lms.$lms-text;
+}
+
+// design-system.md 11.6: $lms-attention-bg with a 3px $lms-error left border. No amber anywhere.
+.warn {
+  display: flex;
+  gap: 8px;
+  padding: 8px 10px;
+  background: lms.$lms-attention-bg;
+  border-left: 3px solid lms.$lms-error;
+}
+
+.wicon {
+  flex: 0 0 auto;
+  font-size: 18px;
+  line-height: 18px;
+  color: lms.$lms-error;
+}
+
+.wbody {
+  font-size: 12.5px;
+  line-height: 17px;
+  color: lms.$lms-text;
+}
+
+// An LMS table, exactly as the expanded card's match table is.
+.survivors {
+  width: 100%;
+  margin-top: 12px;
+  border-collapse: collapse;
+  @include geo.numerals;
+}
+
+.survivors th {
+  height: 26px;
+  padding: 0 6px;
+  text-align: left;
+  font-size: 10.5px;
+  font-weight: 500;
+  letter-spacing: 0.7px;
+  text-transform: uppercase;
+  color: lms.$lms-text-muted;
+  border-bottom: 1px solid lms.$lms-divider;
+}
+
+.survivors td {
+  height: 30px;
+  padding: 0 6px;
+  font-size: 12.5px;
+  color: lms.$lms-text;
+  border-bottom: 1px solid lms.$lms-rule-soft;
+}
+
+.survivors tr:nth-child(even) td {
+  background: lms.$lms-card-zebra;
+}
+
+.num {
+  text-align: right;
+}
+
+.mstat {
+  font-size: 15px;
+  line-height: 15px;
+  vertical-align: -3px;
+  margin-right: 3px;
+  color: lms.$lms-text-muted;
+}
+
+.none,
+.after {
+  margin: 12px 0 0;
+  font-size: 12px;
+  line-height: 16px;
+  color: lms.$lms-text-muted;
+}
+
+// Destructive, so $lms-error rather than the petrol a constructive action takes.
+.danger {
+  --mat-button-filled-container-color: #{lms.$lms-error};
+  --mat-button-filled-label-text-color: #ffffff;
+}

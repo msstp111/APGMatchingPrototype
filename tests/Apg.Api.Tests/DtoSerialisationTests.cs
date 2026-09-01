@@ -181,6 +181,22 @@ public class DtoSerialisationTests
             "matches");
     }
 
+    /// <summary>
+    /// A match carries both parents' statuses, as strings, so the card on the far side can say that a
+    /// partner record has been cancelled (Phase 7, 5.3). Cancelling a record never cascades, so a live
+    /// match under a cancelled parent is a state the screen has to be able to show.
+    /// </summary>
+    [Fact]
+    public void A_match_ships_both_parents_statuses()
+    {
+        var match = Serialise(SeededSpace()).GetProperty("matches").EnumerateArray().First();
+
+        AssertHasAll(match, "spaceStatus", "availabilityStatus");
+
+        Assert.Equal(JsonValueKind.String, match.GetProperty("spaceStatus").ValueKind);
+        Assert.Equal(JsonValueKind.String, match.GetProperty("availabilityStatus").ValueKind);
+    }
+
     [Fact]
     public void An_instant_keeps_its_offset_because_it_genuinely_has_one()
     {

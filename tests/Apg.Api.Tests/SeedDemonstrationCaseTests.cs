@@ -44,7 +44,7 @@ public class SeedDemonstrationCaseTests
     public void At_least_one_space_is_over_filled()
     {
         var overFilled = SeedFixture.Data.ProcessorSpaces
-            .Where(s => MatchQuantities.ForSpace(s, SeedFixture.Data.Matches).State == QuantityState.Over)
+            .Where(s => MatchQuantities.ForSpace(s, SeedFixture.Data.Matches, SeedFixture.Cancelled).State == QuantityState.Over)
             .ToList();
 
         Assert.NotEmpty(overFilled);
@@ -55,7 +55,7 @@ public class SeedDemonstrationCaseTests
     {
         var exact = SeedFixture.Data.ProcessorSpaces
             .Where(s => SeedFixture.MatchesForSpace(s.Id).Count > 0)
-            .Where(s => MatchQuantities.ForSpace(s, SeedFixture.Data.Matches).State == QuantityState.Exact)
+            .Where(s => MatchQuantities.ForSpace(s, SeedFixture.Data.Matches, SeedFixture.Cancelled).State == QuantityState.Exact)
             .ToList();
 
         Assert.NotEmpty(exact);
@@ -68,7 +68,7 @@ public class SeedDemonstrationCaseTests
         // combination that derives an availability status of Confirmed, and the seed exists partly to
         // give that branch a worked example.
         var fullyConfirmed = SeedFixture.Data.Availabilities
-            .Where(a => AvailabilityStatus.Derive(a, SeedFixture.Data.Matches)
+            .Where(a => AvailabilityStatus.Derive(a, SeedFixture.Data.Matches, SeedFixture.Cancelled)
                 == LivestockAvailabilityStatus.Confirmed)
             .ToList();
 
@@ -177,7 +177,7 @@ public class SeedDemonstrationCaseTests
         // hard-capped (resolved question 1). The pink state exists only as a bug indicator.
         foreach (var availability in SeedFixture.Data.Availabilities)
         {
-            var tally = MatchQuantities.ForAvailability(availability, SeedFixture.Data.Matches);
+            var tally = MatchQuantities.ForAvailability(availability, SeedFixture.Data.Matches, SeedFixture.Cancelled);
 
             Assert.True(
                 tally.State != QuantityState.Over,

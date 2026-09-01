@@ -14,7 +14,7 @@ public class MatchCreationTests
         var space = Given.Space(quantityRequired: 100);
         var availability = Given.Availability(quantityAvailable: 60);
 
-        var proposal = MatchCreation.Propose(space, [], availability, []);
+        var proposal = MatchCreation.Propose(space, [], availability, [], CancelledRecords.None);
 
         Assert.True(proposal.IsAllowed);
         Assert.Equal(60, proposal.Quantity);
@@ -34,7 +34,7 @@ public class MatchCreationTests
         };
 
         // Space has 70 left, availability has 70 left.
-        var proposal = MatchCreation.Propose(space, matches, availability, matches);
+        var proposal = MatchCreation.Propose(space, matches, availability, matches, CancelledRecords.None);
 
         Assert.Equal(70, proposal.Quantity);
     }
@@ -49,7 +49,7 @@ public class MatchCreationTests
         var space = Given.Space(quantityRequired: 20);
         var availability = Given.Availability(quantityAvailable: 500);
 
-        var proposal = MatchCreation.Propose(space, [], availability, []);
+        var proposal = MatchCreation.Propose(space, [], availability, [], CancelledRecords.None);
 
         Assert.Equal(20, proposal.Quantity);
         Assert.Equal(500, proposal.Maximum);
@@ -62,7 +62,7 @@ public class MatchCreationTests
         var availability = Given.Availability(quantityAvailable: 40, id: 1);
         var matches = Given.Matches((40, MatchStatus.Confirmed));
 
-        var proposal = MatchCreation.Propose(space, [], availability, matches);
+        var proposal = MatchCreation.Propose(space, [], availability, matches, CancelledRecords.None);
 
         Assert.False(proposal.IsAllowed);
         Assert.Equal("There is no unmatched quantity", proposal.RefusalMessage);
@@ -78,7 +78,7 @@ public class MatchCreationTests
         var availability = Given.Availability(quantityAvailable: 100, id: 1);
         var spaceMatches = Given.Matches((80, MatchStatus.Confirmed));
 
-        var proposal = MatchCreation.Propose(space, spaceMatches, availability, []);
+        var proposal = MatchCreation.Propose(space, spaceMatches, availability, [], CancelledRecords.None);
 
         Assert.False(proposal.IsAllowed);
         Assert.Equal(MatchCreation.NoUnmatchedQuantity, proposal.RefusalMessage);
@@ -107,8 +107,8 @@ public class MatchCreationTests
         };
 
         // 100 available, 65 matched, so 35 unmatched — plus this match's own 40.
-        Assert.Equal(35, MatchQuantities.ForAvailability(availability, matches).Unmatched);
-        Assert.Equal(75, MatchCreation.MaxMatchQuantity(availability, matches, existing));
+        Assert.Equal(35, MatchQuantities.ForAvailability(availability, matches, CancelledRecords.None).Unmatched);
+        Assert.Equal(75, MatchCreation.MaxMatchQuantity(availability, matches, existing, CancelledRecords.None));
     }
 
     /// <summary>
@@ -127,7 +127,7 @@ public class MatchCreationTests
             Given.Match(25, MatchStatus.Confirmed, id: 2, availabilityId: 1),
         };
 
-        var ceiling = MatchCreation.MaxMatchQuantity(availability, matches, existing);
+        var ceiling = MatchCreation.MaxMatchQuantity(availability, matches, existing, CancelledRecords.None);
 
         Assert.NotEqual(availability.QuantityAvailable, ceiling);
         Assert.True(ceiling < availability.QuantityAvailable);
@@ -146,7 +146,7 @@ public class MatchCreationTests
             Given.Match(25, MatchStatus.Confirmed, id: 2, availabilityId: 1),
         };
 
-        Assert.Equal(75, MatchCreation.MaxMatchQuantity(availability, matches, cancelled));
+        Assert.Equal(75, MatchCreation.MaxMatchQuantity(availability, matches, cancelled, CancelledRecords.None));
     }
 
     /// <summary>
@@ -160,7 +160,7 @@ public class MatchCreationTests
         var availability = Given.Availability(quantityAvailable: 100, id: 1);
         var existing = Given.Matches((30, MatchStatus.Confirmed));
 
-        var proposal = MatchCreation.Propose(space, existing, availability, existing);
+        var proposal = MatchCreation.Propose(space, existing, availability, existing, CancelledRecords.None);
 
         Assert.True(proposal.IsAllowed);
         Assert.Equal(70, proposal.Quantity);

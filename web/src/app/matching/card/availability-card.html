@@ -20,35 +20,35 @@
   (cdkDropListDropped)="dropped($event)"
 >
   <ng-template #lines>
-      <div class="l1">
-        <app-stock-class-tile [stockClass]="record().stockClass" />
-        <span class="name" [title]="record().locationName || '-'">{{
-          record().locationName || '-'
-        }}</span>
-        <span class="sclass" [title]="record().stockClass">{{ record().stockClass }}</span>
-        <span class="date">{{ record().availableFromLabel }}</span>
-        <span class="qty">{{ record().quantityAvailable }}</span>
+    <div class="l1">
+      <app-stock-class-tile [stockClass]="record().stockClass" />
+      <span class="name" [title]="record().locationName || '-'">{{
+        record().locationName || '-'
+      }}</span>
+      <span class="sclass" [title]="record().stockClass">{{ record().stockClass }}</span>
+      <span class="date">{{ record().availableFromLabel }}</span>
+      <span class="qty">{{ record().quantityAvailable }}</span>
 
-        <app-fill-meter
-          [original]="record().quantityAvailable"
-          [matchedInclDraft]="record().matchedInclDraft"
-          [matchedExclDraft]="record().matchedExclDraft"
-          [unmatched]="record().unmatched"
-          [quantityState]="record().quantityState"
-          [quantityStateLabel]="record().quantityStateLabel"
-          side="supply"
-        />
-      </div>
+      <app-fill-meter
+        [original]="record().quantityAvailable"
+        [matchedInclDraft]="record().matchedInclDraft"
+        [matchedExclDraft]="record().matchedExclDraft"
+        [unmatched]="record().unmatched"
+        [quantityState]="record().quantityState"
+        [quantityStateLabel]="record().quantityStateLabel"
+        side="supply"
+      />
+    </div>
 
-      <div class="l2">
-        <span class="meta">{{ record().farmerName || '-' }} · {{ transactionType() }}</span>
+    <div class="l2">
+      <span class="meta">{{ record().farmerName || '-' }} · {{ transactionType() }}</span>
 
-        @if (isOver()) {
-          <!-- "Over-committed", from the DTO. If this ever shows, it is a bug and it is meant to. -->
-          <span class="over" [class]="overInk()">{{ record().quantityStateLabel }}</span>
-        }
+      @if (isOver()) {
+        <!-- "Over-committed", from the DTO. If this ever shows, it is a bug and it is meant to. -->
+        <span class="over" [class]="overInk()">{{ record().quantityStateLabel }}</span>
+      }
 
-        <!--
+      <!--
           Phase 5, 5.1: the card says what it already carries. Live matches only.
 
           Phase 6 makes it the way in. Clicking opens the expansion, whose match table opens a match —
@@ -56,28 +56,28 @@
           The pointerdown is stopped because this sits inside the drag handle: without it, a click that
           drifts a pixel would lift the card instead of opening it.
         -->
-        @if (hasMatches()) {
-          <button
-            type="button"
-            class="mcount"
-            [title]="matchesTitle()"
-            (pointerdown)="$event.stopPropagation()"
-            (click)="toggle()"
-          >
-            {{ matchesLabel() }}
-          </button>
-        } @else {
-          <span class="mcount" [title]="matchesTitle()">{{ matchesLabel() }}</span>
-        }
+      @if (hasMatches()) {
+        <button
+          type="button"
+          class="mcount"
+          [title]="matchesTitle()"
+          (pointerdown)="$event.stopPropagation()"
+          (click)="toggle()"
+        >
+          {{ matchesLabel() }}
+        </button>
+      } @else {
+        <span class="mcount" [title]="matchesTitle()">{{ matchesLabel() }}</span>
+      }
 
-        <span class="status">
-          <span class="material-symbols-outlined sicon" [class.filled]="statusFilled()">{{
-            statusGlyph()
-          }}</span>
-          {{ record().status }}
-        </span>
-      </div>
-    </ng-template>
+      <span class="status">
+        <span class="material-symbols-outlined sicon" [class.filled]="statusFilled()">{{
+          statusGlyph()
+        }}</span>
+        {{ record().status }}
+      </span>
+    </div>
+  </ng-template>
 
   @if (isSource()) {
     <div class="card stay" [class.zebra]="zebra()" aria-hidden="true">
@@ -105,15 +105,25 @@
       <ng-container [ngTemplateOutlet]="lines" />
     </div>
 
+    <!--
+      The chevron carries the cancelled-partner badge (Phase 7, 5.3): a solid red square behind it
+      when any of this record's matches hangs off a record that has been cancelled. It is the right
+      control to mark, because it is the one that opens the table naming which match and which record.
+      Its title becomes the explanation, so the row says it once rather than twice.
+    -->
     <button
       matIconButton
       class="chev"
       type="button"
+      [class.orphaned]="orphanedCount() > 0"
       [attr.aria-expanded]="expanded()"
       [attr.aria-label]="expanded() ? 'Collapse' : 'Expand'"
+      [title]="orphanedCount() > 0 ? orphanedTitle() : expanded() ? 'Collapse' : 'Expand'"
       (click)="toggle()"
     >
-      <span class="material-symbols-outlined">{{ expanded() ? 'expand_less' : 'expand_more' }}</span>
+      <span class="material-symbols-outlined">{{
+        expanded() ? 'expand_less' : 'expand_more'
+      }}</span>
     </button>
 
     <ng-template cdkDragPreview [matchSize]="true">

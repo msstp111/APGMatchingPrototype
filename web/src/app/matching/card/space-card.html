@@ -27,33 +27,33 @@
     stay-behind is not a CDK placeholder, so it never leaves this row.
   -->
   <ng-template #lines>
-      <div class="l1">
-        <app-stock-class-tile [stockClass]="space().stockClass" />
-        <span class="name" [title]="space().processor">{{ space().processor }}</span>
-        <span class="sclass" [title]="space().stockClass">{{ space().stockClass }}</span>
-        <span class="date">{{ space().deliveryDateLabel }}</span>
-        <span class="qty">{{ space().quantityRequired }}</span>
+    <div class="l1">
+      <app-stock-class-tile [stockClass]="space().stockClass" />
+      <span class="name" [title]="space().processor">{{ space().processor }}</span>
+      <span class="sclass" [title]="space().stockClass">{{ space().stockClass }}</span>
+      <span class="date">{{ space().deliveryDateLabel }}</span>
+      <span class="qty">{{ space().quantityRequired }}</span>
 
-        <app-fill-meter
-          [original]="space().quantityRequired"
-          [matchedInclDraft]="space().matchedInclDraft"
-          [matchedExclDraft]="space().matchedExclDraft"
-          [unmatched]="space().unmatched"
-          [quantityState]="space().quantityState"
-          [quantityStateLabel]="space().quantityStateLabel"
-          side="demand"
-        />
-      </div>
+      <app-fill-meter
+        [original]="space().quantityRequired"
+        [matchedInclDraft]="space().matchedInclDraft"
+        [matchedExclDraft]="space().matchedExclDraft"
+        [unmatched]="space().unmatched"
+        [quantityState]="space().quantityState"
+        [quantityStateLabel]="space().quantityStateLabel"
+        side="demand"
+      />
+    </div>
 
-      <div class="l2">
-        <span class="meta">{{ space().plant }} · {{ space().deliveryTime || '-' }}</span>
+    <div class="l2">
+      <span class="meta">{{ space().plant }} · {{ space().deliveryTime || '-' }}</span>
 
-        @if (isOver()) {
-          <!-- The wording is the DTO's quantityStateLabel — "Over-filled" — never composed here. -->
-          <span class="over" [class]="overInk()">{{ space().quantityStateLabel }}</span>
-        }
+      @if (isOver()) {
+        <!-- The wording is the DTO's quantityStateLabel — "Over-filled" — never composed here. -->
+        <span class="over" [class]="overInk()">{{ space().quantityStateLabel }}</span>
+      }
 
-        <!--
+      <!--
           Phase 5, 5.1: the card says what it already carries. Live matches only.
 
           Phase 6 makes it the way in. Clicking opens the expansion, whose match table opens a match —
@@ -61,28 +61,28 @@
           The pointerdown is stopped because this sits inside the drag handle: without it, a click that
           drifts a pixel would lift the card instead of opening it.
         -->
-        @if (hasMatches()) {
-          <button
-            type="button"
-            class="mcount"
-            [title]="matchesTitle()"
-            (pointerdown)="$event.stopPropagation()"
-            (click)="toggle()"
-          >
-            {{ matchesLabel() }}
-          </button>
-        } @else {
-          <span class="mcount" [title]="matchesTitle()">{{ matchesLabel() }}</span>
-        }
+      @if (hasMatches()) {
+        <button
+          type="button"
+          class="mcount"
+          [title]="matchesTitle()"
+          (pointerdown)="$event.stopPropagation()"
+          (click)="toggle()"
+        >
+          {{ matchesLabel() }}
+        </button>
+      } @else {
+        <span class="mcount" [title]="matchesTitle()">{{ matchesLabel() }}</span>
+      }
 
-        <span class="status">
-          <span class="material-symbols-outlined sicon" [class.filled]="statusFilled()">{{
-            statusGlyph()
-          }}</span>
-          {{ space().status }}
-        </span>
-      </div>
-    </ng-template>
+      <span class="status">
+        <span class="material-symbols-outlined sicon" [class.filled]="statusFilled()">{{
+          statusGlyph()
+        }}</span>
+        {{ space().status }}
+      </span>
+    </div>
+  </ng-template>
 
   @if (isSource()) {
     <div class="card stay" [class.zebra]="zebra()" aria-hidden="true">
@@ -110,15 +110,25 @@
       <ng-container [ngTemplateOutlet]="lines" />
     </div>
 
+    <!--
+      The chevron carries the cancelled-partner badge (Phase 7, 5.3): a solid red square behind it
+      when any of this record's matches hangs off a record that has been cancelled. It is the right
+      control to mark, because it is the one that opens the table naming which match and which record.
+      Its title becomes the explanation, so the row says it once rather than twice.
+    -->
     <button
       matIconButton
       class="chev"
       type="button"
+      [class.orphaned]="orphanedCount() > 0"
       [attr.aria-expanded]="expanded()"
       [attr.aria-label]="expanded() ? 'Collapse' : 'Expand'"
+      [title]="orphanedCount() > 0 ? orphanedTitle() : expanded() ? 'Collapse' : 'Expand'"
       (click)="toggle()"
     >
-      <span class="material-symbols-outlined">{{ expanded() ? 'expand_less' : 'expand_more' }}</span>
+      <span class="material-symbols-outlined">{{
+        expanded() ? 'expand_less' : 'expand_more'
+      }}</span>
     </button>
 
     <ng-template cdkDragPreview [matchSize]="true">

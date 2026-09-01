@@ -168,25 +168,36 @@
   flex: 1 1 auto;
 }
 
-// THE LINE THAT MAKES THE WRAPPING HINTS SAFE.
+// WHAT MAKES THE WRAPPING HINTS SAFE — and it is two things, not one.
 //
-// Material's subscript wrapper is a fixed height — more so at density -2 — so by default a hint or an
-// error that wraps overflows it silently and paints over whatever follows: here, the ceiling note and
-// then the dialog's own footer. With a real height the wrap takes real space and pushes them down.
+// Material's hint and error wrappers are `position: absolute` inside a fixed-height subscript, so a
+// hint that wraps overflows it silently and paints over whatever follows: here, the field below it and
+// then the dialog's own footer. `height: auto` cannot fix that by itself — an absolutely positioned
+// child contributes no height for `auto` to size to — so every field in `.fields` also carries
+// `subscriptSizing="dynamic"`, which is Material's own switch to `position: static`. With both, a
+// wrapped hint takes real space and pushes the rest of the dialog down.
 //
-// This is what lets the price hint stay in the field it describes and run to several lines. It is load
-// bearing: remove it and the overlap the first browser pass found comes straight back.
+// Load bearing, and it looks like tidying: remove either half and the overlap the first browser pass
+// found comes straight back.
 .fields .mat-mdc-form-field-subscript-wrapper {
   height: auto;
   min-height: 18px;
   line-height: 1.35;
 }
 
-.ceiling {
-  margin: 4px 0 0;
-  font-size: 11.5px;
-  line-height: 16px;
-  color: lms.$lms-text-muted;
+// The wrapping margins. Material indents a hint 16px from each edge of its own field; these are half
+// that, 8px a side, so a hint that runs to several lines wraps in a box the same width on both sides
+// and stays inside the field it belongs to. Both fields' hints use the same figure deliberately — the
+// quantity field's ceiling sentence and the price field's provenance are the same kind of thing and
+// must not indent differently.
+.fields .mat-mdc-form-field-hint-wrapper,
+.fields .mat-mdc-form-field-error-wrapper {
+  padding-left: 8px;
+  padding-right: 8px;
+}
+
+.fields mat-hint,
+.fields mat-error {
   @include geo.numerals;
 }
 

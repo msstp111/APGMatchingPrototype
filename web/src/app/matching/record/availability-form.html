@@ -1,0 +1,129 @@
+<!--
+  Debug scaffolding, and the ribbon says so: the real farmer/agent submission journey is deferred past
+  pass 1 and this is not a preview of it (requirement 1.3).
+
+  Two absences here are deliberate. Selecting Finance Stock opens NO Purchase list — the draw-down
+  against purchases.csv is deferred. And the stock class list is the single supply-side one: it is
+  never cross-referenced against a processor's, because the two vocabularies do not map.
+-->
+<h2 mat-dialog-title>{{ title }}</h2>
+
+<mat-dialog-content>
+  <app-debug-ribbon />
+
+  @if (cancelledNote) {
+    <p class="warn">
+      <span class="material-symbols-outlined wicon" aria-hidden="true">block</span>
+      {{ cancelledNote }}
+    </p>
+  }
+
+  <form [formGroup]="form" class="fields">
+    <mat-form-field appearance="fill" class="f-class">
+      <mat-label>Stock class</mat-label>
+      <mat-select formControlName="stockClass">
+        @for (stockClass of data.reference.availabilityStockClasses; track stockClass) {
+          <mat-option [value]="stockClass">{{ stockClass }}</mat-option>
+        }
+      </mat-select>
+      <mat-error>Choose a stock class</mat-error>
+    </mat-form-field>
+
+    <mat-form-field appearance="fill" class="f-qty">
+      <mat-label>Quantity available</mat-label>
+      <input matInput type="number" formControlName="quantityAvailable" />
+      <span matTextSuffix>head</span>
+      @if (form.controls.quantityAvailable.hasError('integer')) {
+        <mat-error>A quantity is a whole number of head</mat-error>
+      } @else {
+        <mat-error>At least 1 head</mat-error>
+      }
+    </mat-form-field>
+
+    <!--
+      ~300 locations, so the control types ahead over the options rather than opening all of them.
+      Only a picked option sets the id the form submits.
+    -->
+    <mat-form-field appearance="fill" class="f-location">
+      <mat-label>Location</mat-label>
+      <input
+        matInput
+        formControlName="locationSearch"
+        [matAutocomplete]="places"
+        (input)="onLocationTyped()"
+      />
+      <mat-autocomplete #places="matAutocomplete">
+        @for (option of locationOptions(); track option.id) {
+          <mat-option [value]="option.name" (onSelectionChange)="onLocationPicked(option)">
+            {{ option.name }}
+          </mat-option>
+        }
+        @if (hiddenLocationCount() > 0) {
+          <mat-option disabled>{{ hiddenLocationCount() }} more — keep typing</mat-option>
+        }
+      </mat-autocomplete>
+      @if (form.controls.locationId.touched && form.controls.locationId.invalid) {
+        <mat-error>Pick a location from the list</mat-error>
+      }
+    </mat-form-field>
+
+    <mat-form-field appearance="fill" class="f-date">
+      <!-- Native date input: its value is the ISO string the API wants, and no Date is constructed. -->
+      <mat-label>Available from</mat-label>
+      <input matInput type="date" formControlName="availableFrom" />
+      <mat-error>Choose an available-from date</mat-error>
+    </mat-form-field>
+
+    <mat-form-field appearance="fill" class="f-type">
+      <mat-label>Transaction type</mat-label>
+      <mat-select formControlName="transactionType">
+        @for (type of data.reference.transactionTypes; track type) {
+          <mat-option [value]="type">{{ transactionTypeText(type) }}</mat-option>
+        }
+      </mat-select>
+      <mat-error>Choose a transaction type</mat-error>
+    </mat-form-field>
+
+    <mat-form-field appearance="fill" class="f-details">
+      <mat-label>Availability details</mat-label>
+      <textarea matInput rows="2" formControlName="availabilityDetails"></textarea>
+      <mat-hint>Optional — pickup times, days the farmer is away</mat-hint>
+    </mat-form-field>
+
+    <mat-form-field appearance="fill" class="f-notes">
+      <mat-label>Notes</mat-label>
+      <textarea matInput rows="2" formControlName="notes"></textarea>
+    </mat-form-field>
+  </form>
+
+  <!-- One farmer per location, so choosing the location has chosen them (resolved question 10). -->
+  @if (farmer(); as chosen) {
+    <p class="note farmer">
+      <span class="material-symbols-outlined ficon" aria-hidden="true">person</span>
+      {{ chosen.farmerName ?? 'No farmer on record' }}
+      @if (chosen.farmerMobile) {
+        <span class="fmob">{{ chosen.farmerMobile }}</span>
+      }
+    </p>
+  }
+
+  @if (overCommitCaption(); as caption) {
+    <p class="warn">
+      <span class="material-symbols-outlined wicon" aria-hidden="true">warning</span>
+      {{ caption }}
+    </p>
+  }
+
+  @if (!isEdit) {
+    <p class="note">
+      A new record is created Booked. Its status is derived from its matches from then on.
+    </p>
+  }
+</mat-dialog-content>
+
+<mat-dialog-actions align="end">
+  <button matButton mat-dialog-close type="button">Cancel</button>
+  <button matButton="filled" type="button" (click)="save()">
+    {{ isEdit ? 'Save changes' : 'Add record' }}
+  </button>
+</mat-dialog-actions>

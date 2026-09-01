@@ -136,28 +136,17 @@ export class MatchModal {
   // --- the editable fields -------------------------------------------------------------------------
 
   /**
-   * The ceiling spelled out, from three figures the server supplied (design-system.md 11.4.4).
+   * The ceiling spelled out, from three figures the server supplied.
    *
    * The sentence exists because "max 472" invites the question the requirements document got wrong:
    * why is it not the record's original quantity? Naming both halves answers it on the spot.
+   *
+   * **It is the quantity field's own hint, and its error when the entry goes past it.** It sat in a
+   * note under the row until Mark asked for it in the field (design-system.md 11.4.4 said "under the
+   * fields"; §11.4 now records the change). The field a sentence sits in is what says which field it
+   * is about, and the ceiling constrains exactly one.
    */
   readonly ceilingNote = `Ceiling ${this.maximum} = the availability's ${this.availability.unmatched} unmatched, plus this match's own ${this.match.quantityMatched}.`;
-
-  /**
-   * Hints are kept to a few characters on purpose.
-   *
-   * A `mat-hint` that wraps does not push what follows it down — Material's subscript wrapper is a
-   * fixed height, more so at `density: -2` — so a long one paints straight over the next element. The
-   * sentences that explain the ceiling and the price therefore live in normal-flow notes below the
-   * row, where they can wrap as far as they like. Anything here has to fit a 150px field on one line.
-   */
-  readonly quantityHint = `max ${this.maximum}`;
-
-  readonly quantityCaption = computed(() => {
-    const entered = this.quantityValue();
-
-    return entered != null && entered > this.maximum ? `Max is ${this.maximum}` : this.quantityHint;
-  });
 
   /**
    * Where the price on this match came from.

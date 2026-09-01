@@ -1,0 +1,39 @@
+// The shell's dev flag, reused inside a dialog. Sampled values only: $lms-dev-flag is the same
+// #CCD457 the top bar carries, and #37393C is the supply column's identity tone.
+@use '../../../styles/lms-tokens' as lms;
+
+.ribbon {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 10px;
+  margin: -4px 0 12px;
+  background: #37393c;
+  border-radius: 3px;
+}
+
+.flag {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  flex: 0 0 auto;
+  color: lms.$lms-dev-flag;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.6px;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.flag .material-symbols-outlined {
+  font-size: 15px;
+  line-height: 15px;
+}
+
+.prose {
+  flex: 1 1 auto;
+  min-width: 0;
+  color: #ffffff;
+  font-size: 11.5px;
+  line-height: 14px;
+}

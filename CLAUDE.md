@@ -8,9 +8,9 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Current state
 
-Phases 0 to 6 are complete: the solution, the Angular app, EF Core + SQLite and the deterministic seeder are in place, the LMS shell (top bar + sidebar) is built, every computed quantity, status and date rule lives in `Apg.Domain` and reaches the client on the DTO contract, Phase 2 settled the visual language in `Documents/design-system.md`, Phase 3 built the matching screen's two week-banded card lists with expand/collapse, Phase 3b removed the carry-over cards it had shipped and replaced them with the trimmed backlog (resolved question 17), Phase 4 added per-column filters, sorting within the bands, the column flip and reset-to-default, Phase 5 added drag-to-match (CDK across the two columns, quantity prompt, Drafted matches, undo), and Phase 6 gave a match the rest of its life — open from either side, edit, delete a draft, cancel with a reason, confirm, and confirm a Processor Space. Phases 7 and 8 are still to come — see `Documents/BUILD-LOG.md` for what each finished phase actually did.
+Phases 0 to 7 are complete: the solution, the Angular app, EF Core + SQLite and the deterministic seeder are in place, the LMS shell (top bar + sidebar) is built, every computed quantity, status and date rule lives in `Apg.Domain` and reaches the client on the DTO contract, Phase 2 settled the visual language in `Documents/design-system.md`, Phase 3 built the matching screen's two week-banded card lists with expand/collapse, Phase 3b removed the carry-over cards it had shipped and replaced them with the trimmed backlog (resolved question 17), Phase 4 added per-column filters, sorting within the bands, the column flip and reset-to-default, Phase 5 added drag-to-match (CDK across the two columns, quantity prompt, Drafted matches, undo), Phase 6 gave a match the rest of its life — open from either side, edit, delete a draft, cancel with a reason, confirm, and confirm a Processor Space, and Phase 7 added the debug record forms: + Add on both columns, Edit and Cancel on every card, and the counterparty flag that shows a cancelled record has not taken its matches with it. Phase 8 is still to come — see `Documents/BUILD-LOG.md` for what each finished phase actually did.
 
-**The matching screen now creates and manages matches.** Dragging a card onto a card in the other column drafts a match; the match line on line 2 opens the card, and every row of the expanded match table opens that match's modal. Record creation and record editing are Phase 7. There is no keyboard drag path (resolved question 14).
+**The matching screen now creates and manages both records and matches.** Dragging a card onto a card in the other column drafts a match; the match line on line 2 opens the card, and every row of the expanded match table opens that match's modal. Records are created, edited and cancelled from the debug controls (Phase 7), which are marked as demo scaffolding and are **not** the farmer/agent submission flow. There is no keyboard drag path (resolved question 14).
 
 ### Layout
 
@@ -57,6 +57,7 @@ Run from the repo root unless stated.
 - `POST /api/dev/reset-database` drops, recreates and re-seeds. Phase 8 adds the button that calls it.
 - The three read endpoints are `GET /api/processor-spaces`, `GET /api/livestock-availability` and `GET /api/week-bands`. Since Phase 1 they return the **DTO contract** — `src/Apg.Api/Contracts/Dtos.cs`, mirrored field for field in `web/src/app/api/models.ts` — carrying every computed field. The raw-record shapes Phase 0 returned are gone.
 - **Write path (Phase 5):** `GET /api/match-proposal?processorSpaceId=&livestockAvailabilityId=` (default, ceiling, refusal, default price — asked at drop, before any dialog), `POST /api/matches` (always a new `Drafted` row; never merges), `DELETE /api/matches/{id}` (Drafted only — the undo, and Phase 6's delete-draft), `GET /api/transport-companies` (`SeedConfig.TransportCompanies`). Create and delete return both parents recomputed (`MatchWriteResultDto`); the client patches the two records by id.
+- **Write path (Phase 7 — debug record creation):** `GET /api/reference-data` (processors, each with **its own** plants and stock classes, plus the single availability stock-class list and the transaction types — all from `SeedConfig`, never derived from the loaded records the way the filter row options are); `GET /api/locations` (~299, each with the one farmer it belongs to); `POST /api/processor-spaces`, `PUT /api/processor-spaces/{id}` (**quantity, plant, delivery date, delivery time, notes only** — processor and stock class are not editable), `POST /api/processor-spaces/{id}/cancel`, and the three availability equivalents (`PUT` there edits **every** attribute). All six return `RecordWriteResultDto` — **the one record they touched, plus the recomputed week calendar**: a record created for a week the columns were not drawn on places into no band at all, and the client may not name a new week itself. Validation lives in `src/Apg.Api/Contracts/RecordWriter.cs`, pure over a `WorkingSet` exactly as `MatchWriter` is. **Cancelling a record never touches its matches** — the endpoints never consult the match set, and the domain helpers take none.
 - **Write path (Phase 6):** `GET /api/matches/{id}` → `MatchEditContextDto` (the match, **both** parents in full, and `maximumQuantity` — the edit ceiling); `PUT /api/matches/{id}` (edit the three fields); `POST /api/matches/{id}/confirm` (Drafted → Confirmed, and it **takes the edit body** so a dirty form saves and confirms in one write); `POST /api/matches/{id}/cancel` (past Drafted, reason required, returns `match: null`); `POST /api/processor-spaces/{id}/confirm` (returns a bare `ProcessorSpaceDto`, not the two-parent shape — confirming a space touches no availability record). Every one is addressed **by match id alone**, which is why the same match is openable from either card without two code paths.
 - **`GET /api/week-bands`** (Phase 3) returns an ordered, gapless `WeekBandDto[]`: every Sunday from the earliest record's week to the latest, always including the current week, each with `weekCommencingLabel` (`23-08-26`), `weekOfLabel` (`23 Aug`), `isCurrentWeek` and `isPastWeek`. It exists because requirement 1.6 wants a header on a week **no record falls in**, and the client cannot name such a week without doing date arithmetic. It is a calendar, not a record set: it carries no record ids, deliberately. The server ships one full list and **the client trims it per column** (Phase 3b) — each column starts at the week of its own earliest record, so the endpoint must keep returning the whole run.
 
@@ -76,7 +77,7 @@ Domain rules live in C# in `Apg.Domain` (no EF, no ASP.NET) and reach the client
 
 ### Where the rules actually live (Phase 1)
 
-- **`src/Apg.Domain/Matching/`** — `MatchQuantities` (both sums, `Tally`, `ForSpace`, `ForAvailability`), `QuantityTally` (`Unmatched`, `State`), `QuantityState` / `MatchSide` / `QuantityStateLabels`, `AvailabilityStatus.Derive`, `ProcessorSpaceRules` (`CanConfirm` **and** `ConfirmBlockedReason`, expressed over the same clauses so the gate and its explanation cannot drift), `MatchCreation` (`Propose`, `DefaultMatchQuantity`, `MaxMatchQuantity`, `NoUnmatchedQuantity`), `MatchLifecycle` (`CanDelete` / `CanConfirm` / `CanCancel` / `Confirm`, plus their refusal strings), `RecordCancellation`.
+- **`src/Apg.Domain/Matching/`** — `CancelledRecords` (which records are cancelled; **every quantity and status rule takes one**), `MatchQuantities` (both sums, `Tally`, `ForSpace`, `ForAvailability`, `ConsumingSpace`/`ConsumingAvailability`), `QuantityTally` (`Unmatched`, `State`), `QuantityState` / `MatchSide` / `QuantityStateLabels`, `AvailabilityStatus.Derive`, `ProcessorSpaceRules` (`CanConfirm` **and** `ConfirmBlockedReason`, expressed over the same clauses so the gate and its explanation cannot drift), `MatchCreation` (`Propose`, `DefaultMatchQuantity`, `MaxMatchQuantity`, `NoUnmatchedQuantity`), `MatchLifecycle` (`CanDelete` / `CanConfirm` / `CanCancel` / `Confirm`, plus their refusal strings), `RecordCancellation`.
 - **`src/Apg.Domain/Pricing/PriceTable.cs`** — `DefaultPricePerKg`, keyed on the Processor Space stock class.
 - **`src/Apg.Domain/Time/NzTime.cs`** — the *only* home for date rules: `WeekCommencing`, `ToNzDate`, `Today(TimeProvider)`, `CurrentWeekCommencing(TimeProvider)`, `DateLabel`, `WeekLabel`, `AtNzTime`, and from Phase 3 `ShortDateLabel` / `ShortDateLabelFormat` (`d MMM` → `16 Aug`, `1 Sep`) and `WeeksFrom(first, last)` (contiguous inclusive Sundays, both ends normalised — still the source of `/api/week-bands`). Extend this file; never start a second one.
 - **`src/Apg.Api/Contracts/`** — `Dtos.cs`, `MatchingProjection` (computes nothing; calls the domain for every value), `WorkingSetLoader`, `PriceTableLoader`, `MatchWriter` (pure over a `WorkingSet` + `PriceTable` — Propose / Reject / Drafted / RejectDelete), `MatchResponses`, `ApiJson` (the wire format, shared with the tests).
@@ -120,6 +121,19 @@ card/card-expansion.ts    fields + both sums + the match table (every row opens 
                           demand side's Confirm space action with its stated reason. Both cards.
 card/fill-meter.ts, card/stock-class-tile.ts, card/stock-classes.ts, card/card-chrome.ts
                           matchSummaryLabel / matchBreakdown are the Phase 6 entry point
+record/record-actions.ts   root — add / edit / cancel for both record types. Opens the dialogs,
+                          performs the write, publishes to RecordPatches. The dialogs decide nothing.
+record/space-form.ts      add AND edit in one dialog. The plant and stock-class pickers hold the chosen
+                          processor's own lists, and changing processor CLEARS a now-invalid selection.
+                          On an edit, processor and stock class render read-only (requirement 4.2).
+record/availability-form.ts  every attribute editable; the location picker types ahead over ~300 and
+                          shows back the farmer it settled. Finance Stock opens no Purchase list.
+record/cancel-record.ts   lists every match that will SURVIVE the cancellation, by name
+record/confirm-over-commit.ts  the warning before an edit that leaves a record over-committed. It warns;
+                          it does not block — that edit is the one route to the pink state
+record/debug-ribbon.ts    the '# DEMO DATA TOOL #' strip both forms carry, in the shell's dev-flag colour
+record/record-vocabularies.ts  reference data + locations, fetched once, lazily, per session
+record/record-form.ts     the two validators both forms share (integer >= 1, blank-to-null)
 testing/dto-fixtures.ts   DTO builders for the specs only
 ```
 
@@ -137,7 +151,39 @@ testing/dto-fixtures.ts   DTO builders for the specs only
 
 **Arithmetic in `web/` is limited to two files, both allow-listed by name in `matching/no-domain-arithmetic.spec.ts`:** `card/fill-meter.ts` (CSS segment widths, clamped — a bar width is not a displayed figure) and `board/matching-board.ts` (band header roll-ups, which must be client-side because Phase 4's filters change what is in the band). That spec is the client analogue of `DomainPurityTests`: it scans `matching/**/*.ts` and fails on `new Date`, `Date.parse`, `Date.now`, `toLocaleDate*`, `Intl.DateTimeFormat`, `getTime()`, or an arithmetic operator next to a quantity field. **If you need a third such site, you are probably missing a DTO field.**
 
-**Hue is committed to the quantity meter and nothing else.** Status is carried by spine weight, pattern, icon and word; stock class by a monogram tile whose *shape* is the species. `Data/stock-class-configs.csv`'s colour column is deliberately unused (resolved question 16 overrides Phase 8 §3.1).
+**Debug record creation (Phase 7).** The `+ Add` control in each column header and the `Edit` / `Cancel` buttons in each expanded card are **demo scaffolding, not the farmer/agent submission flow**, which is deferred past pass 1. They are marked as such twice over: design-system.md §14's stroked 26px button with a tools glyph, and a `# DEMO DATA TOOL #` ribbon in the shell's dev-flag `#CCD457` at the top of every form dialog. Three rules matter more than the forms themselves:
+
+- **Dates are a native `<input matInput type="date">`, never a Material datepicker.** The native input's value *is* the ISO `yyyy-MM-dd` string the API wants; a datepicker's control value is a JavaScript `Date`, which no file under `matching/` may construct. Registering `provideNativeDateAdapter` would put one in a form control and `no-domain-arithmetic.spec.ts` would fail, correctly.
+- **Reducing a quantity below what is already matched is allowed**, warned about, and is the only route to the pink `Over-committed` state (design-system.md §4.3). Neither the form nor the server refuses it — `RecordWriter` has no clause about matches at all.
+- **Cancelling a record never cancels its matches.** They stay live on their own cards. The dialog lists every survivor by name first; the snack says so afterwards and its `SHOW IT` action ticks `Cancelled` into that column's status filter so the card comes back; and the counterparty card flags it, on the collapsed row and in the match table, from `MatchDto.spaceStatus` / `MatchDto.availabilityStatus`.
+
+**Every record write returns the recomputed week calendar**, and `RecordPatch.weeks` carries it, because a record created or moved beyond the loaded run of weeks would otherwise place into no band and vanish off the screen. `matching-screen.applyPatch` therefore **upserts** by id rather than replacing: a newly created record is in neither list yet.
+
+**Form fields inside dialogs relax the density.** Material's own density table turns `form-field-filled-label-display` to `none` from `-2` downwards, so at the theme's `-2` every `appearance="fill"` label was silently invisible — which is what Phase 6's browser pass saw and could not explain. `web/src/styles.scss` restores Material's `-1` row for `.mat-mdc-dialog-container .mat-mdc-form-field` only. The 40px filter row keeps `-2` and holds no form fields at all.
+
+**A match stops consuming the *other* record's quantity once its own record is cancelled** (decided
+2026-09-01, mid-Phase 7; the roadmap's "Domain rules" section carries the full statement). Cancelling a
+record still does not cascade — the match keeps its status and must be cancelled by hand — but it stops
+holding stock on the side that is still trading. **The rule is asymmetric**: it is always the
+*counterparty's* status that decides, so a cancelled record's own figures are unchanged by its own
+cancellation and its card stays readable. It lives in `MatchQuantities.ConsumingSpace` /
+`ConsumingAvailability`, and `CancelledRecords` is a **required parameter** on both tallies,
+`AvailabilityStatus.Derive`, `ProcessorSpaceRules.CanConfirm` / `ConfirmBlockedReason`,
+`MatchCreation.Propose` and the three-argument `MaxMatchQuantity` — required rather than optional
+because every one of them is wrong without it, and wrong in the direction that hides supply.
+`CancelledRecords.None` is the honest answer for a unit test over hand-built matches and reproduces the
+arithmetic exactly as it stood before the rule existed; `CancelledRecords.In(spaces, availabilities)` is
+what production passes.
+
+**The cancelled-partner badge is the one place hue says something other than fill.** A match whose
+partner record has been cancelled paints a solid `$lms-error` box — behind the collapsed card's
+expand chevron, and around the word in the expanded match table's counterparty cell. It is sanctioned
+because it is not a status being reported (the card's own status is untouched) but work outstanding,
+and `$lms-error` is a semantic token that is no part of the quantity ramp. `cancelledPartnerCount` in
+`card/card-chrome.ts` counts them.
+
+**Hue is committed to the quantity meter and nothing else.**
+ Status is carried by spine weight, pattern, icon and word; stock class by a monogram tile whose *shape* is the species. `Data/stock-class-configs.csv`'s colour column is deliberately unused (resolved question 16 overrides Phase 8 §3.1).
 
 **No domain code reads the real clock.** Take a `TimeProvider`. `DomainPurityTests.No_domain_source_file_reads_the_real_clock` scans `src/Apg.Domain/**/*.cs` and fails on `DateTime.Now`, `.Today`, `.UtcNow` or `TimeProvider.System`.
 

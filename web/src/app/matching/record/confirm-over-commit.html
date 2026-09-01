@@ -1,0 +1,26 @@
+<!--
+  design-system.md 11.5's shape, reused: a warning glyph, the consequence in one sentence, and two
+  buttons carrying the two values rather than Yes and No.
+
+  Every figure below is the operator's own entry or a DTO field. Nothing is worked out here — the
+  over-run itself is deliberately not stated, because composing it would be arithmetic on a quantity,
+  and it arrives on the record's own card the moment the edit lands.
+-->
+<h2 mat-dialog-title>
+  <span class="material-symbols-outlined wicon">warning</span>
+  Leave this {{ recordWord }} {{ stateWord }}?
+</h2>
+
+<mat-dialog-content>
+  <p class="body">
+    {{ data.title }} already has <strong>{{ data.matched }}</strong> head matched.
+    {{ consequence }}
+  </p>
+</mat-dialog-content>
+
+<mat-dialog-actions align="end">
+  <button matButton [mat-dialog-close]="false" type="button">Keep {{ data.from }}</button>
+  <button matButton="filled" [mat-dialog-close]="true" type="button">
+    Save {{ data.to }} anyway
+  </button>
+</mat-dialog-actions>

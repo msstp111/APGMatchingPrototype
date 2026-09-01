@@ -3,14 +3,21 @@ import { Injectable, inject } from '@angular/core';
 import { Observable } from 'rxjs';
 import {
   CancelMatchRequest,
+  CreateLivestockAvailabilityRequest,
   CreateMatchRequest,
+  CreateProcessorSpaceRequest,
   LivestockAvailabilityDto,
+  LocationOptionDto,
   MatchCancellationReason,
   MatchEditContextDto,
   MatchProposalDto,
   MatchWriteResultDto,
   ProcessorSpaceDto,
+  RecordWriteResultDto,
+  ReferenceDataDto,
+  UpdateLivestockAvailabilityRequest,
   UpdateMatchRequest,
+  UpdateProcessorSpaceRequest,
   WeekBandDto,
 } from './models';
 
@@ -117,5 +124,62 @@ export class ApiClient {
    */
   confirmSpace(id: number): Observable<ProcessorSpaceDto> {
     return this.http.post<ProcessorSpaceDto>(`/api/processor-spaces/${id}/confirm`, {});
+  }
+
+  // --- Phase 7: the debug record forms ---------------------------------------------------------
+  //
+  // Every write below answers RecordWriteResultDto — the one record it touched, and the recomputed
+  // week calendar. The calendar comes back because a create, or an edit that moves a date, can change
+  // which weeks the columns are drawn on, and a record whose week is missing from that list places
+  // nowhere at all.
+
+  /** The vocabularies the forms pick from: processors with their own plants and classes, and the rest. */
+  referenceData(): Observable<ReferenceDataDto> {
+    return this.http.get<ReferenceDataDto>('/api/reference-data');
+  }
+
+  /** ~300 locations, each with the one farmer it belongs to. The picker types ahead over them. */
+  locations(): Observable<LocationOptionDto[]> {
+    return this.http.get<LocationOptionDto[]>('/api/locations');
+  }
+
+  createSpace(request: CreateProcessorSpaceRequest): Observable<RecordWriteResultDto> {
+    return this.http.post<RecordWriteResultDto>('/api/processor-spaces', request);
+  }
+
+  updateSpace(id: number, request: UpdateProcessorSpaceRequest): Observable<RecordWriteResultDto> {
+    return this.http.put<RecordWriteResultDto>(`/api/processor-spaces/${id}`, request);
+  }
+
+  /**
+   * Cancels a Processor Space. **Its matches are not touched** — they stay live on their own cards and
+   * must be cancelled separately, which is what lets APG arrange alternatives before notifying anyone.
+   * The returned record still lists them, which is how the screen can show that it did not cascade.
+   */
+  cancelSpace(id: number): Observable<RecordWriteResultDto> {
+    return this.http.post<RecordWriteResultDto>(`/api/processor-spaces/${id}/cancel`, {});
+  }
+
+  createAvailability(
+    request: CreateLivestockAvailabilityRequest,
+  ): Observable<RecordWriteResultDto> {
+    return this.http.post<RecordWriteResultDto>('/api/livestock-availability', request);
+  }
+
+  /**
+   * Edits every attribute. A quantity below what is already matched is accepted here on purpose: it is
+   * the one intended route to the pink "Over-committed" state, and the warning in front of it is the
+   * form's, not the server's.
+   */
+  updateAvailability(
+    id: number,
+    request: UpdateLivestockAvailabilityRequest,
+  ): Observable<RecordWriteResultDto> {
+    return this.http.put<RecordWriteResultDto>(`/api/livestock-availability/${id}`, request);
+  }
+
+  /** @see cancelSpace — the same non-cascade, on the supply side. */
+  cancelAvailability(id: number): Observable<RecordWriteResultDto> {
+    return this.http.post<RecordWriteResultDto>(`/api/livestock-availability/${id}/cancel`, {});
   }
 }

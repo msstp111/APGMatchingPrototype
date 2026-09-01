@@ -2607,3 +2607,492 @@ No new packages. All recorded in CLAUDE.md as well.
 Test counts at close: `Apg.Domain.Tests` **151** (122 at the end of Phase 5), `Apg.Api.Tests` **108**
 (88), Angular **178 across 19 files** (135 across 15). `npm run build` succeeds with the existing
 initial-chunk budget warning only — 881 kB against a 500 kB budget, up from 826 kB.
+
+---
+
+## Phase 7 — Debug Record Creation
+
+**Completed:** 2026-09-01
+**Status:** Complete
+
+### What shipped
+
+Records can now be put into the matching screen live. Each column header carries a debug `+ Add`
+control, each expanded card carries `Edit` and `Cancel`, and both record types have a form behind
+them — marked as demo scaffolding twice over, because the farmer/agent submission journey is deferred
+past pass 1 and this must not be mistaken for it. Eight new endpoints, one new client folder
+(`web/src/app/matching/record/`), and one new field pair on `MatchDto`.
+
+Two behaviours are the phase, and both are visible rather than asserted: **reducing a record's
+quantity below what is already matched reaches the pink `Over-committed` state**, warned about and not
+blocked; and **cancelling a record leaves every one of its matches alive**, said in the dialog before
+the fact, in the snack afterwards, and on the counterparty column's own cards.
+
+Later phases can rely on: `RecordWriter` as the pure record-write path, `RecordWriteResultDto` as the
+one-record-plus-calendar shape, `RecordActions` as the client seam every record write goes through,
+and `record/_record-form.scss` plus `debug-ribbon` as the single home of the debug treatment.
+
+### The component names Phase 8 will need
+
+| File | What it is |
+| --- | --- |
+| `record/record-actions.ts` | Root service. Opens every dialog, performs every write, publishes to `RecordPatches`, owns both snack messages. The dialogs decide nothing and write nothing — the same division of labour as `MatchActions`. |
+| `record/space-form.ts/.html` | Add **and** edit in one dialog, branching on whether it was given a record. |
+| `record/availability-form.ts/.html` | As above, plus the ~300-location type-ahead. |
+| `record/cancel-record.ts/.html` | The confirmation, listing every match that will survive. |
+| `record/confirm-over-commit.ts/.html` | The prompt before an edit that leaves a record disagreeing with its own matches. |
+| `record/debug-ribbon.ts` | The `# DEMO DATA TOOL #` strip. **One component, used by both forms**, so the marking cannot drift and Phase 8 has one place to restyle. |
+| `record/record-vocabularies.ts` | Reference data and locations, fetched once and lazily per session. |
+| `record/record-form.ts` | The two validators both forms share. |
+| `record/_record-form.scss` | The shared form layout, `@use`d by both `space-form.scss` and `availability-form.scss`. |
+
+### How the debug affordances are marked
+
+Three ways, and they are meant to be redundant:
+
+1. **The column-header button** is design-system.md §14's: 26px `mat-stroked`-style, 12px text, petrol
+   on white with a `#BDBDBD` ring, plus a `construction` glyph, labelled `+ Add space` / `+ Add record`.
+   Deliberately *not* LMS's circular petrol create FAB.
+2. **A `# DEMO DATA TOOL #` ribbon** at the top of both form dialogs — the shell's dev-flag `#CCD457`
+   on `#37393C` — with the line *"Debug scaffolding for demos — not the farmer or agent submission
+   form."* That colour already means "this is not the real thing" in this application, and a ribbon is
+   not a card, a status or a quantity, so it does not touch the hue rule.
+3. **The `Edit` and `Cancel` buttons in a card's actions row are text buttons**, muted and
+   `$lms-error`, deliberately quieter than the `Confirm space` beside them: the scaffolding must never
+   outrank the real action on the card.
+
+`design-system.md` §14 and §6.2 now record all three.
+
+### Decisions made during the build
+
+1. **Every record write returns the recomputed week calendar**, and `RecordPatch` gained a `weeks`
+   field to carry it. This is the decision the phase turned on. The client places a record into a band
+   by string equality on its week-commencing Sunday against the list from `GET /api/week-bands`; a
+   record whose week is not in that list is `unplaced` and simply does not appear. Creating a space
+   three months out does exactly that, and the client cannot name the missing week itself without
+   advancing a date in TypeScript. So `RecordWriteResultDto` carries `{ space | availability, weeks }`
+   and `matching-screen.applyPatch` adopts the calendar first. **A match write still carries no weeks
+   — a match has no date of its own** — and an absent `weeks` still means "not affected", as an absent
+   record does.
+
+2. **`applyPatch` upserts by id instead of replacing by id.** A created record is in neither list yet,
+   and replace-by-id would have dropped it silently: the one failure mode where nothing errors and
+   nothing appears. Ordering does not matter because both lists are sorted before they are banded.
+
+3. **Dates are a native `<input matInput type="date">`, never a Material datepicker.** A datepicker's
+   control value is a JavaScript `Date`, which `no-domain-arithmetic.spec.ts` forbids anywhere under
+   `matching/` — and rightly: it would hand the browser's timezone a decision the server settles. The
+   native input's value *is* the ISO `yyyy-MM-dd` string the API wants and the browser renders it in
+   the local format for free. **The allow-list is still exactly two files.**
+
+4. **The forms' vocabularies come from `SeedConfig` over a new `GET /api/reference-data`, not from the
+   loaded records.** `filters/filter-options.ts` derives its options from the working set, which is
+   right for a filter — no option is offered that would match nothing — and wrong for a create form,
+   which must be able to introduce a stock class or a plant that nothing uses yet. A hard-coded copy in
+   TypeScript would also have been a second place APG's real lists need swapping.
+
+5. **The over-commit prompt is the client's, not the server's**, exactly as Phase 6 decided of its
+   Confirmed-match prompt and for the same reason: it is a question for a human about a consequence,
+   not a rule about validity. `RecordWriter` has **no clause about matches at all**, which is what
+   keeps requirement 4.4 true by construction. The form's live caption and the prompt both compare the
+   typed quantity against the DTO's `matchedInclDraft` and name both figures; **neither composes the
+   over-run**, which arrives computed on the card a moment later.
+
+6. **The prompt fires on the demand side too**, where over-*filling* is normal and expected (resolved
+   question 1). The operator is still about to make a record disagree with its own matches, so they are
+   told once — but the wording says plainly that an over-filled space is a normal state, rather than
+   dressing it as a fault.
+
+7. **`Edit` and `Cancel` live in the expanded card's actions row**, beside `Confirm space`, and the
+   supply card gained that row for them. Decided with Mark. The 52px collapsed row has no width to give
+   and §16.10 pins its trailing edge at 32px; a kebab menu would also have been an idiom LMS does not
+   use.
+
+8. **The counterparty flag** (Mark's choice of the three offered). `MatchDto` gained `spaceStatus` and
+   `availabilityStatus` — two fields rather than one "partner cancelled" flag, because the same
+   `MatchDto` object hangs off both parents and a single-sided flag is ambiguous on one of them. The
+   far side's card shows a `block` glyph beside its match count and names the row in the expanded match
+   table. Icon and word, no hue: cancelling never cascades, so this is a normal state and not an error.
+   Recorded in `design-system.md` §6.1 and §6.2 as an addition to those sections rather than something
+   they specified.
+
+9. **`SHOW IT` on the cancellation snack ticks `Cancelled` into that column's status filter.** It
+   discharges requirement 5.4 by doing it rather than by saying it can be done, and it adds to the
+   filter rather than resetting it, so nothing else the operator had set is lost.
+
+10. **The snack says when a record it just wrote is hidden by the current filters.** Adding an ANZCO
+    space while the column is filtered to SFF lands the record and filters it straight back out —
+    the write worked and nothing appeared. `RecordActions` runs the *same* pure `filterSpaces` /
+    `filterAvailability` the screen renders through, over the one record, so the message cannot
+    disagree with what is on screen.
+
+11. **`Cancel` is disabled on an already-cancelled record.** The server refuses a second cancellation
+    with a message, and the card is already desaturated with its title struck through, so the cause is
+    self-evident and needs no stated reason — which is where Phase 6's "disabled controls say why" rule
+    ends (Phase 6 narrowed it the same way for its cancel dialog).
+
+12. **A space edit may not change the processor or the stock class** (requirement 4.2 lists neither),
+    and `UpdateProcessorSpaceRequest` does not carry them, so the rule is in the wire format rather
+    than in a guard. A test asserts the type has no such property. An availability edit really does
+    take every attribute (4.3).
+
+13. **No `[disabled]` binding on any reactive control.** Angular warns about it, and would be warning
+    about the right thing: the enabled state would live in the template rather than in the form. An
+    empty menu plus its hint says "choose a processor first" just as well.
+
+### The Phase 6 open question, closed — and what it changed
+
+Phase 6's entry ended with an unchased finding: **no `mat-label` was visible in either dialog**, with
+`density: -2` the suspicion and a note that "Phase 7 builds forms and will hit this immediately".
+
+It is settled, and without a browser. Material's own density table
+(`@angular/material/form-field/_m3-form-field.scss`, `get-density-tokens`) reads:
+
+```scss
+form-field-filled-label-display: list.nth((block, block, none, none, none, none), $index),
+```
+
+— `none` from density **-2** downwards. At the theme's `-2`, every `appearance="fill"` field in the
+application was silently unlabelled, and every field Phase 7 adds would have been too.
+
+`web/src/styles.scss` now restores Material's own **-1 row** — container height, label display and both
+with-label paddings, taken together rather than hand-tuned — scoped to
+`.mat-mdc-dialog-container .mat-mdc-form-field`. Only dialogs are relaxed: the 40px filter row is what
+`-2` exists for, and it holds no form fields at all (every control on it is a chip and a menu).
+
+**Two consequences a later phase should know.** The quantity prompt and the match modal now render
+three labels each that they did not before, so both dialogs are ~4px taller per field and carry text
+they were laid out without. And the quantity prompt's transport field still carries its name in its
+**hint** rather than a `mat-label` — Mark's explicit decision, which the Phase 6 log says not to
+re-tidy — but that decision was made while no label was rendering anywhere. It is left exactly as it
+was; whether it still reads right beside two labelled fields is on the browser checklist as a judgement
+call rather than a defect.
+
+### Deviations from the phase document
+
+- **Nothing in sections 1 to 6 was descoped.** Every requirement was built.
+- **`design-system.md` §13's "Empty column" state was not built.** Phase 4's log parks it with "Phase 7
+  or 8", and §13 pairs it with a `+ Add a record` button — but PHASE-7's own requirements do not ask
+  for it, and the roadmap's rule is to build only what the phase specifies. A column with nothing
+  loaded still renders empty week bands. **This is Phase 8's**, and the add button it wants now exists
+  in the column header for it to reuse.
+- **The over-commit prompt was added beyond the letter of 4.5**, which asks only that the edit warn.
+  The form's live caption is the warning; the prompt is a second, deliberate step, because the caption
+  is easy to type past. Both name the two figures and neither blocks.
+- **Two things were added that the phase document does not ask for**, both small and both recorded
+  above as decisions: the "hidden by this column's filters" qualifier on a write's snack (decision 10)
+  and disabling `Cancel` on an already-cancelled record (decision 11).
+
+### Validation rules added beyond the phase document
+
+The document asks for required fields, integers ≥ 1, real dates and past dates allowed. `RecordWriter`
+also enforces, server-side:
+
+- the **processor must be one of the three**, and the **plant and stock class must belong to it** — the
+  server-side half of requirement 2.1's picker rule, so a crafted request cannot do what the form
+  prevents. The refusal names that processor's actual list;
+- an availability record's stock class must be in the **single supply list**, and is checked against
+  **no** processor's list — a test asserts both halves, since the two vocabularies not aligning is the
+  point of the screen;
+- the **location must exist** (a `locationId` of 0 is "choose a location"; an unknown one is "there is
+  no such location");
+- the **transaction type must be a defined member**;
+- blank optional text is stored as **null, not `""`** — the same rule `MatchWriter` applies.
+
+Cancelling is refused only when the record is **already cancelled**. Deliberately nothing else:
+`RecordCancellation.CanCancelProcessorSpace` takes the record and no match collection, so a gate that
+depended on the matches cannot be written there without changing its signature.
+
+### Is there another route to the pink Over-committed state? — the phase document asks this by name
+
+**No, and it was looked for rather than assumed.** Every path that changes either side of
+`unmatched = quantityAvailable − matchedInclDraft` on a supply record:
+
+| Path | Can it push unmatched below zero? |
+| --- | --- |
+| Creating a match by drag | **No.** `MatchCreation.Propose` caps at the record's remaining supply, and `MatchWriter.Reject` re-applies the same cap server-side. Phase 5's review closed the one hole here (a crafted POST onto an already-over-filled *space*). |
+| Editing a match's quantity | **No.** The three-argument `MaxMatchQuantity` ceiling is remaining supply **plus that match's own current quantity**, enforced in `MatchWriter.RejectUpdate`, which both `PUT` and the confirm endpoint go through. |
+| Confirming or cancelling a match | **No.** Confirming moves no quantity; cancelling only ever *raises* unmatched. |
+| Deleting a draft | **No.** Raises unmatched. |
+| **Editing the record's `quantityAvailable` downwards** | **Yes — and this is the intended one.** Warned about twice and refused by nothing. |
+| Creating a record | **No.** A new record has no matches, so it starts fully unmatched. |
+| Cancelling a record | **No.** It changes a status and nothing else. |
+
+Verified against the running API as well as in tests: availability #6 (144 available, 124 matched
+across three Confirmed matches) edited to 100 returns `unmatched: -24`, `quantityState: Over`,
+`quantityStateLabel: "Over-committed"`, `status: Pending` — and all three matches unchanged, in id,
+status and quantity. `Pending` rather than `Confirmed` is correct: resolved question 5 requires
+`unmatched == 0` exactly.
+
+### Verified end to end against the running API
+
+Every one of these was run by hand against a freshly seeded database, and the database was reset
+afterwards, so the demo data is clean:
+
+- `GET /api/reference-data` returns the three processors with their own plants and classes, the nine
+  supply classes and the three transaction types.
+- `GET /api/locations` returns 299 rows, name-ordered, each with its farmer.
+- **Refusals:** an Alliance plant on an ANZCO space, a supply class on a space, a demand class on a
+  record, an unknown location, and a quantity of zero — each with the message naming what was wrong.
+- **Create:** a space and an availability record, both `Booked`, blank optional fields stored as null,
+  the farmer resolving from the location.
+- **The calendar grows:** a space dated 2027-01-10 came back with a 21-week calendar reaching
+  `10-01-27`, still gapless and still every Sunday.
+- **Edit:** a space's plant, quantity, date, time and notes; the same edit refused when the plant
+  belongs to another processor.
+- **The pink state**, as above.
+- **Cancel, both sides:** cancelling space #1 (two matches, one Confirmed and one Drafted) left both
+  matches byte-identical and both counterparty records' stored statuses untouched; their match rows now
+  report `spaceStatus: Cancelled`, which is what the far column flags. Cancelling availability #6 did
+  the same in the other direction across three spaces. A second cancellation is refused with
+  *"This processor space is already cancelled"*.
+
+### Review findings
+
+A sonnet subagent reviewed against PHASE-7, the roadmap and the diff, reading the new files off disk
+where the diff did not carry them, and running all four commands itself rather than trusting my word.
+
+**Clean on all three of the phase document's review-focus items**, each verified independently rather
+than read back from the code's own comments:
+
+- **The non-cascade.** It confirmed the domain helpers take no match collection, that
+  `RecordWriter.RejectCancelSpace` / `RejectCancelAvailability` never consult the match set either,
+  and that the test is real — snapshotting match tuples *and* stored counterparty statuses either side
+  of the act, and checking the projected card still lists the survivors with the cancelled parent's
+  status riding along.
+- **The processor-change guard.** It looked for a bypass and found none: the edit form never renders
+  the two selects at all, so the vulnerable path is unreachable there, and the server re-validates
+  independently against `SeedConfig`.
+- **Warn without blocking.** It confirmed neither reject function has any clause referencing a matched
+  quantity, and that the client's prompt is a confirmation and never a gate.
+
+It also checked, and found no issue with: the arithmetic allow-list still being exactly two files with
+every new form passing the scan; `Apg.Domain`'s purity; `models.ts` mirroring `Dtos.cs` field for
+field; `applyPatch`'s upsert and calendar adoption, with their tests; and — worth recording — that
+`RecordWriterTests` shares `SeedFixture.Data.Matches` by reference but that **no test in the project
+mutates a `Match` object's fields**, so nothing leaks across classes under xUnit's parallelism. If a
+later suite ever needs to mutate a match, it must clone that list too.
+
+Three findings. Disposition:
+
+1. **`Cancel` is disabled on an already-cancelled record but `Edit` is not, and the form said nothing
+   about it** (low/medium; the reviewer flagged it for a decision rather than as a bug, noting the
+   phase document puts validation beyond its own list out of scope). **Half fixed, deliberately.** The
+   *edit* stays permitted: the phase restricts editing by field and never by status, and refusing it
+   here would sit oddly beside Phase 6, which lets a **Confirmed** match be edited behind a prompt.
+   What was wrong is that nothing said so — and a cancelled record is off both columns' default
+   filters, so whoever opened the form may not have registered that the card was struck through. Both
+   forms now carry a line when the record is cancelled: *"Saving changes it; it does not reinstate it,
+   and its matches are unaffected either way."* Three tests pin it, including that the save still goes
+   through. There is no un-cancel in pass 1, which is what makes the sentence worth saying.
+2. **The Angular initial bundle grew to ~959 kB against a 500 kB budget** (informational). Not fixed
+   and not a Phase 7 defect: the budget has been exceeded since Phase 3, the build is green, and the
+   1 MB error threshold in `angular.json` is still clear. Five new dialogs is the growth. **It is now
+   within 41 kB of the error threshold** — the first thing Phase 8 should know if a build starts
+   failing, and the remedy is lazy-loading the record forms or raising the budget, not deleting them.
+3. **The dialog form-field density fix is well-scoped and intentional** (not a defect; the reviewer
+   confirmed it rather than flagged it). Recorded above.
+
+### Watch out for
+
+- **`RecordWriter` must never grow a clause about matches.** Not on an edit, not on a cancel. Both
+  omissions are requirements — 4.4/4.5 and 5.2 — and both look like missing validation to a reader who
+  has not read them. The domain's `CanCancelProcessorSpace` / `CanCancelAvailability` take the record
+  and nothing else for the same reason `CancelProcessorSpace` does: a gate that were handed the match
+  set is a gate that can come to depend on it.
+- **A record write's `weeks` is load-bearing, not bookkeeping.** Drop it and a record created beyond
+  the loaded calendar places into no band and silently does not appear. If a later phase adds another
+  record write, it must return `RecordWriteResultDto` too.
+- **`applyPatch` upserts, so a patch with an unknown id now *adds* a record.** A future write that
+  returns a record the screen should not show would add it rather than ignore it.
+- **The two record-edit request types are the same fields by coincidence, not by rule.** The demand one
+  is deliberately shorter (no processor, no stock class). Merging them would make requirement 4.2's
+  restriction look like an oversight and would quietly permit re-pointing a booked slot.
+- **An edit of any record at any status is permitted**, including a Confirmed or Cancelled one. The
+  phase document restricts editing by field, never by status, and this is debug tooling. If that is
+  wrong for a demo, it is a one-line gate in `RecordWriter` — but note Phase 6 decided the equivalent
+  question for *matches* the other way (edit a Confirmed match, with a prompt), so refusing it here
+  would be the inconsistent choice.
+- **A record created months out extends the calendar and adds interior empty week bands.** Only the
+  runs at each *end* are trimmed (§9.3), so a January delivery drawn from a September screen brings a
+  run of empty headers with it. That is the calendar being honest, and it is on the browser checklist
+  as a "looks wrong, is correct".
+- **A newly created space outside the seeded price table's range (weeks −4 to +8) has no default
+  price**, and the quantity prompt says so. Correct, and it will look like a bug in a demo if nobody
+  has read this.
+- **The dialog label fix is unverified on screen.** It is derived from Material's own source rather
+  than guessed, and every dialog in the application depends on it. Section H of the browser checklist
+  puts it first for that reason.
+- **`RecordWriterTests` clones the shared `SeedFixture` data.** That fixture is one lazily-generated
+  object graph shared across every test class in the project, and this is the first suite that mutates
+  records. Anything that edits or cancels must clone; a test that forgets will corrupt whatever runs
+  after it, in a way that looks like a bug somewhere else entirely.
+- **`no-domain-arithmetic.spec.ts`'s allow-list is still exactly two files**, and the new forms are
+  inside the directory it scans. If a later phase wants a Material datepicker here, it must first
+  explain to that test why a `Date` is now acceptable.
+- **The API still locks `Apg.Domain.dll` while it runs.** It bit again at the start of this phase — an
+  instance from another session was running. `Get-CimInstance Win32_Process -Filter "Name='Apg.Api.exe'"`,
+  stop the `Apg.Api.exe` child.
+- **Long `bash` heredocs still fail past roughly 150 lines** in this environment, exactly as Phase 6
+  recorded. Every new file here was written in chunks under ~120 lines.
+
+### New commands, dependencies, conventions
+
+No new packages. All recorded in CLAUDE.md as well.
+
+| What | Where |
+| --- | --- |
+| The forms' vocabularies | `GET /api/reference-data` → `ReferenceDataDto` |
+| Locations with their farmers | `GET /api/locations` → `LocationOptionDto[]` |
+| Create / edit / cancel a space | `POST /api/processor-spaces`, `PUT /api/processor-spaces/{id}`, `POST /api/processor-spaces/{id}/cancel` |
+| Create / edit / cancel a record | the same three under `/api/livestock-availability` |
+| The record write shape | `RecordWriteResultDto` — one record, plus the recomputed `weeks` |
+| Server-side record rules | `src/Apg.Api/Contracts/RecordWriter.cs` |
+| Cancel gates | `RecordCancellation.CanCancelProcessorSpace` / `CanCancelAvailability` |
+| The client seam | `web/src/app/matching/record/record-actions.ts` |
+| The counterparty flag | `MatchDto.spaceStatus` / `.availabilityStatus`, `cancelledPartnerCount` in `card/card-chrome.ts` |
+
+- One spec: `npx ng test --watch=false --include=src/app/matching/record/record-actions.spec.ts`
+- One rule's tests: `dotnet test --filter "FullyQualifiedName~RecordWriterTests"`
+- **Conventions now enforced by tests rather than by discipline:** cancelling a record cannot touch its
+  matches, in the domain and through the projection (`RecordWriterTests`); a space edit cannot carry a
+  processor or a stock class (asserted on the request type itself); reducing a quantity below what is
+  matched is *permitted* and produces `Over-committed`; a created record is added to the screen rather
+  than dropped, and a write's new calendar is adopted (`matching-screen.spec.ts`).
+
+Test counts at close: `Apg.Domain.Tests` **153** (151 at the end of Phase 6), `Apg.Api.Tests` **122**
+(108), Angular **221 across 22 files** (178 across 19). `npm run build` succeeds with the existing
+initial-chunk budget warning only — **959 kB** against a 500 kB budget, up from 881 kB.
+
+---
+
+## Phase 7 addendum — the match window, the cancelled-partner badge, and one domain rule
+
+**Completed:** 2026-09-01
+**Status:** Complete
+**Not a new phase.** Four changes Mark asked for after looking at the finished screen. The Phase 7
+entry above stands; these amend it, and the fourth amends the roadmap.
+
+### 1. The match modal's hints now wrap properly, and the ceiling moved into its field
+
+**`subscriptSizing="dynamic"` on all three fields — and this was a real bug, not a preference.**
+Material's hint and error wrappers are `position: absolute` inside a fixed-height subscript, so a hint
+that wraps overflows it silently and paints over what follows. Phase 6's log claims the `height: auto`
+in `.fields` fixed that; **it cannot have done**, because an absolutely positioned child contributes no
+height for `auto` to size to. `dynamic` is Material's own switch to `position: static`, and it is the
+half that was missing. Both halves are needed and the stylesheet now says so.
+
+**The wrapping margins are 8px a side** (`.mat-mdc-form-field-hint-wrapper`,
+`.mat-mdc-form-field-error-wrapper`), against Material's default of 16px. Worth recording precisely,
+because the instruction was "widen the margins … each side half the current margin on the left" and the
+measured default is symmetric at 16/16 — so 8px a side is the stated number and it *narrows* the
+indent rather than widening it. If the intent was for the hint to wrap sooner, the figure to raise is
+those two `padding` values, in one place, and nothing else moves.
+
+**`Ceiling 472 = the availability's 177 unmatched, plus this match's own 295.` is now the quantity
+field's own hint**, and its `mat-error` when the entry goes past the ceiling. The `<p class="ceiling">`
+note under the row is gone — leaving both would have printed the same sentence twice, 10px apart.
+This overturns design-system.md 11.4.4's "under the fields" and the Phase 6 decision that put it
+there. `quantityHint` and `quantityCaption` are deleted.
+
+### 2. The cancelled-partner flag is now loud
+
+Mark asked for it "strongly shown as needing attention — e.g. a solid red box". So:
+
+- in the expanded match table, the counterparty cell's `.orphan` is a **solid `$lms-error` box** with
+  white text, not muted grey;
+- on the **collapsed card**, a solid `$lms-error` square sits behind the **expand chevron** — the right
+  control to mark, since it opens the very table that names the match. The chevron's `title` becomes
+  the explanation.
+
+**The quieter line-2 glyph the phase shipped is gone**, replaced by the chevron badge: two markers of
+one fact on a 52px row is clutter, and only one of them can carry the sentence.
+
+**This is a deliberate exception to "status carries no hue"**, and the reasoning is worth keeping: it
+is not a status being reported — the card's own status, meter and counts are all untouched by what
+happened on the other side — it is *work outstanding*, and `$lms-error` is the semantic token
+design-system.md 2 already reserves for consequential things and is no part of the quantity ramp.
+
+### 3. The domain rule: a match tied to a cancelled record consumes nothing
+
+**This is the one to read.** Asked as "the quantity of a cancelled match should be ignored when
+calculating unmatched", which is already true and has been since Phase 1 — verified live before
+changing anything: cancelling match #20 (12 head) moved space #37 from 39 unmatched to 51 and
+availability #35 from 0 to 12. What was *not* true is the case Mark was actually looking at, and
+confirmed when asked: a match to a **cancelled record**. Those went on holding stock forever.
+
+The seed showed the cost plainly: availability **#30** read 108 unmatched of 330 because 143 head were
+matched to cancelled space #7, and availability **#10** read **0** unmatched — which put it below the
+supply column's `unmatched > 0` default filter, so a record with 32 saleable head was **invisible**.
+
+Now: **a match stops consuming the *other* record's quantity once its own record is cancelled.** After
+the change #30 reads 251, #48 reads 220 and derives `Booked` again, and #10 reads 32 and is back on
+screen. Cancelled spaces #7 and #16 keep their own figures unchanged.
+
+**Three things about the shape of it:**
+
+1. **It is asymmetric, and that is the half a future change will get backwards.** It is always the
+   *counterparty's* status that decides. Tallying a space drops matches whose availability record is
+   cancelled; tallying a record drops matches whose space is. A cancelled record's own figures are
+   untouched by its own cancellation, which is what keeps its card readable while somebody deals with
+   the matches it left behind.
+2. **`CancelledRecords` is a required parameter, not an optional one.** It is on both tallies,
+   `AvailabilityStatus.Derive`, `ProcessorSpaceRules.CanConfirm` / `ConfirmBlockedReason`,
+   `MatchCreation.Propose` and the three-argument `MaxMatchQuantity`. Required because every one of
+   them is wrong without it and wrong in the direction that hides supply — and making it required is
+   what let the compiler find all sixty-odd call sites rather than leaving a silently stale one.
+   `CancelledRecords.None` is honest in a unit test over hand-built matches and reproduces the old
+   arithmetic exactly; `SeedFixture.Cancelled` is what the API tests pass, because the seed really does
+   hold two cancelled spaces and a test passing `None` would assert arithmetic no endpoint performs.
+3. **The ceiling add-back moved with it.** `MaxMatchQuantity` adds a match's own quantity back only if
+   that match was subtracted in the first place — live *and* not tied to a cancelled record. Adding it
+   back for an orphan would hand out supply it never took.
+
+**It is still not a cascade**, and the distinction is now three-way: a cancelled record's matches keep
+their status, their quantity and their place on both cards, and must still be cancelled by hand; what
+changes is only what the record on the other end may say about its own stock.
+
+`Documents/ROADMAP.md`'s "Domain rules the build must not get wrong" is amended — its
+`matchedInclDraft` bullet was the old rule stated as fact and would have misled Phase 8.
+
+### Tests
+
+- **New `tests/Apg.Domain.Tests/CancelledRecordTests.cs`** — seven cases: the supply release, the
+  asymmetry, a cancelled match *and* an orphan both ignored, the record deriving `Booked` again, a
+  space that can no longer be confirmed on orphaned matches, the ceiling add-back, and the freed pair
+  becoming matchable again. Each asserts against `CancelledRecords.None` as well, so the test says what
+  changed rather than only what is now true.
+- **`MatchEditTests.The_ceiling_never_permits_over_committing_a_record` was rewritten, not deleted.**
+  It computed its expected ceiling by summing every *live* sibling; under the new rule it read 26 where
+  the ceiling is legitimately 58. It now sums the *consuming* siblings, which keeps the invariant it
+  exists for and would still catch the requirements document's "originally available".
+- Two new match-modal specs: the ceiling sentence is in the field's own hint and in no note, and every
+  field's subscript is dynamically sized (jsdom cannot see an overlap, but it can see the attribute
+  whose absence causes one).
+- Two new card specs: the chevron badge appears and clears with the data, and the badge is on the
+  element the stylesheet paints.
+
+Test counts at close: `Apg.Domain.Tests` **160** (153), `Apg.Api.Tests` **122** (unchanged), Angular
+**224 across 22 files** (221).
+
+### Watch out for
+
+- **`MatchQuantities.Tally`, `MatchedInclDraft` and `MatchedExclDraft` still filter on `IsLive` alone.**
+  They are the arithmetic, not the rule about which matches reach it — `ConsumingSpace` /
+  `ConsumingAvailability` do that, and the two scoped tallies are the only public way in. Do not call
+  `Tally` directly from new code.
+- **`LiveMatchDtos` still uses `IsLive`, deliberately.** An orphaned match must keep appearing on both
+  cards: it is still there, still needs cancelling, and the red badge is drawn from it. It consumes no
+  quantity and is still listed — those are two different questions about the same match.
+- **A record can now derive `Booked` while showing a red badge.** Nothing is holding its stock, and a
+  match still needs dealing with. Both are true.
+- **The seeder passes `CancelledRecords.None` in `ApplySpaceStatuses`, and that is correct** — nothing
+  is cancelled until that pass's own last lines, and no availability record is ever cancelled by the
+  seeder. The comment there says so; do not "fix" it to a real ledger without re-reading the ordering.
+- **The match modal's two wrapping fixes are one fix in two files.** `subscriptSizing="dynamic"` in the
+  template and `height: auto` in the stylesheet: either alone leaves the overlap. The quantity prompt
+  and the Phase 7 record forms still carry only the stylesheet half — **they have the same latent bug**
+  and it will show the moment one of their hints wraps. The prompt's price hint already does at
+  narrow widths.
+- **`dotnet build` failed with MSB3027 twice more during this work.** The API was running from this
+  session both times.
