@@ -26,6 +26,7 @@ $filter-row-height: 40px; // reserved by Phase 3, filled by Phase 4
 $filter-chip-height: 26px; // design-system.md 12.2
 $filter-chip-radius: 13px; // a pill: half the chip's height (design-system.md 5.3)
 $empty-band-height: 44px;
+$expansion-actions-padding: 10px 10px 0; // design-system.md 6.2, item 4
 // One number in two places: the veil in matching-column.scss and AUTO_SCROLL_ZONE in
 // drag/column-auto-scroll.ts. If they disagree, the column scrolls somewhere other than where it
 // says it will.
@@ -293,6 +294,26 @@ $meter-gap: 6px;
 
   .mcount {
     flex: 0 0 auto;
+  }
+
+  // The way into a card's matches (Phase 6, 1.1). Phase 5 named this line the entry point and ruled
+  // out a second chip beside it, so the label itself became the control: it opens the expansion, and
+  // the table there opens a match. A button stripped back to its text, because the row is 52px and
+  // nothing on it may resize under the pointer.
+  button.mcount {
+    padding: 0;
+    border: 0;
+    background: none;
+    font: inherit;
+    color: inherit;
+    cursor: pointer;
+    text-decoration-line: underline;
+    text-decoration-style: dotted;
+    text-underline-offset: 2px;
+  }
+
+  button.mcount:hover {
+    color: lms.$lms-text;
   }
 
   .status {

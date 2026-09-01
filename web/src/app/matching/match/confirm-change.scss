@@ -1,0 +1,20 @@
+@use '../card-geometry' as geo;
+@use '../../../styles/lms-tokens' as lms;
+
+// The one place a warning glyph appears on this screen, in $lms-error rather than an amber: every
+// usable amber lands on the quantity ramp's orange (design-system.md 2).
+h2 .wicon {
+  font-size: 20px;
+  line-height: 24px;
+  vertical-align: -3px;
+  margin-right: 6px;
+  color: lms.$lms-error;
+}
+
+.body {
+  margin: 0;
+  font-size: 13.5px;
+  line-height: 20px;
+  color: lms.$lms-text;
+  @include geo.numerals;
+}

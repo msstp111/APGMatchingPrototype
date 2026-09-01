@@ -137,3 +137,28 @@
   color: lms.$lms-faint;
   font-size: 12px;
 }
+
+// Every row opens its match (Phase 6, 1.1). The hover fill is the card's own, so the affordance is
+// the one the operator has already learnt one level up, and nothing resizes under the pointer.
+.openable {
+  cursor: pointer;
+}
+
+.openable:hover td {
+  background: lms.$lms-hover;
+}
+
+// design-system.md 6.2, item 4. The reason sits beside the button in card-meta type whenever the
+// button is disabled — a control that greys out in silence is what makes people think the app is
+// broken (Phase 6, 5.3).
+.actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: geo.$expansion-actions-padding;
+}
+
+.why {
+  font-size: 11.5px;
+  color: lms.$lms-text-muted;
+}

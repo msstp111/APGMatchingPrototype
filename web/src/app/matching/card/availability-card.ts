@@ -87,6 +87,9 @@ export class AvailabilityCard {
 
   readonly matchesTitle = computed(() => matchBreakdown(this.record().matches));
 
+  /** With none, the label is a statement rather than a way in, so it stays plain text. */
+  readonly hasMatches = computed(() => this.record().matches.length > 0);
+
   readonly expanded = computed(() => this.state.isExpanded('supply', this.record().id));
 
   readonly dragCard = computed<DragCard>(() => ({ side: 'supply', availability: this.record() }));

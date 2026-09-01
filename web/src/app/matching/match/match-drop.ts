@@ -2,11 +2,11 @@ import { HttpErrorResponse } from '@angular/common/http';
 import { Injectable, inject } from '@angular/core';
 import { MatDialog } from '@angular/material/dialog';
 import { MatSnackBar } from '@angular/material/snack-bar';
-import { Observable, Subject } from 'rxjs';
 import { ApiClient } from '../../api/api-client';
 import { CreateMatchRequest, MatchProposalDto, MatchWriteResultDto } from '../../api/models';
 import { MatchPair } from '../drag/card-drag';
 import { QuantityPrompt, QuantityPromptData } from './quantity-prompt';
+import { RecordPatches } from './record-patches';
 
 /** design-system.md 11.2 and 11.3: a refusal reads and goes; a creation offers an undo. */
 const REFUSAL_MS = 4000;
@@ -22,18 +22,15 @@ const SNACK_PANEL = 'apg-snack';
  *
  * A service rather than code on the card because a drop concerns three records — the two being matched
  * and the match itself — and the card that happens to be underneath the pointer owns none of them. It
- * publishes what it wrote on {@link writes}; `matching-screen` replaces the two records by id.
+ * publishes what it wrote to {@link RecordPatches}, the one stream `matching-screen` listens on, and
+ * the screen replaces the two records by id.
  */
 @Injectable({ providedIn: 'root' })
 export class MatchDrop {
   private readonly api = inject(ApiClient);
   private readonly dialog = inject(MatDialog);
   private readonly snackBar = inject(MatSnackBar);
-
-  private readonly written = new Subject<MatchWriteResultDto>();
-
-  /** Every create and every undo, with both parents already recomputed by the server. */
-  readonly writes: Observable<MatchWriteResultDto> = this.written.asObservable();
+  private readonly patches = inject(RecordPatches);
 
   dropped(pair: MatchPair): void {
     this.api.matchProposal(pair.space.id, pair.availability.id).subscribe({
@@ -79,7 +76,7 @@ export class MatchDrop {
   private create(request: CreateMatchRequest): void {
     this.api.createMatch(request).subscribe({
       next: (result) => {
-        this.written.next(result);
+        this.patches.publishWrite(result);
         this.confirm(result);
       },
       error: (error: unknown) => this.report(error),
@@ -113,7 +110,7 @@ export class MatchDrop {
   private undo(matchId: number): void {
     this.api.deleteMatch(matchId).subscribe({
       next: (result) => {
-        this.written.next(result);
+        this.patches.publishWrite(result);
         this.confirm(result);
       },
       error: (error: unknown) => this.report(error),

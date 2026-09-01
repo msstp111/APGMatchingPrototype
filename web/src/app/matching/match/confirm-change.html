@@ -1,0 +1,21 @@
+<!--
+  design-system.md 11.5. The buttons carry the two values, not Yes and No: an operator glancing at
+  `Keep 354` / `Change to 300` can see the decision without re-reading the sentence above it.
+-->
+<h2 mat-dialog-title>
+  <span class="material-symbols-outlined wicon">warning</span>
+  Change a confirmed match?
+</h2>
+
+<mat-dialog-content>
+  <p class="body">
+    Match #{{ data.match.id }} is <strong>Confirmed</strong>. {{ data.consequence }}
+  </p>
+</mat-dialog-content>
+
+<mat-dialog-actions align="end">
+  <button matButton [mat-dialog-close]="false" type="button">Keep {{ data.from }}</button>
+  <button matButton="filled" [mat-dialog-close]="true" type="button">
+    Change to {{ data.to }}
+  </button>
+</mat-dialog-actions>

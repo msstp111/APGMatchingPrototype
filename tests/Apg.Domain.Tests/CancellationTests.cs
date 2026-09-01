@@ -73,6 +73,68 @@ public class CancellationTests
         Assert.Equal(MatchCancellationReason.ChangeFromProcessor, match.CancellationReason);
     }
 
+    /// <summary>
+    /// The other direction, and the one Phase 6 adds: cancelling a <b>match</b> must not touch either
+    /// parent record. The file proved record-to-match before this; a cascade the other way is just as
+    /// tempting and just as wrong, since a space whose only match was cancelled has not itself been
+    /// cancelled — APG's next act is to find it different stock.
+    /// </summary>
+    [Fact]
+    public void Cancelling_a_match_leaves_both_parent_records_untouched()
+    {
+        var space = Given.Space(quantityRequired: 100);
+        var availability = Given.Availability(quantityAvailable: 100);
+        var matches = LiveMatches();
+
+        RecordCancellation.CancelMatch(matches[0], MatchCancellationReason.ChangeFromProcessor);
+
+        // The stored statuses, and — the part a cascade would actually get wrong — the derived one:
+        // the record has not become Cancelled because its match did. It has become *less* committed,
+        // which is a quantity, not a status.
+        Assert.Equal(ProcessorSpaceStatus.Booked, space.Status);
+        Assert.Equal(LivestockAvailabilityStatus.Booked, availability.Status);
+        Assert.Equal(
+            LivestockAvailabilityStatus.Pending,
+            AvailabilityStatus.Derive(availability, matches));
+        Assert.Equal(40, MatchQuantities.ForAvailability(availability, matches).MatchedInclDraft);
+        Assert.Equal(60, MatchQuantities.ForAvailability(availability, matches).Unmatched);
+    }
+
+    /// <summary>
+    /// Cancelling the <em>last</em> live match is the case a cascade would look most reasonable in —
+    /// the space now has nothing matched to it at all — and it still must not change the space's
+    /// stored status. That status is a decision, and nobody has taken it.
+    /// </summary>
+    [Fact]
+    public void Cancelling_the_last_live_match_still_leaves_the_space_Booked()
+    {
+        var space = Given.Space(quantityRequired: 100);
+        var matches = Given.Matches((60, MatchStatus.Confirmed));
+
+        RecordCancellation.CancelMatch(matches[0], MatchCancellationReason.ChangeFromAgentOrFarmer);
+
+        Assert.DoesNotContain(matches, MatchQuantities.IsLive);
+        Assert.Equal(ProcessorSpaceStatus.Booked, space.Status);
+    }
+
+    /// <summary>
+    /// The signature half of the same guarantee, mirroring
+    /// <see cref="Neither_record_cancel_helper_accepts_a_match_collection"/>: cancelling a match is
+    /// given no record to reach, so it cannot reach one.
+    /// </summary>
+    [Fact]
+    public void Cancelling_a_match_accepts_neither_parent_record()
+    {
+        var parameters = typeof(RecordCancellation)
+            .GetMethod(nameof(RecordCancellation.CancelMatch))!
+            .GetParameters()
+            .Select(p => p.ParameterType)
+            .ToList();
+
+        Assert.DoesNotContain(typeof(ProcessorSpace), parameters);
+        Assert.DoesNotContain(typeof(LivestockAvailability), parameters);
+    }
+
     [Fact]
     public void Cancelling_one_match_does_not_touch_its_siblings()
     {

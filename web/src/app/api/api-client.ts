@@ -2,11 +2,15 @@ import { HttpClient } from '@angular/common/http';
 import { Injectable, inject } from '@angular/core';
 import { Observable } from 'rxjs';
 import {
+  CancelMatchRequest,
   CreateMatchRequest,
   LivestockAvailabilityDto,
+  MatchCancellationReason,
+  MatchEditContextDto,
   MatchProposalDto,
   MatchWriteResultDto,
   ProcessorSpaceDto,
+  UpdateMatchRequest,
   WeekBandDto,
 } from './models';
 
@@ -69,5 +73,49 @@ export class ApiClient {
   /** The carriers the quantity prompt offers. Optional on a match, so this is a convenience. */
   transportCompanies(): Observable<string[]> {
     return this.http.get<string[]>('/api/transport-companies');
+  }
+
+  /**
+   * Everything the match modal opens with: the match, both parents in full, and the edit ceiling.
+   *
+   * **By match id alone.** The same call serves a match opened from its Processor Space and the same
+   * match opened from its Livestock Availability record, which is what makes those two the same thing
+   * rather than two things that resemble each other.
+   */
+  match(id: number): Observable<MatchEditContextDto> {
+    return this.http.get<MatchEditContextDto>(`/api/matches/${id}`);
+  }
+
+  /** Edits the three editable fields. The server re-checks the ceiling whatever the dialog allowed. */
+  updateMatch(id: number, request: UpdateMatchRequest): Observable<MatchWriteResultDto> {
+    return this.http.put<MatchWriteResultDto>(`/api/matches/${id}`, request);
+  }
+
+  /**
+   * Drafted to Confirmed, carrying the form's current values so a match with unsaved edits is saved
+   * and confirmed in a single write rather than in two calls that can half-fail.
+   */
+  confirmMatch(id: number, request: UpdateMatchRequest): Observable<MatchWriteResultDto> {
+    return this.http.post<MatchWriteResultDto>(`/api/matches/${id}/confirm`, request);
+  }
+
+  /**
+   * Cancels a match past Drafted, with its reason. The result carries no match: a cancelled match is
+   * excluded from both parents' collections, which is what makes it leave the screen.
+   */
+  cancelMatch(id: number, reason: MatchCancellationReason): Observable<MatchWriteResultDto> {
+    const request: CancelMatchRequest = { reason };
+
+    return this.http.post<MatchWriteResultDto>(`/api/matches/${id}/cancel`, request);
+  }
+
+  /**
+   * Confirms a Processor Space — the explicit APG action that sets its **stored** status.
+   *
+   * It returns the space alone, not the two-parent shape the match writes use, because confirming a
+   * space touches no availability record and returning one would imply it had.
+   */
+  confirmSpace(id: number): Observable<ProcessorSpaceDto> {
+    return this.http.post<ProcessorSpaceDto>(`/api/processor-spaces/${id}/confirm`, {});
   }
 }

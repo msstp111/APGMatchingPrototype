@@ -4,7 +4,6 @@ import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { ApiClient } from '../api/api-client';
 import {
   LivestockAvailabilityDto,
-  MatchWriteResultDto,
   ProcessorSpaceDto,
   WeekBandDto,
 } from '../api/models';
@@ -17,7 +16,7 @@ import {
   sortSpaces,
 } from './filters/filter-service';
 import { MatchingPreferences } from './filters/matching-preferences';
-import { MatchDrop } from './match/match-drop';
+import { RecordPatch, RecordPatches } from './match/record-patches';
 
 /**
  * The matching screen: Processor Spaces and Livestock Availability as week-banded card lists, either
@@ -45,7 +44,7 @@ import { MatchDrop } from './match/match-drop';
 export class MatchingScreen {
   private readonly api = inject(ApiClient);
   private readonly preferences = inject(MatchingPreferences);
-  private readonly matchDrop = inject(MatchDrop);
+  private readonly patches = inject(RecordPatches);
 
   readonly spaces = signal<readonly ProcessorSpaceDto[]>([]);
   readonly availability = signal<readonly LivestockAvailabilityDto[]>([]);
@@ -103,18 +102,28 @@ export class MatchingScreen {
       error: () => this.error.set(UNREACHABLE),
     });
 
-    this.matchDrop.writes.pipe(takeUntilDestroyed()).subscribe((result) => this.applyWrite(result));
+    this.patches.patches.pipe(takeUntilDestroyed()).subscribe((patch) => this.applyPatch(patch));
   }
 
   /**
-   * Both parents arrive already recomputed. Replacing them by id is what makes the meters, the
-   * counts and the derived availability status update without a refetch — and what makes a fully
-   * consumed availability record leave the default-filtered view, because `visibleAvailability`
-   * re-runs over the patched list.
+   * Every write on this screen lands here, and every record in it arrives already recomputed by the
+   * server. Replacing them by id is what makes the meters, the counts, the match lines and the derived
+   * availability status update without a refetch — and what makes a fully consumed availability record
+   * leave the default-filtered view, because `visibleAvailability` re-runs over the patched list.
+   *
+   * **Either half may be absent, and that is information rather than an omission.** A match write
+   * carries both parents because a match changes both at once; confirming a Processor Space carries
+   * only the space, because it touches nothing else. Patching a record that was not returned would be
+   * this screen quietly asserting something the server did not say.
    */
-  private applyWrite(result: MatchWriteResultDto): void {
-    this.spaces.update((list) => replaceById(list, result.space));
-    this.availability.update((list) => replaceById(list, result.availability));
+  private applyPatch(patch: RecordPatch): void {
+    if (patch.space) {
+      this.spaces.update((list) => replaceById(list, patch.space!));
+    }
+
+    if (patch.availability) {
+      this.availability.update((list) => replaceById(list, patch.availability!));
+    }
   }
 
   /**

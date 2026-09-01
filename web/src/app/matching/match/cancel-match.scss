@@ -1,0 +1,55 @@
+@use '../card-geometry' as geo;
+@use '../../../styles/lms-tokens' as lms;
+
+.lede {
+  margin: 0 0 12px;
+  font-size: 13.5px;
+  line-height: 20px;
+  color: lms.$lms-text;
+  @include geo.numerals;
+}
+
+.reasons {
+  display: flex;
+  flex-direction: column;
+}
+
+// 36px rows (design-system.md 11.6). Material's own radio is taller at density 0; -2 lands close and
+// the explicit height keeps the three options one scan rather than three.
+.reasons .mat-mdc-radio-button {
+  height: 36px;
+  display: flex;
+  align-items: center;
+}
+
+// The consequential-warning treatment: $lms-attention-bg behind a 3px $lms-error left border. No
+// amber anywhere — every usable amber lands on the quantity ramp's orange (design-system.md 2).
+.warn {
+  display: flex;
+  gap: 8px;
+  margin-top: 12px;
+  padding: 10px 12px;
+  border-left: 3px solid lms.$lms-error;
+  background: lms.$lms-attention-bg;
+}
+
+.wicon {
+  flex: 0 0 auto;
+  font-size: 18px;
+  line-height: 20px;
+  color: lms.$lms-error;
+}
+
+.wtext {
+  margin: 0;
+  font-size: 12.5px;
+  line-height: 18px;
+  color: lms.$lms-text;
+}
+
+
+// Destructive, and unmistakably so: the one filled button on this screen that is not petrol.
+.destructive.mat-mdc-unelevated-button {
+  --mdc-filled-button-container-color: #{lms.$lms-error};
+  --mdc-filled-button-label-text-color: #{lms.$lms-white};
+}

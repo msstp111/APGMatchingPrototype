@@ -1,0 +1,182 @@
+<!--
+  design-system.md 11.4, in its order: both parents read-only and side by side, the stock-class note,
+  the three editable fields, the ceiling spelled out, then the footer — destructive left, constructive
+  right.
+
+  Every figure below is read straight off the DTO, the ceiling included. Nothing here sums, subtracts
+  or formats a date.
+-->
+<h2 mat-dialog-title>Match #{{ match.id }}</h2>
+
+<mat-dialog-content>
+  <div class="pair">
+    <div class="rec">
+      <span class="spine" [class]="spaceSpine"></span>
+
+      <div class="rbody">
+        <div class="rhead">
+          <!--
+            The id is a separate, unshrinkable span. "Livestock Availability #8" is a shade too long
+            for half a 640px dialog, and with the whole kicker truncating as one string the ellipsis
+            landed on the number — leaving a block that named no record at all. The words may truncate;
+            the identity may not.
+          -->
+          <span class="kicker demand">
+            <span class="material-symbols-outlined lead">factory</span>
+            <span class="words">Processor Space</span>
+            <span class="rid">#{{ space.id }}</span>
+          </span>
+          <span class="rstatus">{{ space.status }}</span>
+        </div>
+
+        <div class="rname">
+          <app-stock-class-tile [stockClass]="space.stockClass" />
+          <span class="nm" [title]="space.processor + ' ' + space.plant">
+            {{ space.processor }} {{ space.plant }}
+          </span>
+        </div>
+
+        <span class="sub">{{ spaceSubLine }}</span>
+
+        <div class="facts">
+          <span class="fact">
+            <span class="fk">Originally required</span>
+            <span class="fv">{{ space.quantityRequired }}</span>
+          </span>
+          <span class="fact">
+            <span class="fk">Quantity unmatched</span>
+            <span class="fv strong" [class]="spaceUnmatchedInk">
+              {{ space.unmatched }}
+              <!-- "Over-filled" when negative, and the wording is the DTO's. -->
+              <span class="state">{{ space.quantityStateLabel }}</span>
+            </span>
+          </span>
+        </div>
+      </div>
+    </div>
+
+    <div class="rec">
+      <span class="spine" [class]="availabilitySpine"></span>
+
+      <div class="rbody">
+        <div class="rhead">
+          <span class="kicker supply">
+            <span class="material-symbols-outlined lead">location_on</span>
+            <span class="words">Livestock Availability</span>
+            <span class="rid">#{{ availability.id }}</span>
+          </span>
+          <span class="rstatus">{{ availability.status }}</span>
+        </div>
+
+        <div class="rname">
+          <app-stock-class-tile [stockClass]="availability.stockClass" />
+          <span class="nm" [title]="availability.locationName || '-'">
+            {{ availability.locationName || '-' }}
+          </span>
+        </div>
+
+        <span class="sub">{{ availabilitySubLine }}</span>
+
+        <div class="facts">
+          <span class="fact">
+            <span class="fk">Originally available</span>
+            <span class="fv">{{ availability.quantityAvailable }}</span>
+          </span>
+          <span class="fact">
+            <span class="fk">Quantity unmatched</span>
+            <span class="fv strong" [class]="availabilityUnmatchedInk">
+              {{ availability.unmatched }}
+              <!-- "Over-committed" when negative. It should be unreachable, and it is a bug flag. -->
+              <span class="state">{{ availability.quantityStateLabel }}</span>
+            </span>
+          </span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  @if (stockClassesDiffer) {
+    <!-- Information, not a warning: the two lists genuinely do not map, and a mismatched pair must
+         never be presented as an error (design-system.md 11.4.2). -->
+    <p class="note">{{ stockClassNote }}</p>
+  }
+
+  <div class="fields">
+    <mat-form-field appearance="fill" class="f-quantity">
+      <mat-label>Quantity matched</mat-label>
+      <input matInput type="number" [formControl]="quantity" />
+      <span matTextSuffix>head</span>
+
+      @if (quantity.hasError('integer')) {
+        <mat-error>A match is a whole number of head</mat-error>
+      } @else if (quantity.hasError('min') || quantity.hasError('required')) {
+        <mat-error>To reduce a match to nothing, cancel or delete it</mat-error>
+      } @else {
+        <mat-hint>{{ quantityCaption() }}</mat-hint>
+      }
+    </mat-form-field>
+
+    <mat-form-field appearance="fill" class="f-price">
+      <mat-label>Price per kg</mat-label>
+      <span matTextPrefix>$</span>
+      <input matInput type="number" step="0.01" [formControl]="price" />
+      <span matTextSuffix>/kg</span>
+      <!-- In the field it describes, where it wraps. The subscript has room (see the stylesheet). -->
+      <mat-hint>{{ priceHint }}</mat-hint>
+    </mat-form-field>
+
+    <mat-form-field appearance="fill" class="f-transport">
+      <mat-label>Transport company</mat-label>
+      <input matInput [formControl]="transport" [matAutocomplete]="carriers" />
+      <mat-autocomplete #carriers="matAutocomplete">
+        @for (company of transportOptions(); track company) {
+          <mat-option [value]="company">{{ company }}</mat-option>
+        }
+      </mat-autocomplete>
+      <mat-hint>Optional</mat-hint>
+    </mat-form-field>
+  </div>
+
+  <!--
+    The ceiling is a note rather than a hint because it is not about one field: it explains a rule that
+    spans the match, and design-system.md 11.4.4 asks for it "under the fields". It is also the one
+    sentence here long enough that no field's subscript would hold it.
+
+    It is there because "max 85" invites exactly the question the requirements document answers
+    wrongly. The price's provenance stays in the price field's own hint, where the field says which
+    field it is about.
+  -->
+  <p class="ceiling">{{ ceilingNote }}</p>
+</mat-dialog-content>
+
+<mat-dialog-actions class="footer">
+  @if (canDelete) {
+    <!-- No reason, no warning: a mis-drag is not a decision anyone has to account for. -->
+    <button matButton class="destructive-text" type="button" (click)="delete()">Delete draft</button>
+  }
+
+  @if (canCancel) {
+    <button matButton class="destructive-text" type="button" (click)="cancel()">
+      Cancel match…
+    </button>
+  }
+
+  <span class="spacer"></span>
+
+  <button matButton mat-dialog-close type="button">Close</button>
+
+  <button
+    matButton
+    type="button"
+    [disabled]="quantity.invalid || !changed()"
+    (click)="save()"
+  >
+    Save changes
+  </button>
+
+  @if (canConfirm) {
+    <button matButton="filled" type="button" [disabled]="quantity.invalid" (click)="confirm()">
+      Confirm match
+    </button>
+  }
+</mat-dialog-actions>

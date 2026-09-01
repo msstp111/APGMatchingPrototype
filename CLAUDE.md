@@ -8,9 +8,9 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Current state
 
-Phases 0 to 5 are complete: the solution, the Angular app, EF Core + SQLite and the deterministic seeder are in place, the LMS shell (top bar + sidebar) is built, every computed quantity, status and date rule lives in `Apg.Domain` and reaches the client on the DTO contract, Phase 2 settled the visual language in `Documents/design-system.md`, Phase 3 built the matching screen's two week-banded card lists with expand/collapse, Phase 3b removed the carry-over cards it had shipped and replaced them with the trimmed backlog (resolved question 17), Phase 4 added per-column filters, sorting within the bands, the column flip and reset-to-default, and Phase 5 added drag-to-match (CDK across the two columns, quantity prompt, Drafted matches, undo). Phases 6–8 are still to come — see `Documents/BUILD-LOG.md` for what each finished phase actually did.
+Phases 0 to 6 are complete: the solution, the Angular app, EF Core + SQLite and the deterministic seeder are in place, the LMS shell (top bar + sidebar) is built, every computed quantity, status and date rule lives in `Apg.Domain` and reaches the client on the DTO contract, Phase 2 settled the visual language in `Documents/design-system.md`, Phase 3 built the matching screen's two week-banded card lists with expand/collapse, Phase 3b removed the carry-over cards it had shipped and replaced them with the trimmed backlog (resolved question 17), Phase 4 added per-column filters, sorting within the bands, the column flip and reset-to-default, Phase 5 added drag-to-match (CDK across the two columns, quantity prompt, Drafted matches, undo), and Phase 6 gave a match the rest of its life — open from either side, edit, delete a draft, cancel with a reason, confirm, and confirm a Processor Space. Phases 7 and 8 are still to come — see `Documents/BUILD-LOG.md` for what each finished phase actually did.
 
-**The matching screen now creates Drafted matches by dragging a card onto a card in the other column.** Editing, cancelling and confirming them is Phase 6. Record creation is Phase 7. There is no keyboard drag path (resolved question 14).
+**The matching screen now creates and manages matches.** Dragging a card onto a card in the other column drafts a match; the match line on line 2 opens the card, and every row of the expanded match table opens that match's modal. Record creation and record editing are Phase 7. There is no keyboard drag path (resolved question 14).
 
 ### Layout
 
@@ -22,7 +22,7 @@ tests/Apg.Domain.Tests/    xUnit — domain purity, date handling
 tests/Apg.Api.Tests/       xUnit — seed determinism and the demonstration cases
 web/                       Angular 22 + Angular Material 22
 Data/                      CSV exports from the existing forecasting system (unchanged)
-Documents/                 roadmap, phase docs, build log
+Documents/                 roadmap, phase docs, build log, browser checklist
 ```
 
 ### Versions
@@ -57,6 +57,7 @@ Run from the repo root unless stated.
 - `POST /api/dev/reset-database` drops, recreates and re-seeds. Phase 8 adds the button that calls it.
 - The three read endpoints are `GET /api/processor-spaces`, `GET /api/livestock-availability` and `GET /api/week-bands`. Since Phase 1 they return the **DTO contract** — `src/Apg.Api/Contracts/Dtos.cs`, mirrored field for field in `web/src/app/api/models.ts` — carrying every computed field. The raw-record shapes Phase 0 returned are gone.
 - **Write path (Phase 5):** `GET /api/match-proposal?processorSpaceId=&livestockAvailabilityId=` (default, ceiling, refusal, default price — asked at drop, before any dialog), `POST /api/matches` (always a new `Drafted` row; never merges), `DELETE /api/matches/{id}` (Drafted only — the undo, and Phase 6's delete-draft), `GET /api/transport-companies` (`SeedConfig.TransportCompanies`). Create and delete return both parents recomputed (`MatchWriteResultDto`); the client patches the two records by id.
+- **Write path (Phase 6):** `GET /api/matches/{id}` → `MatchEditContextDto` (the match, **both** parents in full, and `maximumQuantity` — the edit ceiling); `PUT /api/matches/{id}` (edit the three fields); `POST /api/matches/{id}/confirm` (Drafted → Confirmed, and it **takes the edit body** so a dirty form saves and confirms in one write); `POST /api/matches/{id}/cancel` (past Drafted, reason required, returns `match: null`); `POST /api/processor-spaces/{id}/confirm` (returns a bare `ProcessorSpaceDto`, not the two-parent shape — confirming a space touches no availability record). Every one is addressed **by match id alone**, which is why the same match is openable from either card without two code paths.
 - **`GET /api/week-bands`** (Phase 3) returns an ordered, gapless `WeekBandDto[]`: every Sunday from the earliest record's week to the latest, always including the current week, each with `weekCommencingLabel` (`23-08-26`), `weekOfLabel` (`23 Aug`), `isCurrentWeek` and `isPastWeek`. It exists because requirement 1.6 wants a header on a week **no record falls in**, and the client cannot name such a week without doing date arithmetic. It is a calendar, not a record set: it carries no record ids, deliberately. The server ships one full list and **the client trims it per column** (Phase 3b) — each column starts at the week of its own earliest record, so the endpoint must keep returning the whole run.
 
 ### Conventions
@@ -75,7 +76,7 @@ Domain rules live in C# in `Apg.Domain` (no EF, no ASP.NET) and reach the client
 
 ### Where the rules actually live (Phase 1)
 
-- **`src/Apg.Domain/Matching/`** — `MatchQuantities` (both sums, `Tally`, `ForSpace`, `ForAvailability`), `QuantityTally` (`Unmatched`, `State`), `QuantityState` / `MatchSide` / `QuantityStateLabels`, `AvailabilityStatus.Derive`, `ProcessorSpaceRules.CanConfirm`, `MatchCreation` (`Propose`, `DefaultMatchQuantity`, `MaxMatchQuantity`, `NoUnmatchedQuantity`), `RecordCancellation`.
+- **`src/Apg.Domain/Matching/`** — `MatchQuantities` (both sums, `Tally`, `ForSpace`, `ForAvailability`), `QuantityTally` (`Unmatched`, `State`), `QuantityState` / `MatchSide` / `QuantityStateLabels`, `AvailabilityStatus.Derive`, `ProcessorSpaceRules` (`CanConfirm` **and** `ConfirmBlockedReason`, expressed over the same clauses so the gate and its explanation cannot drift), `MatchCreation` (`Propose`, `DefaultMatchQuantity`, `MaxMatchQuantity`, `NoUnmatchedQuantity`), `MatchLifecycle` (`CanDelete` / `CanConfirm` / `CanCancel` / `Confirm`, plus their refusal strings), `RecordCancellation`.
 - **`src/Apg.Domain/Pricing/PriceTable.cs`** — `DefaultPricePerKg`, keyed on the Processor Space stock class.
 - **`src/Apg.Domain/Time/NzTime.cs`** — the *only* home for date rules: `WeekCommencing`, `ToNzDate`, `Today(TimeProvider)`, `CurrentWeekCommencing(TimeProvider)`, `DateLabel`, `WeekLabel`, `AtNzTime`, and from Phase 3 `ShortDateLabel` / `ShortDateLabelFormat` (`d MMM` → `16 Aug`, `1 Sep`) and `WeeksFrom(first, last)` (contiguous inclusive Sundays, both ends normalised — still the source of `/api/week-bands`). Extend this file; never start a second one.
 - **`src/Apg.Api/Contracts/`** — `Dtos.cs`, `MatchingProjection` (computes nothing; calls the domain for every value), `WorkingSetLoader`, `PriceTableLoader`, `MatchWriter` (pure over a `WorkingSet` + `PriceTable` — Propose / Reject / Drafted / RejectDelete), `MatchResponses`, `ApiJson` (the wire format, shared with the tests).
@@ -95,8 +96,17 @@ board/card-state.ts       root CardStateStore — which cards are expanded (sess
 drag/drag-state.ts        root DragStore — the card in flight, Escape cancel, drop-state (valid/blocked/same)
 drag/card-drag.ts         acceptsFrom (same-column silent reject) + pairFromDrop (both directions → one pair)
 drag/column-auto-scroll.ts  [columnAutoScroll] on each .list; CDK's own auto-scroll is disabled
-match/match-drop.ts       drop → proposal → snack or dialog → POST → writes$ ; undo is DELETE
+match/record-patches.ts   root RecordPatches — THE write stream. Every writer publishes; the screen
+                          subscribes once. A patch may carry one record or both, and an absent half
+                          means "the server did not say", not "unchanged by omission".
+match/match-drop.ts       drop → proposal → snack or dialog → POST → patch ; undo is DELETE
 match/quantity-prompt.ts  design-system.md 11.1; default/max/price all from the server
+match/match-actions.ts    root — open(matchId) / confirmSpace(id) and the four match writes
+match/match-modal.ts      design-system.md 11.4. Passed a MatchEditContextDto and nothing else;
+                          closes with an intent, never writes
+match/confirm-change.ts   11.5 — the prompt before changing a Confirmed match
+match/cancel-match.ts     11.6 — three reasons, and the warning that it leaves the screen
+match/cancellation-reasons.ts  the three §15 labels
 filters/filter-defaults.ts    THE constants module: filter/sort types + every default, frozen
 filters/filter-service.ts     pure filter + sort + away-from-default + the empty state's summary
 filters/filter-options.ts     option lists derived from the working set, with processor narrowing
@@ -106,7 +116,8 @@ filters/filtered-empty.ts     the no-results state, with Clear filters / Reset t
 column/matching-column.ts header (+ Filtered chip and Reset), filter row, sticky 28px strip, .list
 band/week-band.ts         sticky rail, band header, the band's cards, empty-band row
 card/space-card.ts, card/availability-card.ts     the 52px rows — each is a cdkDropList + cdkDrag
-card/card-expansion.ts    fields + both sums + the match table. Shared by both cards.
+card/card-expansion.ts    fields + both sums + the match table (every row opens its match), and the
+                          demand side's Confirm space action with its stated reason. Both cards.
 card/fill-meter.ts, card/stock-class-tile.ts, card/stock-classes.ts, card/card-chrome.ts
                           matchSummaryLabel / matchBreakdown are the Phase 6 entry point
 testing/dto-fixtures.ts   DTO builders for the specs only
@@ -114,7 +125,7 @@ testing/dto-fixtures.ts   DTO builders for the specs only
 
 **Drag (Phase 5).** Each card is its own `cdkDropList` (sorting disabled, CDK auto-scroll disabled) holding one `cdkDrag`, and both columns sit in one `cdkDropListGroup` on the screen. The drop never transfers arrays — it reads `item.data` and `container.data`, resolves them through `pairFromDrop` (requirement 1.2: one function, both directions), and asks `GET /api/match-proposal`. Same-column enter-predicate returns false (silent no-op). Escape sets a cancelled flag; CDK has no Escape handling of its own, and `cdkDragEnded` fires *before* `cdkDropListDropped`, so the flag must not be cleared on `ended`. CDK's auto-scroll would scroll the *source* column when the pointer is over a band header in the target, so it is replaced by `columnAutoScroll` (48px zone, `$auto-scroll-zone` / `AUTO_SCROLL_ZONE` — one number in two places). **No keyboard drag path.** The default, the ceiling and the refusal string all arrive from the server; `no-domain-arithmetic.spec.ts`'s allow-list is still exactly two files.
 
-**Match affordance (Phase 5 / Phase 6's hook).** Line 2 shows `matchSummaryLabel` — `2 matches · 1 draft` / `1 match · confirmed` / `no matches` — live matches only (cancelled ones never reach the client). The hover `title` is `matchBreakdown`. Opening a match is Phase 6; do not add a click handler here without reading that phase.
+**Getting to a match (Phase 6).** Line 2 shows `matchSummaryLabel` — `2 matches · 1 draft` / `1 match · confirmed` / `no matches` — live matches only (cancelled ones never reach the client); the hover `title` is `matchBreakdown`. With matches it is a **button that toggles the card's expansion**, and every row of the expanded match table opens that match's modal. Two consequences worth knowing: the label sits inside the drag handle, so it stops `pointerdown` or a click that drifts a pixel would lift the card instead; and the row is clickable rather than growing an actions column, because the supply match table already fits seven columns in 508px and not eight. **A match is opened by id and nothing else** — `MatchActions.open(matchId)` — which is what makes the same match openable from its space and from its availability record without two code paths.
 
 **Filtering and sorting attach to `buildBoard`'s inputs, never its output** — `matching-screen` filters and sorts the lists and calls it again, so the band meta totals *and the per-column trim* reshape for free. Sorting the flat list before banding is also what makes a sort reorder cards **within** each week rather than dissolving the bands; there is deliberately no "ungrouped" mode.
 
@@ -138,6 +149,9 @@ The build is nine phases plus one remediation pass (3b), one chat each, each sta
 - `Documents/BUILD-LOG.md` — what earlier phases actually did and decided. Every phase appends an entry before finishing.
 - `Documents/Phases/PHASE-N-*.md` — detailed requirements for the phase at hand.
 - `Documents/build-plan.html` — the visual plan, and where the per-phase prompts are copied from.
+- `Documents/browser-checklist.md` — the one pass no test can do: every geometry claim and every
+  pointer path, consolidated from Phases 3–6, with real record ids. **Still unrun.** Add to it if your
+  phase makes a claim jsdom cannot check, and if you get a browser, run it and record the outcome.
 - `ExistingAppScreenshots/*.png` — four screens from APG's live LMS v7. **The prototype must look like it belongs in that application.** It is built with themed Angular Material, and every prototype screen renders inside the real shell: petrol-blue top bar with the yellow dev flag, and the sidebar with its full nav list. Sample colours from the pixels, not from memory.
 
 The roadmap's **"Resolved spec questions"** override the requirements `.docx` wherever they conflict. Do not reopen them. Each phase closes by spawning a sonnet subagent to review the work, then appending to the build log.
@@ -163,7 +177,9 @@ Three entities, and the shape of the relationship is the whole point:
 - **Livestock Availability** — a farmer's stock on offer: stock class, quantity available, location, available-from date, availability details, transaction type, optional linked Purchases, notes.
 - **Match** — the join. **Many-to-many**: one Processor Space is filled from several Availability records, and one Availability record is split across several Processor Spaces. A Match carries its own `quantityMatched`, `pricePerKg`, `transportCompany`, and status. Model it as a first-class entity, never as a foreign key on either side.
 
-Cancelling a Processor Space or Availability record **does not cascade** to its matches — that is intentional, so APG can arrange alternatives before notifying anyone. Matches must be cancelled separately.
+Cancelling a Processor Space or Availability record **does not cascade** to its matches, **and cancelling a match does not touch its parent records** — that is intentional in both directions, so APG can arrange alternatives before notifying anyone. Matches must be cancelled separately.
+
+Note the trap when checking this: cancelling a match legitimately changes an availability record's **derived** status — a record left with no live matches derives back to `Booked` — and that is the derivation doing its job, not a cascade. The **stored** statuses are what must not move, and a Processor Space's status is stored in its entirety.
 
 ### Users
 
@@ -189,9 +205,11 @@ Compute both from the match set; never store a denormalised total. Colour semant
 
 `Quantity Unmatched` (used on the matching screen) = original quantity minus incl-Draft matched. Negative values are highlighted, labelled "Over-filled" on the Processor Space side and "Over-committed" on the Availability side.
 
-**Statuses.** Match status is explicit and APG-driven: `Drafted → Notified → Confirmed`, plus `Cancelled` (requires a cancellation reason: change from agent/farmer, change from processor, or internal APG decision). Processor Space and Livestock Availability statuses are largely **derived from their matches**, not set directly — e.g. an Availability record is `Booked` with no live matches, `Pending` while matching is in progress, and `Confirmed` only when unmatched quantity is zero and every match is Confirmed or Cancelled. Implement these as computed state so they can't drift.
+**Statuses.** Match status is explicit and APG-driven: `Drafted → Notified → Confirmed`, plus `Cancelled` (requires a cancellation reason: change from agent/farmer, change from processor, or internal APG decision). In pass 1 the lifecycle is `Drafted → Confirmed` (resolved question 2), so `MatchLifecycle` gates confirm on `Drafted` only, delete on `Drafted` only, and cancel on anything past it — delete and cancel are never both offered. Processor Space and Livestock Availability statuses are largely **derived from their matches**, not set directly — e.g. an Availability record is `Booked` with no live matches, `Pending` while matching is in progress, and `Confirmed` only when unmatched quantity is zero and every match is Confirmed or Cancelled. Implement these as computed state so they can't drift.
 
 **Match creation.** Dragging one record onto the other prompts for `quantityMatched`, defaulting to `min(unmatched on each side)`. If that default is < 1, refuse with "There is no unmatched quantity". The default price per Kg (by processor × stock class × week-commencing-Sunday) is shown at draft time and stays editable on the match.
+
+**Match editing.** The ceiling on an existing match is the availability's unmatched quantity **plus that match's own current quantity** (resolved question 13) — `MatchCreation.MaxMatchQuantity(availability, matches, existingMatch)`, the **three**-argument overload. The one-argument overload is for a *new* match and adds nothing back; reaching for it on an edit refuses the quantity the match already holds. The `.docx`'s "originally available" goes the other way and would permit the over-commit the pink colour exists to flag. Both are wrong, in opposite directions. The ceiling ships on `MatchEditContextDto.maximumQuantity` because composing it client-side would be arithmetic on two DTO quantity fields.
 
 **Matching screen layout.** Processor Spaces left and Livestock Availability right by default, swappable on the flip button. Both lists change no data, and each is filterable and sortable by every displayed field. Both sides show a "week commencing" (Sunday) value, but **only Processor Spaces can be filtered by it** — resolved question 17 removed the availability week filter, and the `.docx`'s p.21 request for one is overridden. Default filters: Processor Spaces `Status = Booked`; Availability `Status in (Booked, Pending)` and `Quantity Unmatched > 0`.
 

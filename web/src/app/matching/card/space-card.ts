@@ -84,6 +84,9 @@ export class SpaceCard {
 
   readonly matchesTitle = computed(() => matchBreakdown(this.space().matches));
 
+  /** With none, the label is a statement rather than a way in, so it stays plain text. */
+  readonly hasMatches = computed(() => this.space().matches.length > 0);
+
   readonly expanded = computed(() => this.state.isExpanded('demand', this.space().id));
 
   /** What this card hands a drop: itself, in full, on the demand side. */

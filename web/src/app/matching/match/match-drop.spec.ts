@@ -9,6 +9,7 @@ import { CreateMatchRequest, MatchProposalDto, MatchWriteResultDto } from '../..
 import { aMatch, anAvailability, aSpace } from '../testing/dto-fixtures';
 import { MatchDrop } from './match-drop';
 import { QuantityPrompt, QuantityPromptData } from './quantity-prompt';
+import { RecordPatch, RecordPatches } from './record-patches';
 
 describe('Match drop', () => {
   const pair = { space: aSpace({ id: 4 }), availability: anAvailability({ id: 8 }) };
@@ -115,19 +116,23 @@ describe('Match drop', () => {
       } satisfies MatchWriteResultDto),
     );
 
-    const writes: MatchWriteResultDto[] = [];
+    // Phase 6 moved the write stream to RecordPatches, so every writer on the screen publishes to one
+    // place and `matching-screen` subscribes once. The drop is now one of six.
+    const writes: RecordPatch[] = [];
     const drop = TestBed.inject(MatchDrop);
 
-    drop.writes.subscribe((result) => writes.push(result));
+    TestBed.inject(RecordPatches).patches.subscribe((patch) => writes.push(patch));
     drop.dropped(pair);
     dialogClosed.next(request);
     snackAction.next();
 
     expect(createMatch).toHaveBeenCalledWith(request);
     expect(deleteMatch).toHaveBeenCalledWith(99);
+    // A patch carries the recomputed records, not the match: the screen replaces two cards by id.
     expect(writes).toHaveLength(2);
-    expect(writes[0].match?.id).toBe(99);
-    expect(writes[1].match).toBeNull();
+    expect(writes[0].space?.id).toBe(4);
+    expect(writes[0].availability?.id).toBe(8);
+    expect(writes[1].availability?.unmatched).toBe(90);
     expect(openSnack).toHaveBeenCalledWith(
       'Match created — 40 head, ANZCO Rangitikei',
       'Undo',

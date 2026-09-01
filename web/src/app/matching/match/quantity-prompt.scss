@@ -1,6 +1,12 @@
 @use '../card-geometry' as geo;
 @use '../../../styles/lms-tokens' as lms;
 
+// 148px each for the two numbers, the carrier taking the rest — the numbers are three digits and a
+// wide box invites the impression that more is wanted. Declared here rather than inline because the
+// price note is indented by the first of them, and the two must not drift.
+$field-number-width: 148px;
+$field-gap: 8px;
+
 // Material caps dialog content at 65vh, which clips this prompt and forces a scrollbar.
 :host mat-dialog-content.mat-mdc-dialog-content {
   max-height: none;
@@ -110,12 +116,12 @@
 .fields {
   display: flex;
   align-items: flex-start;
-  gap: 8px;
+  gap: $field-gap;
 }
 
 .f-quantity,
 .f-price {
-  flex: 0 0 148px;
+  flex: 0 0 $field-number-width;
 }
 
 .f-transport {
@@ -143,4 +149,18 @@
 
 .q-pink {
   color: lms.$q-pink-ink;
+}
+
+// THE LINE THAT MAKES THE WRAPPING HINTS SAFE.
+//
+// Material's subscript wrapper is a fixed height — more so at density -2 — so by default a hint that
+// wraps overflows it silently and paints over whatever follows, which here was the dialog's own
+// actions. With a real height the wrap takes real space and pushes them down instead.
+//
+// This is what lets the price hint stay in the field it describes and run to four lines. It is load
+// bearing: remove it and the overlap the first browser pass found comes straight back.
+.fields .mat-mdc-form-field-subscript-wrapper {
+  height: auto;
+  min-height: 18px;
+  line-height: 1.35;
 }

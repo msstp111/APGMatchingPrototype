@@ -105,7 +105,15 @@ export class QuantityPrompt {
   /** The title carries the primary number, and follows the field as it is edited. */
   readonly titleQuantity = computed(() => this.quantityValue() ?? 0);
 
-  readonly quantityHint = `Default ${this.proposal.quantity} · max ${this.proposal.maximum}`;
+  /**
+   * Short enough for one line of a 148px field, and it has to be.
+   *
+   * Material's subscript wrapper is a fixed height — more so at `density: -2` — so a hint that wraps
+   * overflows it rather than pushing what follows down, and lands under the dialog's own actions. The
+   * sentence that will not fit ({@link priceNote}) sits in normal flow below the row instead. The
+   * default quantity is not restated here because the field is already prefilled with it.
+   */
+  readonly quantityHint = `max ${this.proposal.maximum}`;
 
   /**
    * The availability unmatched figure, in the words the operator asked for, the moment they type
@@ -125,6 +133,20 @@ export class QuantityPrompt {
    * The key is the **Processor Space** stock class (resolved question 7). Naming the three parts of
    * the key in the hint is what makes a wrong-side lookup visible on screen: an operator who knows the
    * space is Prime and sees the availability record's class here has caught the bug for us.
+   */
+  /**
+   * It lives in the price field's own subscript and wraps to four lines there, which is Mark's call
+   * and the right one: **the field it sits in is what says which field it is about.** Moved out to a
+   * note below the row it had to buy that association back in words, and a full-width note under three
+   * fields reads as belonging to the first of them whatever it says.
+   *
+   * The wrap is safe because `.fields` gives the subscript a real height (see the stylesheet) — four
+   * lines push the dialog's actions down rather than landing on top of them, which is what they did
+   * before the first browser pass.
+   *
+   * Wording is design-system.md 11.1's, verbatim. Naming the three parts of the price-table key is
+   * what makes a wrong-side lookup visible on screen: an operator who knows the space is Prime and
+   * sees the availability record's class here has caught the bug for us (resolved question 7).
    */
   readonly priceHint =
     this.proposal.defaultPricePerKg != null

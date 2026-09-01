@@ -4,14 +4,13 @@ import { Subject, of } from 'rxjs';
 import { ApiClient } from '../api/api-client';
 import {
   LivestockAvailabilityDto,
-  MatchWriteResultDto,
   ProcessorSpaceDto,
   WeekBandDto,
 } from '../api/models';
 import { MatchingScreen } from './matching-screen';
 import { DEFAULT_SUPPLY_FILTERS } from './filters/filter-defaults';
 import { MatchingPreferences, PREFERENCES_STORAGE_KEY } from './filters/matching-preferences';
-import { MatchDrop } from './match/match-drop';
+import { RecordPatch, RecordPatches } from './match/record-patches';
 import { aMatch, anAvailability, aSpace, weeks } from './testing/dto-fixtures';
 
 /**
@@ -51,7 +50,9 @@ describe('Matching screen', () => {
   // 23 Aug is the current week, so both records sit in it.
   const bands: WeekBandDto[] = weeks(3);
 
-  const writes = new Subject<MatchWriteResultDto>();
+  // Phase 6: one stream for every write on the screen — the drop, the four match actions, and
+  // confirming a space. A patch may carry one record or both.
+  const writes = new Subject<RecordPatch>();
 
   function configure(
     spaces: readonly ProcessorSpaceDto[] = [space],
@@ -70,7 +71,7 @@ describe('Matching screen', () => {
             weekBands: () => of(weekBands),
           },
         },
-        { provide: MatchDrop, useValue: { writes: writes.asObservable() } },
+        { provide: RecordPatches, useValue: { patches: writes.asObservable() } },
       ],
     }).compileComponents();
   }
@@ -216,7 +217,7 @@ describe('Matching screen', () => {
             weekBands: () => of([]),
           },
         },
-        { provide: MatchDrop, useValue: { writes: writes.asObservable() } },
+        { provide: RecordPatches, useValue: { patches: writes.asObservable() } },
       ],
     }).compileComponents();
 
@@ -421,7 +422,6 @@ describe('Matching screen', () => {
       const fixture = await mount();
 
       writes.next({
-        match: aMatch({ id: 9, status: 'Drafted', quantityMatched: 40 }),
         space: aSpace({
           unmatched: 60,
           quantityStateLabel: 'Under-filled',
@@ -453,7 +453,6 @@ describe('Matching screen', () => {
       );
 
       writes.next({
-        match: aMatch({ id: 9, status: 'Drafted' }),
         space: aSpace({ unmatched: 10 }),
         availability: anAvailability({ unmatched: 0, status: 'Pending' }),
       });
@@ -468,14 +467,12 @@ describe('Matching screen', () => {
       const fixture = await mount();
 
       writes.next({
-        match: aMatch({ id: 9, status: 'Drafted' }),
         space: aSpace({ unmatched: 10 }),
         availability: anAvailability({ unmatched: 0, status: 'Pending' }),
       });
       await fixture.whenStable();
 
       writes.next({
-        match: null,
         space: aSpace({ unmatched: 100 }),
         availability: anAvailability({ unmatched: 777, status: 'Booked' }),
       });
@@ -484,6 +481,88 @@ describe('Matching screen', () => {
       expect((fixture.nativeElement as HTMLElement).querySelectorAll('app-availability-card')).toHaveLength(
         1,
       );
+    });
+  });
+
+  // -------------------------------------------------------------------------------------------
+  // Phase 6 — a match is managed; a space is confirmed
+  // -------------------------------------------------------------------------------------------
+
+  describe('after a match is managed', () => {
+    /**
+     * Where a cancelled match goes: out of both parents' collections, and so off the screen. Pass 1
+     * has no Match list view, so this is the last the operator sees of it — which is what the cancel
+     * dialog warns about before the fact.
+     */
+    it('drops a cancelled match off both cards and moves both sums', async () => {
+      const fixture = await mount();
+      const element = fixture.nativeElement as HTMLElement;
+
+      // A match to cancel. The seeded fixtures carry none, so the drag's own patch puts one there.
+      writes.next({
+        space: aSpace({ matches: [aMatch({ id: 9, status: 'Confirmed' })], unmatched: 60 }),
+        availability: anAvailability({
+          matches: [aMatch({ id: 9, status: 'Confirmed' })],
+          status: 'Pending',
+          unmatched: 50,
+        }),
+      });
+      await fixture.whenStable();
+
+      expect(element.textContent).toContain('1 match · confirmed');
+
+      writes.next({
+        space: aSpace({ matches: [], matchedInclDraft: 0, matchedExclDraft: 0, unmatched: 100 }),
+        availability: anAvailability({
+          matches: [],
+          status: 'Booked',
+          matchedInclDraft: 0,
+          matchedExclDraft: 0,
+          unmatched: 90,
+        }),
+      });
+      await fixture.whenStable();
+
+      expect(element.textContent).toContain('no matches');
+      expect(element.querySelector('app-space-card .meter')?.getAttribute('title')).toContain('100');
+    });
+
+    /**
+     * Confirming a space patches the space and **nothing else**. A patch carrying an availability
+     * record would be the screen asserting something the server did not say — and on this screen,
+     * what a write does and does not reach is the thing most easily misread.
+     */
+    it('patches only the space when the patch carries only a space', async () => {
+      const fixture = await mount();
+      const element = fixture.nativeElement as HTMLElement;
+      const supplyBefore =
+        element.querySelector('app-availability-card .meter')?.getAttribute('title') ?? '';
+
+      expect(supplyBefore).not.toBe('');
+
+      writes.next({ space: aSpace({ unmatched: 5 }) });
+      await fixture.whenStable();
+
+      expect(element.querySelector('app-space-card .meter')?.getAttribute('title')).toContain('5');
+      expect(element.querySelector('app-availability-card .meter')?.getAttribute('title')).toBe(
+        supplyBefore,
+      );
+    });
+
+    /**
+     * Requirement 5.5: a Confirmed space still appears if the filters allow, and the default filter
+     * is `Status = Booked` — so it normally drops out of view. That is correct behaviour, not a bug,
+     * and it is the visible confirmation that the write landed.
+     */
+    it('drops a confirmed space out of the default Booked filter', async () => {
+      const fixture = await mount();
+
+      expect((fixture.nativeElement as HTMLElement).querySelectorAll('app-space-card')).toHaveLength(1);
+
+      writes.next({ space: aSpace({ status: 'Confirmed', canConfirm: false }) });
+      await fixture.whenStable();
+
+      expect((fixture.nativeElement as HTMLElement).querySelectorAll('app-space-card')).toHaveLength(0);
     });
   });
 });

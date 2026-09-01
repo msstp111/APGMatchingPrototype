@@ -1,0 +1,225 @@
+@use '../card-geometry' as geo;
+@use '../../../styles/lms-tokens' as lms;
+
+// Material caps dialog content at 65vh, which clips this modal and forces a scrollbar inside a panel
+// that is already short enough to read whole. Same override the quantity prompt makes.
+:host mat-dialog-content.mat-mdc-dialog-content {
+  max-height: none;
+  overflow: visible;
+}
+
+// The spines come from the same mixin the cards use, so each block reads as the card it stands for.
+@include geo.spines;
+
+// Side by side and equal, because neither parent is the subject of this dialog: the match between
+// them is (design-system.md 11.4.1).
+.pair {
+  display: flex;
+  gap: 10px;
+}
+
+.rec {
+  flex: 1 1 0;
+  min-width: 0;
+  display: flex;
+  border: 1px solid lms.$lms-divider;
+  border-radius: 4px;
+  background: #fafafa;
+  overflow: hidden;
+}
+
+.rbody {
+  flex: 1 1 auto;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 8px 10px;
+}
+
+.rhead {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+}
+
+.kicker,
+.rstatus,
+.fk {
+  @include geo.micro-caps;
+}
+
+.kicker {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  min-width: 0;
+}
+
+// Only the words give way. "Livestock Availability #8" is a shade too long for half a 640px dialog,
+// and truncating the kicker as one string put the ellipsis on the number — a block naming no record.
+.words {
+  min-width: 0;
+  @include geo.truncate;
+}
+
+.rid {
+  flex: 0 0 auto;
+}
+
+// The status never shrinks either: it is one short word, and it is half of what the block is for.
+.rstatus {
+  flex: 0 0 auto;
+}
+
+.kicker.demand {
+  color: lms.$lms-petrol;
+}
+
+// The supply column's identity tone. Not a hue: hue is the quantity meter's alone.
+.kicker.supply {
+  color: lms.$lms-supply-ink;
+}
+
+// The same lead glyphs the two column headers carry, so a block is identifiable as its own side
+// before its words are read (design-system.md 6.3).
+.lead {
+  font-size: 14px;
+  line-height: 14px;
+}
+
+.rname {
+  display: flex;
+  align-items: center;
+  gap: geo.$col-gap;
+  min-width: 0;
+}
+
+.nm {
+  flex: 1 1 auto;
+  min-width: 0;
+  font-size: 13.5px;
+  font-weight: 500;
+  color: lms.$lms-text;
+  @include geo.truncate;
+}
+
+.sub {
+  font-size: 12px;
+  color: lms.$lms-text-muted;
+  @include geo.truncate;
+}
+
+.facts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 16px;
+}
+
+.fact {
+  display: flex;
+  align-items: baseline;
+  gap: 4px;
+}
+
+.fv {
+  font-size: 12.5px;
+  color: lms.$lms-text;
+  @include geo.numerals;
+}
+
+.fv.strong {
+  font-weight: 500;
+}
+
+// The state word rides beside the figure at ordinary weight, so "Over-filled" is legible without
+// the numeral having to be read as negative first.
+.state {
+  margin-left: 4px;
+  font-weight: 400;
+  font-size: 11.5px;
+}
+
+.note {
+  margin: 10px 0 12px;
+  padding: 8px 10px;
+  border: 1px solid lms.$lms-divider;
+  border-radius: 4px;
+  background: lms.$lms-white;
+  font-size: 12.5px;
+  color: lms.$lms-text-muted;
+}
+
+// 150px each for the two numbers, the carrier taking the rest (design-system.md 11.4.3).
+.fields {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  margin-top: 4px;
+}
+
+.f-quantity,
+.f-price {
+  flex: 0 0 150px;
+}
+
+.f-transport {
+  flex: 1 1 auto;
+}
+
+// THE LINE THAT MAKES THE WRAPPING HINTS SAFE.
+//
+// Material's subscript wrapper is a fixed height — more so at density -2 — so by default a hint or an
+// error that wraps overflows it silently and paints over whatever follows: here, the ceiling note and
+// then the dialog's own footer. With a real height the wrap takes real space and pushes them down.
+//
+// This is what lets the price hint stay in the field it describes and run to several lines. It is load
+// bearing: remove it and the overlap the first browser pass found comes straight back.
+.fields .mat-mdc-form-field-subscript-wrapper {
+  height: auto;
+  min-height: 18px;
+  line-height: 1.35;
+}
+
+.ceiling {
+  margin: 4px 0 0;
+  font-size: 11.5px;
+  line-height: 16px;
+  color: lms.$lms-text-muted;
+  @include geo.numerals;
+}
+
+// Destructive left, constructive right (design-system.md 11.4). The spacer is what holds them apart
+// whichever of the two destructive buttons this match's status offers.
+.footer {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.spacer {
+  flex: 1 1 auto;
+}
+
+// A text button, not a filled one: the filled destructive treatment belongs to the cancel dialog's
+// own confirmation, where the act actually happens.
+.destructive-text.mat-mdc-button {
+  --mdc-text-button-label-text-color: #{lms.$lms-error};
+}
+
+.q-under {
+  color: lms.$q-under-ink;
+}
+
+.q-exact {
+  color: lms.$q-exact-ink;
+}
+
+.q-over {
+  color: lms.$q-over-ink;
+}
+
+.q-pink {
+  color: lms.$q-pink-ink;
+}

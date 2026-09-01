@@ -24,6 +24,12 @@ public static class MatchWriter
     /// <summary>Asked for a quantity below one head.</summary>
     public const string BelowOneHead = "A match must be at least 1 head";
 
+    /// <summary>Asked about a match that does not exist, or that is no longer on the screen.</summary>
+    public const string NoSuchMatch = "There is no such match";
+
+    /// <summary>Asked to confirm a Processor Space that does not exist.</summary>
+    public const string NoSuchSpace = "There is no such processor space";
+
     /// <summary>
     /// The proposal for a pair, or null when either record does not exist.
     /// </summary>
@@ -109,10 +115,164 @@ public static class MatchWriter
     /// </remarks>
     public static string? RejectDelete(Match? match) =>
         match is null
-            ? "There is no such match"
-            : match.Status != MatchStatus.Drafted
-                ? "Only a drafted match can be deleted"
-                : null;
+            ? NoSuchMatch
+            : MatchLifecycle.CanDelete(match)
+                ? null
+                : MatchLifecycle.OnlyDraftedCanBeDeleted;
+
+    /// <summary>
+    /// Why a match may not be confirmed, or null when it may.
+    /// </summary>
+    /// <remarks>
+    /// Drafted to Confirmed in one step, because Notified has no UI transition in pass 1 (resolved
+    /// question 2). Confirming is the only thing on this screen that moves a match forward.
+    /// </remarks>
+    public static string? RejectConfirm(Match? match) =>
+        match is null
+            ? NoSuchMatch
+            : MatchLifecycle.CanConfirm(match)
+                ? null
+                : MatchLifecycle.OnlyDraftedCanBeConfirmed;
+
+    /// <summary>
+    /// Why a match may not be cancelled, or null when it may.
+    /// </summary>
+    /// <remarks>
+    /// Two gates, and both matter. A <b>drafted</b> match is deleted rather than cancelled (resolved
+    /// question 3), so it is refused here rather than quietly accepted: the two acts leave different
+    /// records behind. And a cancellation without one of the three reasons is refused, because a reason
+    /// is required by the spec and a missing one would otherwise be stored as null forever.
+    /// </remarks>
+    public static string? RejectCancel(Match? match, MatchCancellationReason? reason)
+    {
+        if (match is null)
+        {
+            return NoSuchMatch;
+        }
+
+        if (match.Status == MatchStatus.Cancelled)
+        {
+            return MatchLifecycle.AlreadyCancelled;
+        }
+
+        if (!MatchLifecycle.CanCancel(match))
+        {
+            return MatchLifecycle.ADraftIsDeletedNotCancelled;
+        }
+
+        return reason is null ? MatchLifecycle.ReasonRequired : null;
+    }
+
+    /// <summary>
+    /// The ceiling on editing <paramref name="match"/>: the availability record's remaining supply
+    /// <b>plus this match's own current quantity</b> (resolved question 13).
+    /// </summary>
+    /// <remarks>
+    /// The three-argument <c>MaxMatchQuantity</c>, never the one-argument one. The single-argument
+    /// overload is for a <em>new</em> match and adds nothing back, so using it here would refuse the
+    /// quantity the match already holds; the requirements document's "originally available" goes the
+    /// other way and would permit an over-commit. Both are wrong, in opposite directions.
+    /// </remarks>
+    public static int EditCeiling(WorkingSet set, Match match)
+    {
+        var availability = Availability(set, match.LivestockAvailabilityId);
+
+        return availability is null
+            ? match.QuantityMatched
+            : MatchCreation.MaxMatchQuantity(availability, set.Matches, match);
+    }
+
+    /// <summary>
+    /// Why an edit may not be applied, or null when it may.
+    /// </summary>
+    /// <remarks>
+    /// Minimum one head: reducing a match to nothing is a delete or a cancel, not an edit (Phase 6,
+    /// 3.1). Maximum is <see cref="EditCeiling"/>. There is deliberately <b>no ceiling on the Processor
+    /// Space side</b> — raising a match past what the space still needs is permitted and reads as
+    /// "Over-filled".
+    /// </remarks>
+    public static string? RejectUpdate(WorkingSet set, Match? match, UpdateMatchRequest request)
+    {
+        if (match is null)
+        {
+            return NoSuchMatch;
+        }
+
+        if (request.QuantityMatched < 1)
+        {
+            return BelowOneHead;
+        }
+
+        var ceiling = EditCeiling(set, match);
+
+        return request.QuantityMatched > ceiling
+            ? $"Capped at {ceiling} — that is the availability record's remaining supply plus this match's own {match.QuantityMatched}"
+            : null;
+    }
+
+    /// <summary>Writes the three editable fields onto <paramref name="match"/>. Status is untouched.</summary>
+    public static void Apply(Match match, UpdateMatchRequest request)
+    {
+        match.QuantityMatched = request.QuantityMatched;
+        match.PricePerKg = request.PricePerKg;
+        match.TransportCompany = Trimmed(request.TransportCompany);
+    }
+
+    /// <summary>
+    /// Why a Processor Space may not be confirmed, or null when it may.
+    /// </summary>
+    /// <remarks>
+    /// The message is <c>ProcessorSpaceRules.ConfirmBlockedReason</c>'s — the same sentence the card
+    /// prints beside the disabled button, so a crafted request and a greyed-out control give the same
+    /// account of the same rule.
+    /// </remarks>
+    public static string? RejectSpaceConfirm(WorkingSet set, ProcessorSpace? space) =>
+        space is null
+            ? NoSuchSpace
+            : ProcessorSpaceRules.ConfirmBlockedReason(space, set.Matches);
+
+    /// <summary>
+    /// Everything the match modal opens with, or null when there is no such match to open.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>By match id alone</b>, which is what makes the same match openable from its space and from
+    /// its availability record without two code paths (Phase 6, 1.2).
+    /// </para>
+    /// <para>
+    /// A <b>cancelled</b> match answers null as surely as a missing one. It is excluded from both
+    /// parents' collections (resolved question 4), so it is not on the matching screen to be opened
+    /// from, and pass 1 has no Match list view to open it anywhere else.
+    /// </para>
+    /// </remarks>
+    public static MatchEditContextDto? EditContext(WorkingSet set, int matchId)
+    {
+        var match = set.Matches.FirstOrDefault(m => m.Id == matchId);
+
+        if (match is null || !MatchQuantities.IsLive(match))
+        {
+            return null;
+        }
+
+        var space = MatchingProjection.SpaceById(set, match.ProcessorSpaceId);
+        var availability = MatchingProjection.AvailabilityById(set, match.LivestockAvailabilityId);
+        var dto = space?.Matches.FirstOrDefault(m => m.Id == matchId);
+
+        if (space is null || availability is null || dto is null)
+        {
+            return null;
+        }
+
+        return new MatchEditContextDto
+        {
+            // Taken off the parent rather than projected a second time, so the match in the modal and
+            // the match in the card's table cannot become two shapes of the same row.
+            Match = dto,
+            Space = space,
+            Availability = availability,
+            MaximumQuantity = EditCeiling(set, match),
+        };
+    }
 
     /// <summary>
     /// The match a validated request becomes: always <see cref="MatchStatus.Drafted"/>, always new.

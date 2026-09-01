@@ -136,7 +136,13 @@ public static class MatchingProjection
             QuantityStateLabel = QuantityStateLabels.For(tally.State, MatchSide.ProcessorSpace),
             WeekCommencing = NzTime.WeekCommencing(space.DeliveryDate),
             WeekCommencingLabel = NzTime.WeekLabel(space.DeliveryDate),
+            // Two calls, deliberately, though CanConfirm is defined as "ConfirmBlockedReason is null"
+            // and the clauses therefore run twice. Collapsing them would put that definition here, in
+            // the one class whose entire contract is that it computes nothing — and a rule restated in
+            // the projection is the same drift as a rule restated in TypeScript, one layer closer in.
+            // The cost is a LINQ filter over one space's matches, forty times per request.
             CanConfirm = ProcessorSpaceRules.CanConfirm(space, matches),
+            ConfirmBlockedReason = ProcessorSpaceRules.ConfirmBlockedReason(space, matches),
             Matches = LiveMatchDtos(matches, context),
         };
     }

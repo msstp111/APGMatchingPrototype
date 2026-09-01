@@ -110,10 +110,56 @@ export interface CreateMatchRequest {
  * id, and every derived figure on both cards moves with them.
  */
 export interface MatchWriteResultDto {
-  /** The created match, or null when this was a deletion. */
+  /**
+   * The match as it now stands, or null when there is no longer one to show.
+   *
+   * Null for two different acts with the same visible consequence: the match was **deleted** (a
+   * drafted mis-drag, removed outright), or it was **cancelled** — kept, with its reason, but excluded
+   * from both parents' collections, which is precisely what makes it leave the matching screen. Pass 1
+   * has no Match list view, so a cancelled match is then not visible anywhere.
+   */
   readonly match: MatchDto | null;
   readonly space: ProcessorSpaceDto;
   readonly availability: LivestockAvailabilityDto;
+}
+
+/**
+ * Everything the match modal opens with: the match, **both** parents in full, and the edit ceiling.
+ *
+ * Both parents ship whole rather than as the denormalised fields already on `MatchDto`, because the
+ * modal shows each parent's status, original quantity and unmatched figure and none of those is on the
+ * match. It is fetched **by match id alone**, which is what makes the same match openable from its
+ * space and from its availability record without two code paths.
+ *
+ * `maximumQuantity` is the availability's unmatched quantity **plus this match's own current
+ * quantity** (resolved question 13) — the match is already subtracted out of that unmatched figure, so
+ * without adding it back the operator could not even keep what they have. It arrives computed for the
+ * usual reason and one more: working it out here would be `availability.unmatched +
+ * match.quantityMatched`, which is domain arithmetic in TypeScript.
+ */
+export interface MatchEditContextDto {
+  readonly match: MatchDto;
+  readonly space: ProcessorSpaceDto;
+  readonly availability: LivestockAvailabilityDto;
+  /** The highest quantity this match may be edited to. There is no ceiling on the demand side. */
+  readonly maximumQuantity: number;
+}
+
+/**
+ * The three editable fields of an existing match, as the modal submits them.
+ *
+ * The same body goes to the confirm endpoint, so a match with unsaved edits confirms in one validated
+ * write rather than in two chained calls that can half-fail.
+ */
+export interface UpdateMatchRequest {
+  readonly quantityMatched: number;
+  readonly pricePerKg: number | null;
+  readonly transportCompany: string | null;
+}
+
+/** Why a match is being cancelled. One of exactly three reasons, and never absent. */
+export interface CancelMatchRequest {
+  readonly reason: MatchCancellationReason;
 }
 
 /**
@@ -169,6 +215,15 @@ export interface ProcessorSpaceDto {
   readonly weekCommencingLabel: string;
   /** Booked, at least one live match, and every live match Confirmed. */
   readonly canConfirm: boolean;
+  /**
+   * Why Confirm is unavailable, or null when it is available — never both null and `canConfirm` false.
+   *
+   * Printed beside the disabled button. A control that greys out for unstated reasons is exactly what
+   * makes a non-technical operator conclude the application is broken, and the three answers
+   * ("already confirmed", "this space is cancelled", "needs at least one confirmed match and no
+   * drafts") are not recoverable from a boolean. The wording is the domain's.
+   */
+  readonly confirmBlockedReason: string | null;
   /** Live matches only — cancelled ones never reach the client. */
   readonly matches: readonly MatchDto[];
 }

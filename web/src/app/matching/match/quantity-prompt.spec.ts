@@ -66,10 +66,36 @@ describe('Quantity prompt', () => {
     expect(text).toContain('Match 20 head');
     expect(text).toContain('Cattle');
     expect(text).toContain('Bull');
-    expect(text).toContain('Default 20 · max 142');
+    // The field is prefilled with the default, so the hint carries only the ceiling — and has to,
+    // since a hint that wraps overflows Material's fixed-height subscript and paints over the actions.
+    expect(text).toContain('max 142');
     expect(text).toContain('Default for Alliance Group · Cattle · w/c 23-08-26');
     expect(text).toContain('There is no mapping between them');
-    expect(text).toContain('Transport company - Can be added later');
+    expect(text).toContain('Transport company - can be added later');
+  });
+
+  /**
+   * The price hint lives in the price field, where the field itself says which field it describes,
+   * and it wraps to four lines there. What it must never do is name the *availability* record's stock
+   * class: the price table is keyed on the Processor Space's (resolved question 7), and a lookup
+   * against the wrong side returns a plausible number for the wrong animal.
+   */
+  it('names the price-table key off the space, never the availability record', async () => {
+    const fixture = await mount(
+      {},
+      {
+        space: aSpace({ processor: 'Alliance Group', stockClass: 'Cattle' }),
+        availability: anAvailability({ stockClass: 'Mixed Cattle' }),
+      },
+    );
+
+    const hint = [...(fixture.nativeElement as HTMLElement).querySelectorAll('mat-hint')]
+      .map((element) => element.textContent ?? '')
+      .find((text) => text.includes('Default for'));
+
+    expect(hint).toContain('Alliance Group');
+    expect(hint).toContain('Cattle');
+    expect(hint).not.toContain('Mixed Cattle');
   });
 
   it('omits the stock-class note when both records use the same class name', async () => {

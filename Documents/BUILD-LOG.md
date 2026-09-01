@@ -2199,3 +2199,411 @@ No browser MCP was available. Before demoing:
 - Create, confirm both meters and the match line update; consume the last of an availability
   record and watch it leave the default supply view; UNDO puts it back.
 - Density and sticky rail from Phases 3–4 still hold with a card in flight.
+
+---
+
+## Phase 6 — Match Management
+
+**Completed:** 2026-08-31
+**Status:** Complete
+
+### What shipped
+
+A match now has a life after the drag. Opening one from either card gives a modal (design-system.md
+§11.4) that edits quantity, price and transport company; a `Drafted` match can be deleted or
+confirmed, anything past `Drafted` can be cancelled with one of exactly three reasons, and a
+Processor Space can be confirmed from its expanded card — with the reason printed beside the button
+whenever it cannot be. Six new endpoints, all addressed by match id alone, and one new client-side
+seam: `RecordPatches`, the single stream every write on this screen publishes to.
+
+Later phases can rely on: `MatchLifecycle` as the domain's answer to what may be done to a match at
+each status, `ProcessorSpaceRules.ConfirmBlockedReason` as the sentence beside a disabled Confirm,
+`MatchEditContextDto` as everything a match modal needs, and `RecordPatches` as the place a Phase 7
+record write publishes to.
+
+### How a match is opened from each side — the phase document asks the log to record this
+
+**Two clicks, and the same two on both cards.**
+
+1. **Line 2's match label is now a button.** `2 matches · 1 draft` toggles the card's expansion. Phase
+   5's log named this label the entry point and explicitly forbade drawing a second chip beside it, so
+   the label itself became the control. With no matches it stays plain text: there is nothing to open.
+2. **Every row of the expanded match table opens that match** — `(click)="openMatch(m.id)"` on the
+   `<tr>`, from both `card-expansion.html` branches.
+
+Two things about that are not obvious and are load-bearing:
+
+- **The label sits inside the drag handle** (`.cbody` carries `cdkDragHandle`), unlike the chevron,
+  which is outside it. It therefore stops `pointerdown`: without that, a click that drifts a pixel
+  lifts the card instead of opening it.
+- **The row is clickable rather than growing an actions column.** design-system.md §6.2 records that
+  the supply match table fits seven columns in 508px and not eight, so there is no width for one; a
+  clickable row costs nothing and keeps §16.10's trailing-edge alignment intact. It has a `title`
+  and a hover fill and no ARIA role — resolved question 14 rules out spending effort on a pointer-free
+  path, and a `role="button"` with no `tabindex` would be worse than nothing.
+
+**Requirement 1.2 is satisfied by construction rather than by two code paths.** Both sides call
+`MatchActions.open(matchId)` with a number, and neither knows which card it is on;
+`GET /api/matches/{id}` answers the same context whichever card asked.
+`MatchEditTests.The_same_id_gives_the_same_match_whichever_card_it_came_from` asserts the two
+projections produce an equal `MatchDto`.
+
+### What the modal expects to be passed — also asked for by name
+
+**A `MatchEditContextDto` and nothing else**, fetched before the dialog opens. It carries:
+
+| Field | Why it is on the wire |
+| --- | --- |
+| `match` | taken off the parent's own `Matches` array, never projected a second time, so the row in the card's table and the row in the modal cannot become two shapes |
+| `space`, `availability` | **both parents in full.** §2.1/§2.2 want each parent's status, original quantity and unmatched figure, and `MatchDto` carries none of those — it has the denormalised *labels* of both sides but neither side's quantities |
+| `maximumQuantity` | the edit ceiling, below |
+
+`MatchModal` writes nothing and decides nothing. It closes with a `MatchModalResult` — a discriminated
+union of `save` / `confirm` / `delete` / `cancel`, the first two carrying an `UpdateMatchRequest` —
+and `MatchActions` performs the write. **Every footer action closes the modal**, which is why
+requirement 3.4 ("every edit recomputes the derived numbers on both columns immediately") is visible
+rather than merely true: the modal goes, and both columns move behind it.
+
+`EditContext` returns null for a **cancelled** match as surely as for a missing one, so
+`GET /api/matches/{id}` 404s on one. A cancelled match is on no card, and pass 1 has nowhere else to
+open it from.
+
+### How the Confirmed-edit prompts are implemented — also asked for by name
+
+`MatchActions.prompted()` sits between the modal closing and the `PUT`. It calls `promptFor()`, which
+returns a `ConfirmChangeData` or null:
+
+- **null unless the match is `Confirmed`.** Nothing prompts at `Drafted` — the match has been
+  communicated to nobody, which is what `Drafted` means.
+- **null unless the quantity or the transport company changed.** A **price-only edit never prompts.**
+  The rule is about who else is affected: a quantity is what the meatworks expects to receive and a
+  carrier is who is turning up, both already agreed with somebody; a price is between APG and the
+  farmer and changes nothing anyone is planning around.
+- Otherwise a nested `ConfirmChange` dialog (440px, design-system.md §11.5) that **names the
+  consequence in the processor's terms, not the field's** — *"Changing its quantity from 354 to 300
+  head will change what Alliance Group Wallacetown expects on 28-08-26"* — with the two buttons
+  carrying the two values (`Keep 354` / `Change to 300`) rather than Yes and No.
+
+**The prompt is the client's, not the server's, and that is deliberate**: it is a question for a human
+about a consequence, not a rule about validity. The server enforces the ceiling and the minimum
+whatever the dialog allowed, and would accept the same `PUT` without one.
+
+Declining is silent. Keeping the old value is a decision, not a failure, and it earns no snack bar.
+
+### Where a cancelled match goes — also asked for by name
+
+**Nowhere. That is the design, and the operator is told so before the fact.**
+
+`RecordCancellation.CancelMatch` sets the status and the reason; the row stays in the database with
+both. But a cancelled match is excluded from both parents' `matches` arrays (resolved question 4), so:
+
+- it vanishes from both cards' match tables and stops counting in `matchSummaryLabel`;
+- both matched sums drop by its quantity and both unmatched figures rise;
+- `POST /api/matches/{id}/cancel` returns `MatchWriteResultDto` with **`match: null`** — the same
+  shape a delete returns, because the visible consequence is the same;
+- `GET /api/matches/{id}` then 404s, so it cannot be reopened.
+
+Pass 1 has no Match list view, so that is the last anyone sees of it. `CancelMatch`'s warning panel
+says exactly that — *"A cancelled match disappears from the matching screen. Pass 1 has no Match list
+view, so it will not be visible anywhere afterwards"* — and, in the same breath, the thing that is
+**not** about to happen: *"Both records keep their own status — cancelling a match never touches its
+parents."*
+
+Deleting a drafted match has the identical numeric effect; the only difference is that the row is
+gone rather than retained with its reason (requirement 6.3, and
+`Deleting_a_draft_and_cancelling_it_move_the_numbers_identically` asserts it).
+
+### Decisions made during the build
+
+1. **`RecordPatches` replaces `MatchDrop.writes`.** Phase 5 had one writer, so it owned a `Subject`.
+   Phase 6 adds five more and one of them patches a single record. A root `RecordPatches` service now
+   takes every write and `matching-screen` subscribes once. **A `RecordPatch` may carry one record or
+   both, and an absent half means "the server did not say", not "unchanged by omission"** —
+   `applyPatch` skips what it was not given. Phase 7's record writes should publish here.
+
+2. **Confirming a space returns a bare `ProcessorSpaceDto`, not the two-parent shape.** Confirming a
+   space touches no availability record; returning one would imply it had, on the one screen where
+   what a write does and does not reach is the thing most easily misread.
+
+3. **`POST /api/matches/{id}/confirm` takes the edit body.** Mark chose "save, then confirm" over
+   disabling Confirm on a dirty form. Sending the fields with the confirm makes that a **single
+   validated `SaveChanges`** rather than two chained calls with a half-applied state in between. A
+   pristine form sends the values the match already holds, which is a no-op.
+
+4. **`ProcessorSpaceRules.CanConfirm` is now defined as `ConfirmBlockedReason(...) is null`**, so the
+   gate and its explanation are one piece of logic and cannot come to disagree — the button enabled
+   while the reason still says why it cannot be. Three answers, because "Confirm is greyed out" needs
+   three: `Already confirmed`, `This space is cancelled`, and design-system.md §15's verbatim
+   `Needs at least one confirmed match and no drafts`. **`CanConfirm`'s behaviour is unchanged**; the
+   Phase 1 tests that pin it all still pass untouched.
+
+5. **`MatchLifecycle` is a new file rather than an extension of `RecordCancellation`.** It answers
+   *whether* (`CanDelete` / `CanConfirm` / `CanCancel`) and does one thing (`Confirm`). Cancellation
+   stays in `RecordCancellation`, which remains **the only path that sets `Cancelled`** — and whose
+   signatures, taking no record collections at all, are half the non-cascade guarantee.
+   `MatchLifecycleTests.Nothing_here_cancels_a_match` asserts `Confirm` is the file's only mutator, so
+   a second way to cancel cannot appear here without a reason being optional on one of them.
+
+6. **Confirming a match is `Drafted`-only, and `Notified` is deliberately not a second entry.**
+   Resolved question 2 skips `Notified` in pass 1; were notifications to arrive, a Notified match
+   should need its own explicit step rather than inheriting this one silently.
+
+7. **`Save changes` is inert until something differs.** Nothing to save is not an error, so it is
+   disabled without explanation — unlike Confirm-space and the cancel dialog's action, where the
+   reason is stated because the cause is not self-evident.
+
+### Deviations from the phase document
+
+- **Nothing in sections 1 to 6 was descoped.** Every requirement was built.
+- **The per-match affordance is a clickable table row, which design-system.md does not specify.** §6.2
+  fixes the table's columns and §16.10 its trailing-edge alignment, and an actions column would break
+  both — see "How a match is opened" above. Recorded rather than invented silently, per the document's
+  own instruction at the top of design-system.md.
+- **The `Confirm space` button is `mat-stroked-button`, not the `mat-flat-button` §1.2 lists for
+  primary dialog actions.** It sits inside a card, not a dialog footer, and a filled petrol button
+  inside a 52px-row list reads as the screen's primary action, which it is not.
+
+### Review findings
+
+A sonnet subagent reviewed against PHASE-6, the roadmap and the diff. It ran `dotnet build`,
+`dotnet test`, `npm test` and `npm run build` itself rather than trusting my word, and read the new
+files off disk where the diff did not carry them.
+
+**Clean on all three of the phase document's review-focus items**, verified independently:
+
+- **The non-cascade, both directions.** `RecordCancellation`'s signatures make a cascade structurally
+  impossible in either direction, and the tests cover the trap case — a record's *derived* status
+  legitimately changes when its last live match is cancelled, while its *stored* status never moves.
+- **The edit ceiling** uses the three-argument `MaxMatchQuantity`, is enforced server-side in
+  `RejectUpdate` (which both `PUT` and the confirm endpoint go through), and is never computed in the
+  client.
+- **Processor Space status is stored everywhere.** `ConfirmBlockedReason` only reads it; the only
+  writes are the explicit confirm endpoint and `RecordCancellation.CancelProcessorSpace`.
+
+It also confirmed the acceptance criteria are met, that `no-domain-arithmetic.spec.ts`'s allow-list is
+still exactly two files, and that the new tests are substantive rather than vacuous.
+
+Three findings, all low. Disposition:
+
+1. **The confirm endpoint returned 409 for plain body-validation failures** that the plain `PUT`
+   returns 400 for, with the identical message — **fixed.** The two gates are now separate: a status
+   gate is a conflict (`Only a drafted match can be confirmed` → 409), a ceiling or a minimum is a bad
+   request (→ 400), and it is the same rejection the plain edit returns. Verified against the running
+   API.
+2. **The Confirmed-edit prompt named only one field when quantity *and* transport changed in the same
+   save** — **fixed**, and this was the finding worth having. The write applied both fields, so the
+   operator would have agreed to one change and unknowingly applied two. Both consequences are now
+   named in the one sentence; the buttons still carry the quantity when it moved, since that is the
+   figure the whole screen is scanned for. New test:
+   `names both consequences when quantity and transport changed together`.
+3. **`MatchingProjection` computes `ConfirmBlockedReason` twice per space** (once directly, once
+   inside `CanConfirm`) — **deliberately not fixed, and a comment added saying why.** Collapsing it
+   would mean writing `CanConfirm = reason is null` in the projection, which puts the *definition* of
+   the gate in the one class whose entire contract is that it computes nothing. A rule restated in the
+   projection is the same drift as a rule restated in TypeScript, one layer closer in. The cost is a
+   LINQ filter over one space's matches, forty times per request.
+
+### Watch out for
+
+- **The non-cascade has a trap that looks exactly like a violation.** Cancelling a match legitimately
+  changes an availability record's **derived** status — a record left with no live matches derives
+  back to `Booked` — and the smoke test shows precisely that (`Pending -> Booked`). That is the
+  derivation doing its job. The **stored** statuses are what must not move, and a Processor Space's
+  status is stored in its entirety.
+- **`MaxMatchQuantity` has two overloads and both are wrong in the other's place.** The one-argument
+  one is for a *new* match and adds nothing back — used on an edit it would refuse the quantity the
+  match already holds. The `.docx`'s "originally available" goes the other way and would permit the
+  over-commit. `MatchWriter.EditCeiling` is the only caller for edits; go through it.
+- **The ceiling is on the wire for two reasons, not one.** The usual one, and because composing it
+  client-side is `availability.unmatched + match.quantityMatched` — which
+  `no-domain-arithmetic.spec.ts` fails, correctly. The allow-list is still exactly two files.
+- **The match label stops `pointerdown`.** It is inside the drag handle. Remove that and a click that
+  drifts a pixel lifts the card instead of opening it.
+- **A confirmed space drops out of the default `Status = Booked` filter and appears to vanish**
+  (requirement 5.5). Correct behaviour, and the `showing n of m` count says so. The same is true of
+  the space the seeder confirms.
+- **`MatchWriteResultDto.match` is null for a delete *and* for a cancel.** Two different acts, one
+  visible consequence. Do not read null as "deleted".
+- **`GET /api/matches/{id}` 404s on a cancelled match.** Intended — it is on no card, and pass 1 has
+  no Match list view. If Phase 7 or a later pass needs to display one, that needs its own endpoint and
+  its own shape, exactly as Phase 1's log said of `MatchDto.CancellationReason` (still always null on
+  the two read endpoints).
+- **On-screen verification was still not done**, and it is now five phases old. No browser automation
+  tool is available in this session, as in Phases 3, 3b, 4 and 5. What changed is that the checklist
+  is now one document — `Documents/browser-checklist.md` — instead of five buried sections. **A phase
+  that makes a claim jsdom cannot check should add to it**, and any phase that gets a browser should
+  run it and record the outcome, here, as its own short interstitial entry if anything fails.
+- **An `Apg.Api.exe` belonging to another session was running when this phase started** and was
+  stopped to build. The sonnet reviewer stopped it again mid-review and did not restart it; it has
+  been restarted here, on a reset database. Unchanged advice:
+  `Get-CimInstance Win32_Process -Filter "Name='Apg.Api.exe'"`.
+- **A long `bash` heredoc silently fails in this environment** past roughly 150 lines, with
+  `unexpected EOF while looking for matching '`. Large new files were written with the editor tool
+  instead; a small `node` patch helper handled surgical edits and preserved each file's line endings
+  (the repo is mixed — Phase 0/1 files are LF, Phase 5's CRLF, and `core.autocrlf` is `true`).
+
+### Browser checklist — now one document, and still unrun
+
+**`Documents/browser-checklist.md` is new in this phase.** Phases 3, 3b, 4, 5 and 6 each closed with
+their own browser checklist buried in their own entry here, which meant "do the browser pass" had come
+to mean reading five sections and merging them. They are now merged, into 52 items across seven
+sections, **written against the live seed so they name real record ids and real expected figures**
+rather than hypotheticals.
+
+Two examples of what that buys, both of which took a query against the running API to get right:
+
+- **Match #2 on space #1** has consumed its availability record entirely, so its ceiling note must
+  read `Ceiling 29 = the availability's 0 unmatched, plus this match's own 29.` Without the add-back
+  the ceiling would be **0** and the form could not be resubmitted unchanged. **Match #7** (space #27
+  × availability #6) is the other half: ceiling **58** against a record holding **144**, so if the
+  modal ever says 144, the requirements document's wrong rule has been implemented.
+- Two of the examples I first wrote were **hidden by the default filters** — a Confirmed space and an
+  exhausted availability record are both filtered out, so neither can be clicked. The checklist now
+  uses cards that are actually on screen, and says which filter to lift where it cannot.
+
+It also carries a **"things that look wrong and are correct"** table — the two rails disagreeing, a
+column ending before the current week, a silent same-column drop, the CDK preview flash — so a first
+run does not spend its findings on decisions that are already recorded.
+
+The pass itself was **not run in this chat**: no browser automation tool is available here, as in
+Phases 3, 3b, 4 and 5. The API (5286) and the Angular dev server (4200) were left running on a freshly
+reset database so it can be worked through directly.
+
+### First browser pass — what it found
+
+**Mark ran part of the checklist against the running app on 2026-09-01.** Two results, and three fixes.
+
+**The density target holds. `design-system.md` §8.3's 9–11 cards per column is met** — measured, not
+inferred. That claim had been unverified since Phase 3, through two changes to the figure (Phase 4
+removed the search strip and raised it from 8–10; Phase 6 added an actions row to the expansion). It
+can stop being carried as a risk. Section A's first item is the one the whole target rested on.
+
+**Three defects in the match modal, all rendering, none in the rules.** All fixed:
+
+1. **Long `mat-hint` text painted over the notes below it, and over the dialog's own footer.**
+   Material's subscript wrapper is a fixed height — more so at `density: -2` — so a hint that wraps
+   overflows it instead of pushing what follows down. `Defaulted from ANZCO · Cows · w/c 23-08-26, and
+   editable` in a 150px field wrapped to three lines and landed on top of the ceiling note, which in
+   turn landed on `Close`. **The rule now is that a hint has to fit one line of a 150px field**; the
+   two sentences that cannot — the ceiling and the price provenance — moved into a normal-flow
+   `.notes` block below the row, where they wrap freely. `.fields` also gets an explicit subscript
+   height as a backstop, so a longer string in some future edit pushes rather than overlaps.
+2. **The supply block's record id was truncated away.** `LIVESTOCK AVAILABILITY #8` is a shade too
+   long for half a 640px dialog, and the kicker truncated as one string — so the ellipsis landed on
+   the number and the block named no record at all. The id is now its own unshrinkable span and only
+   the words give way; the status was pinned too, and the `.rhead` gap trimmed to 6px.
+3. **The cancel dialog's wording**, at Mark's direction: the title is now
+   **"Select reason for cancellation"** and the `Choose a reason to continue` hint beside the disabled
+   button is **gone**. The title is the
+   instruction — with a reason required, nothing preselected and the action disabled until one is
+   chosen, a separate prompt had nothing to add. This narrows Phase 6's own "disabled controls say
+   why" rule to where the cause is *not* self-evident; `Confirm space` keeps its stated reason,
+   because there the cause genuinely is not on screen.
+
+Three tests were added for things jsdom cannot see but can still guard: every `mat-hint` in the modal
+is at most 12 characters, the long sentences are in `.notes`, and each kicker's `.rid` renders its id
+outside the truncating span.
+
+**The Phase 5 quantity prompt had the same bug, and it is now fixed too.** I predicted it from the
+shape of the string — `Default for {processor} · {stockClass} · w/c {label}` in a 148px field, 53
+characters against the 52 that broke the modal — and named the drag that would show the worst case
+(space **#14**, ANZCO Kokiri, onto availability **#12**). Mark ran it and it was worse than next door:
+the price hint wrapped to **four** lines, the quantity hint to two, and the `Cancel` / `Create match`
+row landed on top of both.
+
+Fixed the same way, in `match/quantity-prompt.*`:
+
+- `quantityHint` is now `max 1140` rather than `Default 60 · max 1140`. The field is prefilled with
+  the default, so restating it was costing a line to say what the box already said.
+- `priceHint` became `priceNote` and moved into a normal-flow `<p class="pnote">` under the row. Both
+  its forms are unchanged, including `No default price for …`, so the Phase 5 test that distinguishes
+  a **zero** default price from a **missing** one still asserts the same strings.
+- The transport field gained a real `<mat-label>Transport company</mat-label>` and its hint shrank to
+  `Can be added later`. It had been carrying the field's own name in the hint because it had no label
+  — a Phase 5 oddity the match modal did not copy, and the reason that hint wrapped at all.
+- The same subscript-height backstop as the modal.
+
+Two tests added, one per dialog, asserting that **every `mat-hint` is short** (≤12 chars in the modal,
+≤18 in the prompt) and that the long sentence is in the notes block. jsdom cannot see an overlap, but
+it can see the string that causes one.
+
+**Then two more passes, and the second reversed the first.** Recorded in full because the reasoning is
+the useful part.
+
+Moving the sentence out of the price field's subscript fixed the overlap but made a full-width note
+under a row of *three* fields, left-aligned under the **quantity** box — so it read as describing the
+quantity. Mark: *"it looks worse than before because it's confusing as to which field it pertains."*
+I answered that by naming the subject in the wording (`Price defaulted from …`) and indenting the note
+to start under the price field.
+
+**Mark then called it the other way, and the call is right: put it back in the field and let it wrap
+to four lines.** The field a hint sits in is what says which field it is about, and no amount of
+wording or indentation buys that association back as cheaply as simply not giving it up. Both dialogs
+now keep the price provenance in the price field's own `mat-hint`, in design-system.md 11.1's wording
+(`Default for ANZCO · Nat Beef - Premium · w/c 30-08-26`), wrapping there.
+
+**What made the revert safe is that the two changes were separable, and only one of them was the fix.**
+The overlap was never caused by the text being in a hint; it was caused by Material's subscript
+wrapper having a fixed height at `density: -2`, so a wrapped hint overflows it silently. The one-line
+`height: auto` in each dialog's `.fields` is the whole fix. With it, four lines push the actions down;
+without it, they land on top of them. Both stylesheets now say so in capitals above the rule, because
+it looks like tidying and is load bearing.
+
+**So the standing rule is narrower than the one I first wrote, and this supersedes it:** a hint may
+wrap, and belongs in the field it describes. What must be true is that **the subscript can grow** —
+`height: auto` on `.mat-mdc-form-field-subscript-wrapper`. A note below the row is for something that
+is not about a single field: in the match modal the **ceiling** is still a note, because it explains a
+rule spanning the whole match and design-system.md 11.4.4 asks for it "under the fields".
+
+**The transport field keeps its name in its hint, not in a `mat-label`.** I had "fixed" that too, on
+the grounds that a hint carrying the field's own name is odd and the match modal did not do it; Mark
+put it back as `Transport company - can be added later`, lower-case c. It is therefore a decision, not
+an oversight — **do not re-tidy it**, and note the two dialogs differ here on purpose: the match modal
+uses a `mat-label` plus `Optional`.
+
+One thing kept from the round trip: `quantityHint` stayed at `max 142` rather than 11.1's
+`Default 132 · max 142`, because the field is prefilled with the default and restating it costs a line
+to repeat what the box already says. Not asked for, and it can go back.
+
+The tests that had pinned "every hint is short" were deleted rather than adjusted — they asserted the
+opposite of the decision. In their place each dialog now pins the thing that actually matters and was
+never at issue: **the price hint names the Processor Space's stock class and not the availability
+record's** (resolved question 7), with a fixture whose two classes differ so the assertion cannot pass
+by coincidence.
+
+**Open, and not chased:** in both of Mark's screenshots **none of the three field labels is visible**
+— `Quantity matched`, `Price per kg` and `Transport company` are all in the templates as `mat-label`,
+but the filled fields render with the value alone. The suspicion is that `density: -2` leaves no room
+for a floating label above the value in an `appearance="fill"` field, which would mean every form
+field in both dialogs is effectively unlabelled. It has not been confirmed and nothing was changed.
+**Phase 7 builds forms and will hit this immediately** — check it before designing around it.
+
+### New commands, dependencies, conventions
+
+No new packages. All recorded in CLAUDE.md as well.
+
+| What | Where |
+| --- | --- |
+| Match modal's context, and the edit ceiling | `GET /api/matches/{id}` → `MatchEditContextDto` |
+| Edit the three fields | `PUT /api/matches/{id}` |
+| Drafted → Confirmed, carrying the edit body | `POST /api/matches/{id}/confirm` |
+| Cancel past Drafted, reason required | `POST /api/matches/{id}/cancel` → `match: null` |
+| Confirm a space | `POST /api/processor-spaces/{id}/confirm` → bare `ProcessorSpaceDto` |
+| Match lifecycle gates | `src/Apg.Domain/Matching/MatchLifecycle.cs` |
+| Why Confirm is unavailable | `ProcessorSpaceRules.ConfirmBlockedReason`, on the DTO as `confirmBlockedReason` |
+| The one write stream | `web/src/app/matching/match/record-patches.ts` |
+| Open / edit / confirm / delete / cancel | `web/src/app/matching/match/match-actions.ts` |
+| The three dialogs | `match/match-modal.*`, `match/confirm-change.*`, `match/cancel-match.*` |
+| The consolidated browser pass | `Documents/browser-checklist.md` |
+
+- One spec: `npx ng test --watch=false --include=src/app/matching/match/match-actions.spec.ts`
+- One rule's tests: `dotnet test --filter "FullyQualifiedName~MatchEditTests"`
+- **Conventions now enforced by tests rather than by discipline:** the confirm gate and its stated
+  reason cannot disagree (`ProcessorSpaceRuleTests`); delete and cancel are never both available
+  (`MatchLifecycleTests`); cancelling a match cannot touch its parents, in the domain and through the
+  projection (`CancellationTests`, `MatchEditTests`); the edit ceiling can never over-commit a record
+  and can always keep what a match already holds (`MatchEditTests`).
+
+Test counts at close: `Apg.Domain.Tests` **151** (122 at the end of Phase 5), `Apg.Api.Tests` **108**
+(88), Angular **178 across 19 files** (135 across 15). `npm run build` succeeds with the existing
+initial-chunk budget warning only — 881 kB against a 500 kB budget, up from 826 kB.

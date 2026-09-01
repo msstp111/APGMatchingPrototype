@@ -48,8 +48,27 @@
           <span class="over" [class]="overInk()">{{ record().quantityStateLabel }}</span>
         }
 
-        <!-- Requirement 5.1: the card says what it already carries. Live matches only. -->
-        <span class="mcount" [title]="matchesTitle()">{{ matchesLabel() }}</span>
+        <!--
+          Phase 5, 5.1: the card says what it already carries. Live matches only.
+
+          Phase 6 makes it the way in. Clicking opens the expansion, whose match table opens a match —
+          Phase 5's log named this label the entry point and ruled out drawing a second chip beside it.
+          The pointerdown is stopped because this sits inside the drag handle: without it, a click that
+          drifts a pixel would lift the card instead of opening it.
+        -->
+        @if (hasMatches()) {
+          <button
+            type="button"
+            class="mcount"
+            [title]="matchesTitle()"
+            (pointerdown)="$event.stopPropagation()"
+            (click)="toggle()"
+          >
+            {{ matchesLabel() }}
+          </button>
+        } @else {
+          <span class="mcount" [title]="matchesTitle()">{{ matchesLabel() }}</span>
+        }
 
         <span class="status">
           <span class="material-symbols-outlined sicon" [class.filled]="statusFilled()">{{

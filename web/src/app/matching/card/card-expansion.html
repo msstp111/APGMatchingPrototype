@@ -53,7 +53,12 @@
         </thead>
         <tbody>
           @for (m of s.matches; track m.id) {
-            <tr>
+            <!--
+              The whole row opens the match (Phase 6, 1.1). Not a trailing action column: the supply
+              table already fits seven columns in 508px and not eight (design-system.md 6.2), and a
+              clickable row costs no width at all.
+            -->
+            <tr class="openable" title="Open this match" (click)="openMatch(m.id)">
               <td class="num">{{ m.quantityMatched }}</td>
               <td>{{ m.farmerName || '-' }}<span class="sub">{{ m.locationName || '-' }}</span></td>
               <!-- The counterparty's class: the two vocabularies do not map, and that is the point. -->
@@ -80,6 +85,22 @@
           }
         </tbody>
       </table>
+    </div>
+
+    <!--
+      design-system.md 6.2, item 4. The gate is the DTO's canConfirm and the sentence beside it is the
+      DTO's confirmBlockedReason — both the domain's, so the button and its explanation cannot come to
+      disagree. There is no such action on the supply side: an availability record's status is derived
+      from its matches, never set.
+    -->
+    <div class="actions">
+      <button matButton="outlined" type="button" [disabled]="!s.canConfirm" (click)="confirmSpace()">
+        Confirm space
+      </button>
+
+      @if (confirmBlockedReason(); as reason) {
+        <span class="why">{{ reason }}</span>
+      }
     </div>
   }
 
@@ -141,7 +162,8 @@
         </thead>
         <tbody>
           @for (m of a.matches; track m.id) {
-            <tr>
+            <!-- The same row, the same match, the same modal — opened by id from either side. -->
+            <tr class="openable" title="Open this match" (click)="openMatch(m.id)">
               <td class="num">{{ m.quantityMatched }}</td>
               <td>{{ m.processor }}<span class="sub">{{ m.plant }}</span></td>
               <td class="muted">{{ m.spaceStockClass }}</td>

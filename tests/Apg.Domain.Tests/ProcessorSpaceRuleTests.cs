@@ -110,6 +110,78 @@ public class ProcessorSpaceRuleTests
     }
 
     /// <summary>
+    /// Phase 6, 5.3: a Confirm button that greys out for unstated reasons is exactly what makes a
+    /// non-technical operator conclude the application is broken. The three cases need three answers.
+    /// </summary>
+    [Fact]
+    public void A_Booked_space_whose_matches_are_not_all_agreed_says_what_it_needs()
+    {
+        var space = Given.Space(quantityRequired: 100);
+
+        Assert.Equal(
+            ProcessorSpaceRules.NeedsConfirmedMatches,
+            ProcessorSpaceRules.ConfirmBlockedReason(space, []));
+
+        Assert.Equal(
+            ProcessorSpaceRules.NeedsConfirmedMatches,
+            ProcessorSpaceRules.ConfirmBlockedReason(
+                space,
+                Given.Matches((60, MatchStatus.Confirmed), (40, MatchStatus.Drafted))));
+    }
+
+    [Fact]
+    public void An_already_confirmed_space_says_so_rather_than_blaming_its_matches()
+    {
+        var space = Given.Space(quantityRequired: 100, status: ProcessorSpaceStatus.Confirmed);
+        var matches = Given.Matches((60, MatchStatus.Confirmed));
+
+        Assert.Equal(
+            ProcessorSpaceRules.AlreadyConfirmed,
+            ProcessorSpaceRules.ConfirmBlockedReason(space, matches));
+    }
+
+    [Fact]
+    public void A_cancelled_space_says_so_rather_than_blaming_its_matches()
+    {
+        var space = Given.Space(quantityRequired: 100, status: ProcessorSpaceStatus.Cancelled);
+        var matches = Given.Matches((60, MatchStatus.Confirmed));
+
+        Assert.Equal(
+            ProcessorSpaceRules.SpaceIsCancelled,
+            ProcessorSpaceRules.ConfirmBlockedReason(space, matches));
+    }
+
+    /// <summary>
+    /// The gate and its explanation are one piece of logic, and this is what keeps them so: a second
+    /// implementation of the clauses to produce the sentence is how the button and the reason would
+    /// come to disagree — the button enabled, the reason still saying why it cannot be.
+    /// </summary>
+    [Theory]
+    [InlineData(ProcessorSpaceStatus.Booked)]
+    [InlineData(ProcessorSpaceStatus.Confirmed)]
+    [InlineData(ProcessorSpaceStatus.Cancelled)]
+    public void The_reason_is_null_exactly_when_the_space_can_be_confirmed(ProcessorSpaceStatus status)
+    {
+        var space = Given.Space(quantityRequired: 100, status: status);
+
+        IEnumerable<List<Match>> cases =
+        [
+            [],
+            Given.Matches((60, MatchStatus.Confirmed)),
+            Given.Matches((60, MatchStatus.Confirmed), (40, MatchStatus.Drafted)),
+            Given.Matches((40, MatchStatus.Cancelled)),
+            Given.Matches((60, MatchStatus.Notified)),
+        ];
+
+        foreach (var matches in cases)
+        {
+            Assert.Equal(
+                ProcessorSpaceRules.CanConfirm(space, matches),
+                ProcessorSpaceRules.ConfirmBlockedReason(space, matches) is null);
+        }
+    }
+
+    /// <summary>
     /// Requirement 3.2: a Processor Space's status is a decision, not a consequence. Providing a
     /// derivation would invite a later phase to call it and overwrite what a human chose.
     /// </summary>

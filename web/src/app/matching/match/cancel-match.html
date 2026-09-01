@@ -1,0 +1,45 @@
+<!--
+  design-system.md 11.6: exactly three reasons, then the warning panel. The panel is the point of the
+  dialog as much as the radio group is — in pass 1 a cancelled match is not visible anywhere
+  afterwards, and an operator who learns that after the fact has lost a record they cannot get back to.
+-->
+<!-- The title carries the ask. With a reason required and nothing preselected, the title is the
+     instruction, so the radio group needs no separate prompt beside it. -->
+<h2 mat-dialog-title>Select reason for cancellation</h2>
+
+<mat-dialog-content>
+  <p class="lede">
+    {{ data.match.quantityMatched }} head, {{ data.match.processor }} {{ data.match.plant }} —
+    {{ data.match.locationName || 'no location' }}.
+  </p>
+
+  <mat-radio-group class="reasons" [ngModel]="reason()" (ngModelChange)="reason.set($event)">
+    @for (option of reasons; track option.value) {
+      <mat-radio-button [value]="option.value">{{ option.label }}</mat-radio-button>
+    }
+  </mat-radio-group>
+
+  <div class="warn">
+    <span class="material-symbols-outlined wicon">warning</span>
+
+    <p class="wtext">
+      <strong>A cancelled match disappears from the matching screen.</strong> Pass 1 has no Match list
+      view, so it will not be visible anywhere afterwards. Both records keep their own status —
+      cancelling a match never touches its parents.
+    </p>
+  </div>
+</mat-dialog-content>
+
+<mat-dialog-actions align="end">
+  <button matButton mat-dialog-close type="button">Keep match</button>
+
+  <button
+    matButton="filled"
+    class="destructive"
+    type="button"
+    [disabled]="reason() === null"
+    (click)="cancelMatch()"
+  >
+    Cancel match
+  </button>
+</mat-dialog-actions>

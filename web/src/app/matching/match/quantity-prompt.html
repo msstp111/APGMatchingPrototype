@@ -105,9 +105,11 @@
       <span matTextPrefix>$</span>
       <input matInput type="number" step="0.01" [formControl]="price" />
       <span matTextSuffix>/kg</span>
+      <!-- Back in the field it describes. It wraps to four lines and the subscript has room for them. -->
       <mat-hint>{{ priceHint }}</mat-hint>
     </mat-form-field>
 
+    <!-- The field's name lives in its hint rather than in a mat-label. Deliberate, and Mark's call. -->
     <mat-form-field appearance="fill" class="f-transport">
       <input matInput [formControl]="transport" [matAutocomplete]="carriers" />
       <mat-autocomplete #carriers="matAutocomplete">
@@ -115,7 +117,7 @@
           <mat-option [value]="company">{{ company }}</mat-option>
         }
       </mat-autocomplete>
-      <mat-hint>Transport company - Can be added later</mat-hint>
+      <mat-hint>Transport company - can be added later</mat-hint>
     </mat-form-field>
   </div>
 </mat-dialog-content>

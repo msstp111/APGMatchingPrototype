@@ -71,6 +71,9 @@ export function aSpace(overrides: Partial<ProcessorSpaceDto> = {}): ProcessorSpa
     weekCommencing: '2026-08-23',
     weekCommencingLabel: '23-08-26',
     canConfirm: false,
+    // Not null: the default space has no matches, so Confirm is blocked and has to say why. A fixture
+    // whose canConfirm and confirmBlockedReason disagreed would be a state the API cannot produce.
+    confirmBlockedReason: 'Needs at least one confirmed match and no drafts',
     matches: [],
     ...overrides,
   };

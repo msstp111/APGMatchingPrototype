@@ -47,6 +47,27 @@ public static class MatchResponses
         });
     }
 
+    /// <summary>
+    /// One space, re-read and re-projected after confirming it.
+    /// </summary>
+    /// <remarks>
+    /// Deliberately <b>not</b> the two-parent shape. Confirming a Processor Space changes that space's
+    /// stored status and nothing else: no match moves, and no availability record is touched. Returning
+    /// an availability record alongside it would imply otherwise, on the one screen where what a write
+    /// does and does not reach is the thing most easily misread.
+    /// </remarks>
+    public static async Task<IResult> SpaceResultAsync(
+        WorkingSetLoader loader,
+        int spaceId,
+        CancellationToken cancellation)
+    {
+        var space = MatchingProjection.SpaceById(await loader.LoadAsync(cancellation), spaceId);
+
+        return space is null
+            ? Results.NotFound(Message(MatchWriter.NoSuchSpace))
+            : Results.Ok(space);
+    }
+
     /// <summary>The one shape an error comes back in.</summary>
     public static object Message(string message) => new { message };
 }

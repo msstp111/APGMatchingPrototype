@@ -73,6 +73,19 @@ public sealed record ProcessorSpaceDto
     /// <summary>Booked, at least one live match, and every live match Confirmed.</summary>
     public required bool CanConfirm { get; init; }
 
+    /// <summary>
+    /// Why Confirm is unavailable, or null when it is available. Never both null and
+    /// <see cref="CanConfirm"/> false.
+    /// </summary>
+    /// <remarks>
+    /// It ships beside the flag because a disabled control that cannot say why is what makes a
+    /// non-technical operator conclude the application is broken (Phase 6, 5.3) — and because the three
+    /// answers ("already confirmed", "this space is cancelled", "needs at least one confirmed match and
+    /// no drafts") are not distinguishable from a boolean. The wording is
+    /// <c>ProcessorSpaceRules</c>'s, so the gate and its explanation are one piece of logic.
+    /// </remarks>
+    public required string? ConfirmBlockedReason { get; init; }
+
     /// <summary>Live matches only — cancelled ones are excluded (resolved question 4).</summary>
     public required IReadOnlyList<MatchDto> Matches { get; init; }
 }
@@ -272,7 +285,16 @@ public sealed record CreateMatchRequest
 /// </remarks>
 public sealed record MatchWriteResultDto
 {
-    /// <summary>The match that was created, or null when it was the deletion of one.</summary>
+    /// <summary>
+    /// The match as it now stands, or null when there is no longer one to show.
+    /// </summary>
+    /// <remarks>
+    /// Null in two cases, and they are different acts with the same visible consequence: the match was
+    /// <b>deleted</b> (a drafted mis-drag, removed outright), or it was <b>cancelled</b> — a cancelled
+    /// match is kept but excluded from both parents' collections (resolved question 4), which is
+    /// precisely what makes it leave the matching screen. Pass 1 has no Match list view, so a cancelled
+    /// match is then not visible anywhere.
+    /// </remarks>
     public required MatchDto? Match { get; init; }
 
     public required ProcessorSpaceDto Space { get; init; }
@@ -343,4 +365,78 @@ public sealed record MatchDto
     public required DateOnly AvailableFrom { get; init; }
 
     public required string AvailableFromLabel { get; init; }
+}
+
+/// <summary>
+/// Everything the match modal opens with: the match, <b>both</b> parents in full, and the ceiling on
+/// an edit.
+/// </summary>
+/// <remarks>
+/// <para>
+/// Both parents ship whole rather than as the denormalised fields already on <see cref="MatchDto"/>,
+/// because the modal shows each parent's <em>status, original quantity and unmatched figure</em>
+/// (Phase 6, 2.1 and 2.2) and none of those are on the match. It is fetched by match id alone, which
+/// is what makes requirement 1.2 — the same match openable from its space and from its availability
+/// record — true by construction rather than by two code paths.
+/// </para>
+/// <para>
+/// <b><see cref="MaximumQuantity"/> is the availability's unmatched quantity plus this match's own
+/// current quantity</b> (resolved question 13). The match is already subtracted out of that unmatched
+/// figure, so without adding it back the operator could not even keep the quantity they have. The
+/// requirements document says the availability record's <em>original</em> quantity; that is wrong, and
+/// following it would permit the over-commit the pink "Over-committed" state exists to flag.
+/// </para>
+/// <para>
+/// It is on the wire for the usual reason and one more: composing it in the client would be
+/// <c>availability.unmatched + match.quantityMatched</c>, which is domain arithmetic in TypeScript and
+/// which <c>no-domain-arithmetic.spec.ts</c> fails, correctly.
+/// </para>
+/// </remarks>
+public sealed record MatchEditContextDto
+{
+    public required MatchDto Match { get; init; }
+
+    public required ProcessorSpaceDto Space { get; init; }
+
+    public required LivestockAvailabilityDto Availability { get; init; }
+
+    /// <summary>The highest quantity this match may be edited to. There is no ceiling on demand.</summary>
+    public required int MaximumQuantity { get; init; }
+}
+
+/// <summary>
+/// The three editable fields of an existing match, as the modal submits them.
+/// </summary>
+/// <remarks>
+/// <para>
+/// All three are editable at every status (Phase 6, 3.1 to 3.3). The <em>prompt</em> before changing a
+/// Confirmed match's quantity or transport is the client's, because it is a question for a human about
+/// consequences rather than a rule about validity; the server's job is to enforce the ceiling and the
+/// minimum whatever the dialog allowed.
+/// </para>
+/// <para>
+/// The same body is posted to the confirm endpoint, so a match with unsaved edits confirms in one
+/// validated write rather than in two chained calls that can half-fail.
+/// </para>
+/// </remarks>
+public sealed record UpdateMatchRequest
+{
+    public int QuantityMatched { get; init; }
+
+    public decimal? PricePerKg { get; init; }
+
+    public string? TransportCompany { get; init; }
+}
+
+/// <summary>
+/// Why a match is being cancelled — one of exactly three reasons.
+/// </summary>
+/// <remarks>
+/// Nullable so that a body with no reason comes back as this API's own message ("choose why this match
+/// is being cancelled") rather than as a serialiser exception. A cancellation without a reason is not a
+/// cancellation.
+/// </remarks>
+public sealed record CancelMatchRequest
+{
+    public MatchCancellationReason? Reason { get; init; }
 }
