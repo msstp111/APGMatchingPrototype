@@ -3096,3 +3096,351 @@ Test counts at close: `Apg.Domain.Tests` **160** (153), `Apg.Api.Tests` **122** 
   narrow widths.
 - **`dotnet build` failed with MSB3027 twice more during this work.** The API was running from this
   session both times.
+
+---
+
+## Phase 8 — Polish & Demo Readiness
+
+**Completed:** 2026-09-01
+**Status:** Complete
+**This is the last entry in pass 1.** It doubles as the hand-off to whoever picks up pass 2, so it
+carries more than a phase entry normally would: what pass 1 is, what it deliberately is not, what is
+known to be rough, and where the seams are for the deferred work.
+
+### What shipped
+
+The prototype survives being handed to someone who has never seen it. `Reset demo data` sits in the
+top bar and puts the whole demo back; the screen now has a loading state, an API-unreachable state
+with a way out, and an empty-column state; the quantity ramp is consistent on every surface it appears
+on, which it was not; the six-dot grab glyph design-system.md §10 asked for exists; and
+`Documents/DEMO.md` is a walkthrough that names every record by id and figure, so nothing is hunted for
+while people watch.
+
+Nothing in `Apg.Domain` or `src/Apg.Api/Contracts/` was touched. This phase is entirely client, docs
+and tests.
+
+### The three decisions taken with Mark before building
+
+1. **`Reset demo data` lives in the top bar**, immediately left of the `# DEV ENVIRONMENT #` flag,
+   rather than on the matching screen or in the sidebar. Three reasons: the flag beside it already
+   means "this is not the real thing" in this application, so the control inherits the reading rather
+   than arguing for it; a shell control costs the 596px list nothing, where the matching-screen option
+   cost about half a card per column; and a reset replaces the **whole database**, not one screen's
+   data. design-system.md §14.1 records it, including the white-on-petrol variant of §14's stroked
+   treatment — petrol-on-white cannot sit on a petrol bar.
+2. **The phase closes on code-level verification**, with the browser pass handed to Mark. No browser
+   automation exists in this session, as in Phases 3, 3b, 4, 5, 6 and 7.
+3. **The Angular budget was raised rather than the dialogs lazy-loaded** — see "New commands" below.
+
+### Decisions made during the build
+
+1. **The reset order is re-seed → clear preferences → reload, and two of the three orderings are
+   wrong in ways that fail silently.** Clearing the preferences before the POST takes the operator's
+   filters with a reset that then fails; reloading before clearing them reloads into the old filters
+   and leaves the clear to a page that no longer exists. `demo-reset.spec.ts` asserts the sequence,
+   not just the occurrences.
+
+2. **The reload is deliberate, not lazy.** A refetch would leave behind everything that is not
+   fetched — expanded cards in `CardStateStore`, a drag in flight, an open dialog, the in-memory half
+   of `MatchingPreferences`. A reset that leaves a card expanded on a match that no longer exists is
+   worse than one that takes a second, and the one thing this control must be is trustworthy: it is
+   what a demo falls back on when something has gone wrong. `DemoReset.reload()` is `protected` so a
+   spec can override it without a real navigation.
+
+3. **The quantity ramp's four ink colours now have exactly one definition** — the `quantity-ink`
+   mixin in `_card-geometry.scss`. **This started as an audit and found a real defect.** The four
+   rules had lived inside the `card-shell` mixin, which `card-expansion.scss` does not include, so the
+   expanded card's `Quantity unmatched` value carried a ramp class **that nothing painted**: an
+   over-committed record's `-24` rendered in ordinary black on the one surface that spells the state
+   out in words. Two further copies sat in `match-modal.scss` and `quantity-prompt.scss`. A colour
+   defined four times is a colour that comes to differ in three of them. Include the mixin; never
+   redeclare `.q-over`.
+
+4. **The six-dot grab glyph is positioned, not laid out.** design-system.md §10 puts it "left of the
+   chevron", and a real cell there would push the card's trailing edge from 32px to 42px while the
+   header strip stayed at 32px — the Unmatched column would stop lining up with its own heading, which
+   §16.10 warns is "invisible in code review and glaring on screen". It is absolutely positioned in
+   the card body's own 8px right gutter, 6 × 10px, and only its opacity changes. The name column keeps
+   its 114px and §10's "nothing resizes" stays literally true. It is not on the stay-behind card: that
+   is the shadow a lifted card leaves and nothing about it is grabbable.
+
+5. **The empty-column state is checked *before* the filtered-empty state**, and its condition is
+   "nothing loaded for this side" (`totalCount() === 0`), not "nothing shown". The two answer
+   different questions and only one of them has a filter to blame: offering `Clear filters` on a
+   column with no records at all sends an operator hunting for a cause that does not exist. Phase 4's
+   log parked this state with "Phase 7 or 8" and Phase 7 declined it as outside its own requirements.
+
+6. **Only the *opening* of a card expansion is animated.** 120ms, opacity and a 2px rise — not a
+   height, because a match table of unknown length has no final height to animate to, and 120ms of a
+   growing block is 120ms during which the card under the pointer is still moving. Collapse is
+   instant: `@if` removes the element and `@angular/animations` is not installed (Angular 22 makes it
+   optional; Phase 4 recorded the absence). A package for 120ms of closing motion is not worth it.
+
+7. **The reset dialog carries no record counts.** It said "the same 40 processor spaces, 50 records
+   and 25 matches"; the closing review pointed out that nothing guards a sentence in a dialog, and a
+   count that is true today is silently wrong the day the seeder is tuned. The figures live in
+   `Documents/DEMO.md` instead, where `ResetRestoresTheSeedTests` guards them.
+
+8. **`Data/stock-class-configs.csv`'s hex colours stay unused, and this is Phase 8 declining its own
+   requirement 3.1.** Resolved question 16 commits hue exclusively to the quantity meter and the
+   roadmap's resolved questions outrank a phase document; Phase 2's decision 1 settled it and said
+   "Phase 8 inherits this decision rather than re-deciding it". Twenty-odd saturated swatches would
+   destroy the three-colour ramp the whole screen is scanned for. The CSV's `icon` column informs the
+   species shapes, and it only partly overlaps our lists — it has **no row at all** for `Deer`,
+   `Cattle`, `Sire Bull`, `Mixed Cattle`, either `GFNB` class or either `Nat Beef` class, which is why
+   the shapes are a table in `stock-classes.ts` rather than a lookup into that file.
+
+### The pink Over-committed state — forced, and then looked for (requirement 2.3)
+
+**Forced live against the API.** `PUT /api/livestock-availability/6` with `quantityAvailable` 144 →
+100 against 122 already matched returned `unmatched: -22`, `quantityState: "Over"`,
+`quantityStateLabel: "Over-committed"`, `status: "Pending"` — and **all three matches unchanged in id,
+quantity and status.** `Pending` rather than `Confirmed` is correct: resolved question 5 requires
+`unmatched == 0` exactly. The database was reset afterwards.
+
+Those exact figures are now the fixture in `card/quantity-states.spec.ts`, alongside seeded space
+**#4** (Alliance Group Dannevirke, 726 against 660, `unmatched -66`) for the blue case, so the spec
+breaks if either state stops being reachable rather than passing against numbers invented to suit it.
+
+**Then no ordinary flow was looked for again**, rather than trusting Phase 7's table. Every path that
+moves either side of `unmatched = quantityAvailable − matchedInclDraft` on a supply record was
+re-walked against the current code, and Phase 7's answer stands unchanged: the drag caps at remaining
+supply in `MatchCreation.Propose` and again in `MatchWriter.Reject`; the edit ceiling is the
+three-argument `MaxMatchQuantity` enforced in `RejectUpdate`, which both `PUT` and the confirm
+endpoint go through; confirming moves no quantity; cancelling and deleting only ever *raise*
+unmatched; a new record has no matches. **Editing the record's quantity downwards is the only route,
+and it is the intended one** — warned about twice and refused by nothing. `ResetRestoresTheSeedTests`
+also asserts a reseed leaves no record over-committed, so pink cannot arrive in the demo data by
+accident.
+
+**What has still not been seen is how it renders.** Section I of the browser checklist puts it third.
+
+### Stock-class coverage (requirement 3)
+
+`card/stock-class-coverage.spec.ts` reads **both vocabularies out of `SeedConfig.cs`** — the same
+read-a-source-file technique `no-domain-arithmetic.spec.ts` uses, and for the same reason: a copy of
+the lists in TypeScript is the drift the architecture exists to prevent. It asserts every class is
+**explicitly mapped** rather than merely handled, because the fallback is indistinguishable from a
+mapping once `stockClassTile` has returned, and `GFNB premium` rendering as `GF` would be working and
+wrong. All sixteen classes across the four lists are mapped. It carries an anti-vacuity test: a parser
+that stopped matching would return an empty list, and "every class in an empty list is mapped" is true
+and worthless.
+
+`MAPPED_STOCK_CLASSES` is exported from `stock-classes.ts` for that spec alone. Application code
+should call `stockClassTile` and never consult it.
+
+### The `undefined` / `NaN` / `Invalid Date` sweep — and what it taught
+
+`matching/nothing-renders-raw.spec.ts` renders both cards, both expansions and the match modal with
+**every optional field null at once** and sweeps for the four forbidden strings.
+
+**It found nothing, and the first version of it was nearly worthless.** Verified by removing the
+`|| '-'` from the space card's delivery time and watching the sweep pass: **Angular interpolates
+`null` as an empty string, not as the word**, so a template that drops a guard prints *nothing* — and
+an empty string contains none of the four strings being looked for. The failure mode is a blank cell,
+not a raw value.
+
+So the spec has two halves that catch different things, and it says so:
+
+- The **sweep** covers what it genuinely covers: strings assembled in TypeScript (the modal's
+  sub-lines, `matchBreakdown`, `orphanedTitle`, `counterparty()`) and every `title` attribute, which
+  is a hover string somebody really does read and where an unguarded field survives longest.
+- The **fallback assertions** are the falsifiable half — that the space card's meta reads
+  `Rangitikei · -`, that a match with no price says `no default price` and never `$0.00`, that the
+  modal says `no time set` and `no farmer on file`. Removing a guard fails one of these by name.
+
+The codebase turned out to be careful about this already; every optional field on every surface was
+guarded before Phase 8 touched it. What was missing was the proof.
+
+### Requirements not built, and why
+
+- **§3.1's hex colours** — decision 8 above.
+- **Nothing else.** Sections 1 to 9 were built.
+
+### Held next to `ExistingAppScreenshots/*.png`
+
+All four PNGs were read and compared against the finished markup and tokens. §16a's four sanctioned
+divergences hold. **One more was found and recorded rather than fixed**, as design-system.md §16a.5:
+
+> **Sorting is a control, not a column header.** LMS sorts by clicking a column header, which then
+> carries the arrow (`DATE ↓` in Purchases and Killsheets). Ours is a right-aligned sort control on
+> the filter row and the micro-cap strip is not clickable.
+
+Not fixed, for three reasons: the strip's cells are 40–112px and several would not hold a label plus
+an arrow; sorting here reorders cards **within** week bands rather than the whole list, so a header
+arrow would overstate what it does; and the sort control is Phase 4's, not this phase's, so changing
+it would be reopening a closed phase in a polish pass. It is the divergence a pixel-for-pixel
+comparison notices next, which is exactly why it is written down beside the other four.
+
+Nothing else was off-family. The shell is faithful down to the user's name in the sidebar header, the
+version and copyright block, and the inert nav list in its original order with `Logout` last.
+
+### Review findings
+
+A sonnet subagent reviewed **the whole application**, as the phase document asks, not just this
+phase's diff. It ran `dotnet build`, `dotnet test`, `npm test` and `npm run build` itself, and went
+further than asked: it hit the running API against a freshly reset database and **checked every figure
+in `Documents/DEMO.md`** — space #1's 59/77/29, space #4's 726/660/−66, space #5's exact fill, space
+#37's 39 unmatched, availability #6's 144/122/22, #7's 25, the `34 of 40` and `42 of 50` counts, and
+all three match breakdowns. All matched.
+
+**On the question the phase document asks by name — has any domain rule drifted during the build?
+No.** It re-derived `MatchQuantities`, `CancelledRecords`, `QuantityTally.Unmatched` (correctly off
+the incl-draft sum), `MatchCreation`'s default and both ceilings, `AvailabilityStatus.Derive`,
+`ProcessorSpaceRules`, `MatchLifecycle` and `RecordCancellation` from the roadmap rather than reading
+the code back to itself, and confirmed the asymmetric cancelled-counterparty rule is applied the right
+way round. It confirmed `no-domain-arithmetic.spec.ts`'s allow-list is still exactly two files and
+that the spec is self-verifying rather than vacuous.
+
+Four findings. Disposition:
+
+1. **The error panel and the columns were independent conditionals** (correctness, and the one real
+   bug). The three reads land independently, so a `week-bands` call that succeeded while
+   `processor-spaces` failed would draw the "API unreachable" panel **above a column that looked
+   populated** — worse than either state alone, because it invites the operator to trust what is on
+   screen. **Fixed:** the four states are now one `@if / @else if` chain and an error outranks
+   everything. Two tests added, and the first was verified to fail against the pre-fix template:
+   `shows the error alone when one read fails and the others succeed`, and
+   `re-issues all three reads when the error panel offers a way out`.
+2. **No spec anywhere under `shell/demo-reset/`** for the reset's ordering or its error path
+   (quality; fair, given it is the phase's headline destructive feature). **Fixed:**
+   `demo-reset.spec.ts`, four cases — the order as a sequence, `Keep it` being inert, a dismissed
+   dialog (Escape and a backdrop click both close with `undefined`, and neither is a yes), and a
+   failed re-seed keeping the stored preferences and saying so.
+3. **A tautologically-written assertion** in `quantity-states.spec.ts`
+   (`expect(x).toBe(cond ? x : y)`). It was not actually vacuous, but it read as if it might be.
+   **Fixed** to a plain `expect(...).not.toBeNull()` with a message.
+4. **The reset dialog's hardcoded seed counts were unguarded.** **Fixed by removing the counts**
+   rather than by adding a test — decision 7 above.
+
+It found no domain-rule drift, nothing new for pass 2 beyond what the roadmap's deferred list already
+names, and no other correctness bug in the application.
+
+### What pass 1 is
+
+**The matching screen, for APG, and nothing else.** One screen, inside the real LMS shell, that
+creates and manages both records and matches:
+
+- Two week-banded card columns, filterable and sortable per column, swappable on a flip button, with
+  every preference persisted.
+- Drag one card onto a card in the other column to draft a match; the quantity, the ceiling, the
+  default price and the refusal all come from the server.
+- A match's whole life: open from either side by id alone, edit, delete a draft, cancel with one of
+  three reasons, confirm — and confirm a Processor Space.
+- Records created, edited and cancelled from marked debug tooling.
+- Every computed value — both sums, unmatched, the derived statuses, the confirm gates, the week
+  commencing Sunday, the date labels — is C# in `Apg.Domain`, reaches the client on the DTO, and is
+  never recomputed in TypeScript. Two arithmetic sites exist in `web/` and both are allow-listed by
+  name.
+
+### What pass 1 deliberately does not do
+
+**None of the following is a defect.** They are in `Documents/DEMO.md` too, because the demo is where
+someone will notice.
+
+- **No record detail pages.** Everything about a record is on its card and its expansion.
+- **No Match list view — so a cancelled match is visible nowhere.** It is retained in the database
+  with its reason; `GET /api/matches/{id}` 404s on it and both parents' `matches` arrays exclude it
+  (resolved question 4). This is the first thing to explain at a demo.
+- **No farmer or agent submission flow.** The `+ Add` buttons and the `Edit` / `Cancel` controls are
+  demo scaffolding, marked three ways over precisely so they are not mistaken for it.
+- **No login and no roles**, so no per-processor visibility gating (ANZCO the most, SFF a restricted
+  set once confirmed, Alliance Group none). Every screen is the APG view.
+- **No notifications**, so `Notified` has no UI transition in. It is **not inert in the rules** — it
+  counts in both matched sums and blocks confirmation on both sides.
+- **No default-pricing maintenance**, **no weekly roll-ups**, **no Finance Stock draw-down** against
+  `purchases.csv`.
+- **No keyboard drag path** (resolved question 14). A mouse is assumed. Its absence is a decision and
+  must not be helpfully corrected.
+- **A deliberately small back end**: SQLite, `EnsureCreated`, no migrations, no auth.
+
+### Known rough edges that survived pass 1
+
+- **The browser pass has still never been run in full.** `Documents/browser-checklist.md` is nine
+  sections; two items are ticked. Every geometric claim and every pointer path in this build is argued
+  for rather than seen. This is the largest single piece of unfinished business in pass 1, and it is
+  ten minutes of work.
+- **The Angular initial bundle is ~960 kB.** Under the raised budget, well over any sensible one.
+- **`showing n of m` counts records, not cards**, which is right, and reads oddly the first time.
+- **Delivery time is free text and cannot be sorted chronologically.** Offered as a sort field because
+  requirement 4.1 asks for every displayed field; alphabetical, which puts `Yard by 6:30am` last.
+- **The seeded price table runs weeks −4 to +8.** A record created outside it has no default price.
+  The prompt says so in words; it will still look like a bug to anyone who has not read this.
+- **`Documents/design-system.md` §9 is a different section from the one Phase 2 and Phase 3 cite**,
+  and the Phase 2 canvas artifact still shows the carry-over design resolved question 17 removed. The
+  document says so at the top of §9 and the document wins.
+
+### Where the seams are for pass 2
+
+| Deferred work | Where it attaches |
+| --- | --- |
+| **Record detail views** | `MatchingProjection.SpaceById` / `AvailabilityById` already return one record's full DTO, and `card-expansion.ts` already renders every field and both sums. A detail page is a route around that component, not new projection work. |
+| **The Match list view, and cancelled matches** | This one needs a **new endpoint and a new shape**. `MatchDto.CancellationReason` exists on the type and is always null on every current endpoint; both read endpoints exclude cancelled matches from `matches` entirely, and `GET /api/matches/{id}` 404s on one. Phase 1's log said this explicitly: do not "fix" the existing shapes to carry cancelled matches — give the list its own. |
+| **The farmer/agent flow** | `RecordWriter` is already the pure, validated write path for both record types and `POST /api/livestock-availability` already exists. What is missing is the journey, the Purchase draw-down for Finance Stock, and an owning identity. The debug form is **not** a starting point — it is deliberately unlike the real thing. |
+| **Roles and per-processor gating** | Nothing in the build assumes a viewer. The gate belongs in `MatchingProjection`, which is the one place that decides what reaches the wire, and `LiveMatchDtos` is the method that would need to know who is asking. Do not gate in the client. |
+| **`Notified`** | Already a member of `MatchStatus`, already counted in both sums, already blocks both confirm gates. What it lacks is a transition and a visual treatment — design-system.md §3.1 says give it its own left-edge pattern rather than reusing Pending's. |
+| **Default-pricing maintenance** | `PriceTable` is built from seeded `PriceTableEntry` rows and keyed on processor × PS stock class × week. A maintenance screen is CRUD over that table; the lookup does not change. |
+| **Weekly roll-ups** | `buildBoard`'s `BandMeta` already rolls up per band, client-side, deliberately — because filters change what is in a band. A roll-up *view* is a different thing and would want its own endpoint. |
+
+### Watch out for
+
+- **`RecordWriter` must never grow a clause about matches**, and the domain's cancel gates must keep
+  taking the record and nothing else. Both omissions are requirements and both look like missing
+  validation to a reader who has not read them.
+- **The cancelled-counterparty rule is asymmetric** and that is the half a future change will get
+  backwards. It is always the *other* record's status that decides. `CancelledRecords` is a required
+  parameter on every rule downstream of it, deliberately, so the compiler finds every call site.
+- **`MaxMatchQuantity` has two overloads and each is wrong in the other's place.** Go through
+  `MatchWriter.EditCeiling` for edits.
+- **A wrapping `mat-hint` needs both halves** — `subscriptSizing="dynamic"` on the field *and*
+  `height: auto` on the subscript wrapper. Phase 8 added the missing template half to the quantity
+  prompt and both record forms; before that only the match modal had it, and Phase 7's addendum had
+  flagged the other three as carrying the latent bug.
+- **Never redeclare `.q-under` / `.q-exact` / `.q-over` / `.q-pink`.** `@include geo.quantity-ink;`.
+- **`.over` is two different classes.** The fill meter's root takes `over` when the state is Over, and
+  the card's line-2 label is also `.over`. Angular scopes their styles so nothing leaks, but a bare
+  `querySelector('.over')` finds the meter and reads the numeral. Scope to `.l2 .over`.
+- **`applyPatch` upserts**, so a patch with an unknown id *adds* a record.
+- **The API still locks `Apg.Domain.dll` while it runs.** It bit twice in this phase, both times from
+  this session. `Get-CimInstance Win32_Process -Filter "Name='Apg.Api.exe'"`, stop the `Apg.Api.exe`
+  child; its `dotnet run` host exits with it.
+- **A node script editing repo files must normalise CRLF on read**, as Phase 2 recorded, and must not
+  put a `$` followed by a single quote in a `String.replace` replacement — that is the "everything
+  after the match" pattern and it silently truncated a line here.
+- **Long `bash` heredocs still fail** past roughly 150 lines, exactly as Phases 6 and 7 recorded. This
+  entry was written to a file and appended.
+
+### New commands, dependencies, conventions
+
+**No new packages.** All recorded in CLAUDE.md as well.
+
+| What | Where |
+| --- | --- |
+| Reset demo data | `web/src/app/shell/demo-reset/` — `demo-reset.ts` (root service) and `reset-demo-data.*` (the dialog, which decides nothing) |
+| The reset endpoint's client method | `ApiClient.resetDatabase()` |
+| Forgetting the stored preferences | `clearStoredPreferences()` in `matching/filters/matching-preferences.ts` |
+| A column with nothing loaded | `matching/column/empty-column.ts` |
+| Loading and API-unreachable | `matching-screen.html` / `.scss`, the `.state` block |
+| The one definition of the ramp's ink | `@mixin quantity-ink` in `matching/_card-geometry.scss` |
+| The stock classes a tile is mapped for | `MAPPED_STOCK_CLASSES` in `card/stock-classes.ts` — for its spec only |
+| The demo walkthrough | `Documents/DEMO.md` |
+
+- One spec: `npx ng test --watch=false --include=src/app/shell/demo-reset/demo-reset.spec.ts`
+- One rule's tests: `dotnet test --filter "FullyQualifiedName~ResetRestoresTheSeedTests"`
+- **`web/angular.json`'s budgets were raised**: initial 500 kB/1 MB → **1 MB/1.5 MB**, and
+  `anyComponentStyle` 4 kB → 6 kB warn. Decided with Mark. The bundle has been over 500 kB since Phase
+  3 and was within 41 kB of the old hard error after Phase 7's five dialogs; for a prototype whose
+  whole job is one screen the remedy is a bigger budget, not lazy-loading the forms. **`npm run build`
+  is now clean with no warnings for the first time in the build** — if it starts warning again,
+  something has grown, which is worth knowing rather than drowning in a standing warning.
+- **Conventions now enforced by tests rather than by discipline:** every stock class in either
+  vocabulary has an explicit tile (`stock-class-coverage.spec.ts`); no surface renders a raw
+  `undefined`/`NaN`/`Invalid Date`, and absent values render `-` (`nothing-renders-raw.spec.ts`); the
+  ramp is keyed on state **and** side, and the over states carry a word and a numeral as well as a
+  colour (`quantity-states.spec.ts`); the reset's three steps happen in order and a failure keeps the
+  preferences (`demo-reset.spec.ts`); one screen state at a time (`matching-screen.spec.ts`); a reseed
+  restores every section 4.7 case (`ResetRestoresTheSeedTests`).
+
+Test counts at close: `Apg.Domain.Tests` **160** (unchanged), `Apg.Api.Tests` **128** (122), Angular
+**252 across 26 files** (224 across 22 at the end of Phase 7). `dotnet build` is clean with 0
+warnings; `npm run build` is clean with none.

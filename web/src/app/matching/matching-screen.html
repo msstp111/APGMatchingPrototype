@@ -10,11 +10,32 @@
   cover it, and the 52px it would have taken went back to the list (Phase 4).
 -->
 <div class="matching-screen">
-  @if (error()) {
-    <p class="error">{{ error() }}</p>
-  }
+  <!--
+    Four states, and exactly one of them is on screen at a time (requirement 4.1, design-system.md 13).
+    Each names what has happened rather than leaving a blank content area to be interpreted.
 
-  @if (ready()) {
+    The chain is deliberate: an error outranks everything. The three reads land independently, so a
+    week-bands call that succeeds while the spaces call fails would otherwise draw the error panel
+    ABOVE a column that looks populated and says nothing about the half that is missing — which is
+    worse than either state alone, because it invites the operator to trust what is on screen. One
+    failure means one message, and Try again re-issues all three.
+  -->
+  @if (error()) {
+    <div class="state error" role="alert">
+      <span class="material-symbols-outlined glyph" aria-hidden="true">cloud_off</span>
+      <p class="headline">{{ error() }}</p>
+      <p class="prose">
+        Nothing has been lost. Start the API with <code>dotnet run --project src/Apg.Api</code>, or
+        <code>\dev.ps1</code> from the repository root, and try again.
+      </p>
+      <button type="button" class="retry" (click)="retry()">Try again</button>
+    </div>
+  } @else if (loading()) {
+    <div class="state loading" aria-live="polite">
+      <span class="material-symbols-outlined glyph spin" aria-hidden="true">progress_activity</span>
+      <p class="headline">Loading processor spaces and livestock availability…</p>
+    </div>
+  } @else if (ready()) {
     <div class="columns" cdkDropListGroup [class.flipped]="flipped()">
       <!--
         Each column gets its own trimmed run of bands, so each starts at the week of its own earliest

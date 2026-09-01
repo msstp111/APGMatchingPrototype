@@ -6,6 +6,7 @@ import { LivestockAvailabilityDto, ProcessorSpaceDto } from '../../api/models';
 import { ColumnAutoScroll } from '../drag/column-auto-scroll';
 import { DragStore } from '../drag/drag-state';
 import { ColumnFilters } from '../filters/column-filters';
+import { EmptyColumn } from './empty-column';
 import { FilteredEmpty } from '../filters/filtered-empty';
 import { isDemandDefault, isSupplyDefault } from '../filters/filter-service';
 import { MatchingPreferences } from '../filters/matching-preferences';
@@ -26,7 +27,7 @@ import { RecordActions } from '../record/record-actions';
 @Component({
   selector: 'app-matching-column',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [DecimalPipe, WeekBand, ColumnFilters, FilteredEmpty, ColumnAutoScroll],
+  imports: [DecimalPipe, WeekBand, ColumnFilters, FilteredEmpty, EmptyColumn, ColumnAutoScroll],
   templateUrl: './matching-column.html',
   styleUrl: './matching-column.scss',
 })
@@ -88,6 +89,17 @@ export class MatchingColumn {
    * week bands would not offer it.
    */
   readonly isFilteredEmpty = computed(() => this.shown() === 0 && this.totalCount() > 0);
+
+  /**
+   * Nothing is loaded for this side at all — as opposed to filters having excluded everything.
+   *
+   * Checked *before* the filtered case in the template, because the two answer different questions
+   * and only one of them has a filter to blame. Before Phase 8 this case fell through to a run of
+   * empty week bands, which reads as a calendar with no data rather than as a column waiting for its
+   * first record (design-system.md 13; Phase 4's log parked it, Phase 7 declined it as out of its
+   * scope, requirement 4.1 is where it lands).
+   */
+  readonly isEmpty = computed(() => this.totalCount() === 0);
 
   /** The opposite column takes the wash the moment a drag starts (design-system.md 10). */
   readonly isDropTarget = computed(() => this.drag.isTargetSide(this.side()));

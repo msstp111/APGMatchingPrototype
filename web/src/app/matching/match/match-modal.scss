@@ -219,18 +219,6 @@
   --mdc-text-button-label-text-color: #{lms.$lms-error};
 }
 
-.q-under {
-  color: lms.$q-under-ink;
-}
-
-.q-exact {
-  color: lms.$q-exact-ink;
-}
-
-.q-over {
-  color: lms.$q-over-ink;
-}
-
-.q-pink {
-  color: lms.$q-pink-ink;
-}
+// The quantity ramp, from its single definition. Keyed on state AND side — `Over` is a blue
+// "Over-filled" on a space and a pink "Over-committed" bug flag on an availability record.
+@include geo.quantity-ink;

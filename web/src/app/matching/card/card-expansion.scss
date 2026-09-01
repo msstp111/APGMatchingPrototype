@@ -1,9 +1,28 @@
 @use '../card-geometry' as geo;
 @use '../../../styles/lms-tokens' as lms;
 
+// design-system.md 10: 120ms ease-out, quick and never blocking the next action.
+//
+// Opacity and a 2px rise, not a height. A height animation needs the final height in advance, which a
+// match table of unknown length does not have, and an expansion that grows over 120ms is 120ms during
+// which the card below the pointer is still moving. The row above the expansion never moves at all —
+// design-system.md 6.2 requires the collapsed card to stay exactly where it is — so what is animated
+// is only the arrival of the block below it.
+//
+// Only the opening is animated: `@if` removes the element on collapse, and `@angular/animations` is
+// not installed (Angular 22 makes it optional and Phase 4 recorded the absence). A collapse that
+// closes instantly is honest and costs nothing; the alternative is a package for 120ms.
+@keyframes apg-expand {
+  from {
+    opacity: 0;
+    transform: translateY(-2px);
+  }
+}
+
 // Indented by the rail plus the spine so the expansion's content aligns with the card body above it.
 :host {
   display: block;
+  animation: apg-expand 120ms ease-out;
   padding-left: geo.$leading-offset;
   background: lms.$lms-card;
   border-bottom: 1px solid lms.$lms-divider;
@@ -49,9 +68,15 @@
   @include geo.numerals;
 }
 
+// design-system.md 6.2: the unmatched value is in the ramp's *-ink at weight 500, with the DTO's
+// quantityStateLabel beside it at 400. The colour arrives from the shared mixin below — before
+// Phase 8 this element carried its ramp class and nothing painted it, so an over-committed record's
+// -24 read in ordinary body text on the one surface that spells the state out in words.
 .ink {
   font-weight: 500;
 }
+
+@include geo.quantity-ink;
 
 .state {
   margin-left: 6px;
@@ -200,4 +225,12 @@
 .orphan .material-symbols-outlined {
   font-size: 14px;
   line-height: 14px;
+}
+
+// After the :host rule, not before it: the two selectors have equal specificity, so the later one
+// wins and an earlier override would silently do nothing.
+@media (prefers-reduced-motion: reduce) {
+  :host {
+    animation: none;
+  }
 }

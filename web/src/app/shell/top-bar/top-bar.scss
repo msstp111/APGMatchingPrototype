@@ -48,3 +48,36 @@
   letter-spacing: 0.3px;
   white-space: nowrap;
 }
+
+// design-system.md 14's debug treatment, in the variant that works on a petrol ground: 26px, 12px
+// text, 3px radius, a hairline ring. White-on-petrol rather than petrol-on-white, because
+// petrol-on-petrol reads as nothing. It is deliberately quieter than the dev flag beside it — the
+// flag is the statement, this is the tool.
+.demo-reset {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  height: 26px;
+  padding: 0 10px;
+  border: 1px solid rgb(255 255 255 / 55%);
+  border-radius: 3px;
+  background: transparent;
+  color: lms.$lms-white;
+  font-family: inherit;
+  font-size: 12px;
+  font-weight: 500;
+  letter-spacing: 0.3px;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: background 120ms ease-out;
+
+  &:hover {
+    background: rgb(255 255 255 / 14%);
+    border-color: lms.$lms-white;
+  }
+
+  .material-symbols-outlined {
+    font-size: 16px;
+    line-height: 16px;
+  }
+}

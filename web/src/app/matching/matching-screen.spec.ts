@@ -224,6 +224,103 @@ describe('Matching screen', () => {
     expect(await text()).toContain('Could not reach the API');
   });
 
+  /**
+   * The three states before the columns are mutually exclusive, and an error outranks the rest.
+   *
+   * The three reads land independently, so a week-bands call that succeeds while the spaces call
+   * fails would draw the error panel **above a column that looks populated** and says nothing about
+   * the half that is missing — worse than either state alone, because it invites the operator to
+   * trust what is on screen. Found by Phase 8's closing review; this is the case that catches it.
+   */
+  it('shows the error alone when one read fails and the others succeed', async () => {
+    TestBed.resetTestingModule();
+    await TestBed.configureTestingModule({
+      imports: [MatchingScreen],
+      providers: [
+        provideZonelessChangeDetection(),
+        {
+          provide: ApiClient,
+          useValue: {
+            processorSpaces: () => ({ subscribe: ({ error }: { error: () => void }) => error() }),
+            // Both of these succeed, so the board would be ready and the columns drawable.
+            livestockAvailability: () => of([availability]),
+            weekBands: () => of(bands),
+          },
+        },
+        { provide: RecordPatches, useValue: { patches: writes.asObservable() } },
+      ],
+    }).compileComponents();
+
+    const element = await render();
+
+    expect(element.textContent).toContain('Could not reach the API');
+    expect(element.querySelectorAll('app-matching-column')).toHaveLength(0);
+    expect(element.querySelector('.state.loading')).toBeNull();
+  });
+
+  it('shows a loading state rather than a blank screen before anything has arrived', async () => {
+    TestBed.resetTestingModule();
+    await TestBed.configureTestingModule({
+      imports: [MatchingScreen],
+      providers: [
+        provideZonelessChangeDetection(),
+        {
+          provide: ApiClient,
+          useValue: {
+            // Nothing ever emits: the state a cold start is in for its first round trip.
+            processorSpaces: () => new Subject(),
+            livestockAvailability: () => new Subject(),
+            weekBands: () => new Subject(),
+          },
+        },
+        { provide: RecordPatches, useValue: { patches: writes.asObservable() } },
+      ],
+    }).compileComponents();
+
+    const element = await render();
+
+    expect(element.querySelector('.state.loading')).not.toBeNull();
+    expect(element.textContent).toContain('Loading processor spaces');
+    expect(element.querySelectorAll('app-matching-column')).toHaveLength(0);
+  });
+
+  it('re-issues all three reads when the error panel offers a way out', async () => {
+    let attempts = 0;
+    TestBed.resetTestingModule();
+    await TestBed.configureTestingModule({
+      imports: [MatchingScreen],
+      providers: [
+        provideZonelessChangeDetection(),
+        {
+          provide: ApiClient,
+          useValue: {
+            processorSpaces: () => {
+              attempts += 1;
+
+              // Fails once, then succeeds — the API being started while the panel is on screen.
+              return attempts === 1
+                ? { subscribe: ({ error }: { error: () => void }) => error() }
+                : of([space]);
+            },
+            livestockAvailability: () => of([availability]),
+            weekBands: () => of(bands),
+          },
+        },
+        { provide: RecordPatches, useValue: { patches: writes.asObservable() } },
+      ],
+    }).compileComponents();
+
+    const fixture = await mount();
+    const element = fixture.nativeElement as HTMLElement;
+
+    (element.querySelector('.retry') as HTMLButtonElement).click();
+    await fixture.whenStable();
+
+    expect(attempts).toBe(2);
+    expect(element.textContent).not.toContain('Could not reach the API');
+    expect(element.querySelectorAll('app-matching-column')).toHaveLength(2);
+  });
+
   // -------------------------------------------------------------------------------------------
   // Phase 4 — filtering, sorting and the flip
   // -------------------------------------------------------------------------------------------

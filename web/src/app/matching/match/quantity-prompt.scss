@@ -135,30 +135,22 @@ $field-gap: 8px;
   }
 }
 
-.q-under {
-  color: lms.$q-under-ink;
-}
+// The quantity ramp, from its single definition. Keyed on state AND side — `Over` is a blue
+// "Over-filled" on a space and a pink "Over-committed" bug flag on an availability record.
+@include geo.quantity-ink;
 
-.q-exact {
-  color: lms.$q-exact-ink;
-}
-
-.q-over {
-  color: lms.$q-over-ink;
-}
-
-.q-pink {
-  color: lms.$q-pink-ink;
-}
-
-// THE LINE THAT MAKES THE WRAPPING HINTS SAFE.
+// WHAT MAKES THE WRAPPING HINTS SAFE — and it is two things, not one.
 //
-// Material's subscript wrapper is a fixed height — more so at density -2 — so by default a hint that
-// wraps overflows it silently and paints over whatever follows, which here was the dialog's own
-// actions. With a real height the wrap takes real space and pushes them down instead.
+// Material's hint and error wrappers are `position: absolute` inside a fixed-height subscript, so a
+// hint that wraps overflows it silently and paints over whatever follows — here, the dialog's own
+// actions. `height: auto` cannot fix that alone: an absolutely positioned child contributes no
+// height for `auto` to size to. Every field in `.fields` therefore also carries
+// `subscriptSizing="dynamic"` in the template, which is Material's own switch to `position: static`.
 //
-// This is what lets the price hint stay in the field it describes and run to four lines. It is load
-// bearing: remove it and the overlap the first browser pass found comes straight back.
+// Phase 6 shipped this half and claimed it was the fix; Phase 7's addendum found the other half while
+// correcting the match modal and recorded that this dialog still had the latent bug. Phase 8 closed
+// it. It is load bearing, and it looks like tidying: remove either half and the overlap the first
+// browser pass found comes straight back, on the price hint, which really does wrap to four lines.
 .fields .mat-mdc-form-field-subscript-wrapper {
   height: auto;
   min-height: 18px;

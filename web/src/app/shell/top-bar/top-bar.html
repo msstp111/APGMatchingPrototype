@@ -7,5 +7,21 @@
 
   <span class="spacer"></span>
 
+  <!--
+    design-system.md 14's debug treatment, in the one variant that works on petrol: a 26px stroked
+    button, white text and a white ring rather than petrol-on-white, because petrol-on-petrol reads as
+    nothing at all. It sits immediately left of the dev flag on purpose — that flag already means
+    "this is not the real thing" in this application, and a demo-data control inherits the reading for
+    free instead of having to argue for it.
+
+    It is in the shell rather than on the matching screen so it costs the 596px list nothing
+    (design-system.md 8.3) and is reachable from any screen a later pass adds.
+  -->
+  <button type="button" class="demo-reset" (click)="resetDemoData()"
+          title="Demo tool: drops the database and re-seeds it. Everything drafted, edited or filtered is lost.">
+    <span class="material-symbols-outlined" aria-hidden="true">restart_alt</span>
+    Reset demo data
+  </button>
+
   <span class="dev-flag"># DEV ENVIRONMENT #</span>
 </header>

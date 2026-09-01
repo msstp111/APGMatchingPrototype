@@ -86,7 +86,7 @@
   }
 
   <div class="fields">
-    <mat-form-field appearance="fill" class="f-quantity">
+    <mat-form-field appearance="fill" class="f-quantity" subscriptSizing="dynamic">
       <mat-label>Quantity matched</mat-label>
       <input matInput type="number" [formControl]="quantity" />
       <span matTextSuffix>head</span>
@@ -100,7 +100,7 @@
       }
     </mat-form-field>
 
-    <mat-form-field appearance="fill" class="f-price">
+    <mat-form-field appearance="fill" class="f-price" subscriptSizing="dynamic">
       <mat-label>Price per kg</mat-label>
       <span matTextPrefix>$</span>
       <input matInput type="number" step="0.01" [formControl]="price" />
@@ -110,7 +110,7 @@
     </mat-form-field>
 
     <!-- The field's name lives in its hint rather than in a mat-label. Deliberate, and Mark's call. -->
-    <mat-form-field appearance="fill" class="f-transport">
+    <mat-form-field appearance="fill" class="f-transport" subscriptSizing="dynamic">
       <input matInput [formControl]="transport" [matAutocomplete]="carriers" />
       <mat-autocomplete #carriers="matAutocomplete">
         @for (company of transportOptions(); track company) {

@@ -86,7 +86,32 @@ export class MatchingScreen {
    */
   readonly ready = computed(() => this.weeks().length > 0);
 
+  /**
+   * Fetching, as distinct from empty (requirement 4.1).
+   *
+   * Before Phase 8 this state drew nothing at all, so the first paint of a cold start was an empty
+   * content area — indistinguishable from an API that had answered with no data, and the first thing
+   * anyone handed the laptop would see.
+   *
+   * The `error` clause is what keeps this and the error panel from both being true. The template's
+   * chain does the same for the columns: an error outranks a populated board, because the three reads
+   * land independently and a half-loaded screen that looks whole is worse than a stated failure.
+   */
+  readonly loading = computed(() => !this.ready() && this.error() === null);
+
   constructor() {
+    this.load();
+
+    this.patches.patches.pipe(takeUntilDestroyed()).subscribe((patch) => this.applyPatch(patch));
+  }
+
+  /** Re-issues all three reads. The error panel's way out (requirement 4.1: every state has one). */
+  retry(): void {
+    this.error.set(null);
+    this.load();
+  }
+
+  private load(): void {
     this.api.processorSpaces().subscribe({
       next: (records) => this.spaces.set(records),
       error: () => this.error.set(UNREACHABLE),
@@ -101,8 +126,6 @@ export class MatchingScreen {
       next: (bands) => this.weeks.set(bands),
       error: () => this.error.set(UNREACHABLE),
     });
-
-    this.patches.patches.pipe(takeUntilDestroyed()).subscribe((patch) => this.applyPatch(patch));
   }
 
   /**

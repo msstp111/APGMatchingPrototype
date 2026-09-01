@@ -1,0 +1,53 @@
+@use '../../../styles/lms-tokens' as lms;
+
+// design-system.md 11.6: $lms-attention-bg with a 3px $lms-error left border. No amber anywhere —
+// every usable amber lands on the quantity ramp's $q-under-ink and smuggles a quantity colour into a
+// meaning that is not a quantity.
+.warn {
+  display: flex;
+  gap: 8px;
+  padding: 8px 10px;
+  background: lms.$lms-attention-bg;
+  border-left: 3px solid lms.$lms-error;
+}
+
+.wicon {
+  flex: 0 0 auto;
+  font-size: 18px;
+  line-height: 18px;
+  color: lms.$lms-error;
+}
+
+.wbody {
+  font-size: 12.5px;
+  line-height: 17px;
+  color: lms.$lms-text;
+}
+
+.lead {
+  margin: 12px 0 4px;
+  font-size: 12.5px;
+  font-weight: 500;
+  color: lms.$lms-text;
+}
+
+.losses {
+  margin: 0;
+  padding-left: 18px;
+  font-size: 12.5px;
+  line-height: 18px;
+  color: lms.$lms-text;
+}
+
+.after {
+  margin: 12px 0 0;
+  font-size: 12px;
+  line-height: 16px;
+  color: lms.$lms-text-muted;
+}
+
+// Destructive, so $lms-error rather than the petrol a constructive action takes.
+.danger {
+  --mat-button-filled-container-color: #{lms.$lms-error};
+  --mat-button-filled-label-text-color: #ffffff;
+}

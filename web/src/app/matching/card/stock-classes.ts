@@ -50,6 +50,19 @@ const TILES: ReadonlyMap<string, StockClassTile> = new Map([
 ]);
 
 /**
+ * Every stock class this table maps explicitly, in either vocabulary.
+ *
+ * Exported for one reason: Phase 8's acceptance criterion is that *every* stock class on both sides
+ * renders with an icon or a deliberate fallback, and the fallback is indistinguishable from a mapping
+ * once `stockClassTile` has returned. `stock-class-coverage.spec.ts` reads the two vocabularies out
+ * of `SeedConfig.cs` and checks each one against this set, so a class APG adds server-side fails a
+ * test by name instead of quietly rendering `WE` on a square.
+ *
+ * Application code should call {@link stockClassTile} and never consult this.
+ */
+export const MAPPED_STOCK_CLASSES: ReadonlySet<string> = new Set(TILES.keys());
+
+/**
  * Any class not in the table renders a square tile with its first two characters upper-cased.
  * **Nothing ever renders bare** — a stock class APG adds later still gets a tile, and the full name is
  * always on the tile's `title` attribute so an abbreviation is recoverable by hover.

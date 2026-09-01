@@ -34,7 +34,7 @@
         <span class="fvalue">{{ space!.stockClass }}</span>
       </div>
     } @else {
-      <mat-form-field appearance="fill" class="f-processor">
+      <mat-form-field appearance="fill" class="f-processor" subscriptSizing="dynamic">
         <mat-label>Processor</mat-label>
         <mat-select formControlName="processor" (selectionChange)="onProcessorChange()">
           @for (option of data.reference.processors; track option.name) {
@@ -53,7 +53,7 @@
         directive, and it would be warning about the right thing — the enabled state would then live
         in the template rather than in the form. An empty menu plus the hint says the same thing.
       -->
-      <mat-form-field appearance="fill" class="f-class">
+      <mat-form-field appearance="fill" class="f-class" subscriptSizing="dynamic">
         <mat-label>Stock class</mat-label>
         <mat-select formControlName="stockClass">
           @for (stockClass of stockClasses(); track stockClass) {
@@ -68,7 +68,7 @@
       </mat-form-field>
     }
 
-    <mat-form-field appearance="fill" class="f-plant">
+    <mat-form-field appearance="fill" class="f-plant" subscriptSizing="dynamic">
       <mat-label>Plant</mat-label>
       <mat-select formControlName="plant">
         @for (plant of plants(); track plant) {
@@ -82,7 +82,7 @@
       }
     </mat-form-field>
 
-    <mat-form-field appearance="fill" class="f-qty">
+    <mat-form-field appearance="fill" class="f-qty" subscriptSizing="dynamic">
       <mat-label>Quantity required</mat-label>
       <input matInput type="number" formControlName="quantityRequired" />
       <span matTextSuffix>head</span>
@@ -98,19 +98,19 @@
       browser renders it in the local format itself. A Material datepicker would hand this form a
       JavaScript Date, which is the one thing no file under matching/ may construct.
     -->
-    <mat-form-field appearance="fill" class="f-date">
+    <mat-form-field appearance="fill" class="f-date" subscriptSizing="dynamic">
       <mat-label>Delivery date</mat-label>
       <input matInput type="date" formControlName="deliveryDate" />
       <mat-error>Choose a delivery date</mat-error>
     </mat-form-field>
 
-    <mat-form-field appearance="fill" class="f-time">
+    <mat-form-field appearance="fill" class="f-time" subscriptSizing="dynamic">
       <mat-label>Delivery time</mat-label>
       <input matInput formControlName="deliveryTime" />
       <mat-hint>Optional, free text</mat-hint>
     </mat-form-field>
 
-    <mat-form-field appearance="fill" class="f-notes">
+    <mat-form-field appearance="fill" class="f-notes" subscriptSizing="dynamic">
       <mat-label>Notes</mat-label>
       <textarea matInput rows="2" formControlName="notes"></textarea>
     </mat-form-field>

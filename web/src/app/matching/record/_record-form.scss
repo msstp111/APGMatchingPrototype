@@ -10,11 +10,17 @@
   overflow: visible;
 }
 
-// LOAD BEARING, and it looks like tidying. Material's subscript wrapper is a fixed height, so a hint
-// or an error that wraps overflows it and lands on whatever follows — which is exactly what the first
-// browser pass found in both Phase 5 and Phase 6 dialogs. `auto` lets it push instead.
+// LOAD BEARING, and it looks like tidying — and it is HALF the fix. Material's hint and error
+// wrappers are `position: absolute` inside a fixed-height subscript, so a wrapped hint overflows it
+// and lands on whatever follows, which is what the first browser pass found in both the Phase 5 and
+// Phase 6 dialogs. `height: auto` alone sizes to nothing, because an absolutely positioned child
+// contributes no height; every field in both forms therefore also carries `subscriptSizing="dynamic"`
+// in its template, which is Material's own switch to `position: static`. Remove either half and the
+// overlap comes back — on the over-commit caption first, since that one is a whole sentence.
 .fields .mat-mdc-form-field-subscript-wrapper {
   height: auto;
+  min-height: 18px;
+  line-height: 1.35;
 }
 
 .fields {

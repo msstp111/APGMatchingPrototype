@@ -117,6 +117,22 @@ export class MatchingPreferences {
 // Storage — defensive in both directions
 // ---------------------------------------------------------------------------------------------
 
+/**
+ * Forgets every stored view preference, so the next load opens at the defaults.
+ *
+ * Exported as a plain function rather than a method because the caller is Phase 8's "Reset demo data"
+ * control in the shell, which reloads the page immediately afterwards — there is no live store left
+ * to update, and injecting one to clear a key it is about to lose would be ceremony. Requirement 1.1
+ * asks the reset to clear the stored UI preferences as well as the database; this is that half.
+ */
+export function clearStoredPreferences(): void {
+  try {
+    localStorage.removeItem(PREFERENCES_STORAGE_KEY);
+  } catch {
+    // Storage disabled: there was nothing stored to clear.
+  }
+}
+
 function write(preferences: MatchingViewPreferences): void {
   try {
     localStorage.setItem(

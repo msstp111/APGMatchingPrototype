@@ -8,7 +8,9 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Current state
 
-Phases 0 to 7 are complete: the solution, the Angular app, EF Core + SQLite and the deterministic seeder are in place, the LMS shell (top bar + sidebar) is built, every computed quantity, status and date rule lives in `Apg.Domain` and reaches the client on the DTO contract, Phase 2 settled the visual language in `Documents/design-system.md`, Phase 3 built the matching screen's two week-banded card lists with expand/collapse, Phase 3b removed the carry-over cards it had shipped and replaced them with the trimmed backlog (resolved question 17), Phase 4 added per-column filters, sorting within the bands, the column flip and reset-to-default, Phase 5 added drag-to-match (CDK across the two columns, quantity prompt, Drafted matches, undo), Phase 6 gave a match the rest of its life — open from either side, edit, delete a draft, cancel with a reason, confirm, and confirm a Processor Space, and Phase 7 added the debug record forms: + Add on both columns, Edit and Cancel on every card, and the counterparty flag that shows a cancelled record has not taken its matches with it. Phase 8 is still to come — see `Documents/BUILD-LOG.md` for what each finished phase actually did.
+Pass 1 is **complete**. Phases 0 to 8 are done: the solution, the Angular app, EF Core + SQLite and the deterministic seeder are in place, the LMS shell (top bar + sidebar) is built, every computed quantity, status and date rule lives in `Apg.Domain` and reaches the client on the DTO contract, Phase 2 settled the visual language in `Documents/design-system.md`, Phase 3 built the matching screen's two week-banded card lists with expand/collapse, Phase 3b removed the carry-over cards it had shipped and replaced them with the trimmed backlog (resolved question 17), Phase 4 added per-column filters, sorting within the bands, the column flip and reset-to-default, Phase 5 added drag-to-match (CDK across the two columns, quantity prompt, Drafted matches, undo), Phase 6 gave a match the rest of its life — open from either side, edit, delete a draft, cancel with a reason, confirm, and confirm a Processor Space, Phase 7 added the debug record forms: + Add on both columns, Edit and Cancel on every card, and the counterparty flag that shows a cancelled record has not taken its matches with it, and Phase 8 closed pass 1 — Reset demo data in the top bar, the empty/loading/error states, the quantity ramp made consistent everywhere, the grab glyph, and `Documents/DEMO.md`. See `Documents/BUILD-LOG.md` for what each phase actually did and `Documents/DEMO.md` for the walkthrough.
+
+**What pass 1 deliberately does not do:** no record detail pages; no Match list view, so a cancelled match is visible nowhere; no farmer/agent submission flow (the `+ Add` buttons are demo scaffolding); no login and no roles, so no per-processor visibility gating; no notifications, so `Notified` has no UI transition; no default-pricing maintenance; no weekly roll-ups; no Finance Stock draw-down; and no keyboard drag path (resolved question 14). None of those is a defect — see the roadmap's "Deferred beyond pass 1".
 
 **The matching screen now creates and manages both records and matches.** Dragging a card onto a card in the other column drafts a match; the match line on line 2 opens the card, and every row of the expanded match table opens that match's modal. Records are created, edited and cancelled from the debug controls (Phase 7), which are marked as demo scaffolding and are **not** the farmer/agent submission flow. There is no keyboard drag path (resolved question 14).
 
@@ -22,7 +24,7 @@ tests/Apg.Domain.Tests/    xUnit — domain purity, date handling
 tests/Apg.Api.Tests/       xUnit — seed determinism and the demonstration cases
 web/                       Angular 22 + Angular Material 22
 Data/                      CSV exports from the existing forecasting system (unchanged)
-Documents/                 roadmap, phase docs, build log, browser checklist
+Documents/                 roadmap, phase docs, build log, browser checklist, DEMO.md
 ```
 
 ### Versions
@@ -50,11 +52,16 @@ Run from the repo root unless stated.
 
 **Stop any running `Apg.Api` before building.** It holds `Apg.Domain.dll` open and `dotnet build` fails with `MSB3027` / `MSB3021`. This has bitten every phase so far. `Get-CimInstance Win32_Process -Filter "Name='Apg.Api.exe'"` finds it; stopping the `Apg.Api.exe` child is enough, as its `dotnet run` host exits with it. Note the Angular dev server holds no lock and can stay up.
 
+The shell adds one folder of its own: `web/src/app/shell/demo-reset/` — `demo-reset.ts` (the root
+service: confirm, re-seed, clear preferences, reload) and `reset-demo-data.*` (the dialog, which
+decides nothing and closes true or false, like every other dialog in the application). It reuses
+`matching/record/debug-ribbon.ts` rather than growing a second debug treatment.
+
 ### Wiring
 
 - The Angular dev server proxies `/api` to `http://localhost:5286` (`web/proxy.conf.json`, wired into `angular.json`'s `serve` options), so the client only ever calls same-origin paths. CORS for `http://localhost:4200` is configured in the API as a fallback for running without the proxy.
 - SQLite lives at `src/Apg.Api/apg.db`, gitignored. The schema is created with `EnsureCreated` — there are no migrations, deliberately. Deleting the file and restarting reproduces identical seed data.
-- `POST /api/dev/reset-database` drops, recreates and re-seeds. Phase 8 adds the button that calls it.
+- `POST /api/dev/reset-database` drops, recreates and re-seeds. **Phase 8's `Reset demo data` control in the top bar calls it**, after a confirmation, then clears the stored preferences and reloads the page (`web/src/app/shell/demo-reset/`). The reload is deliberate: a refetch would leave expanded cards, a drag in flight and the in-memory preference store behind.
 - The three read endpoints are `GET /api/processor-spaces`, `GET /api/livestock-availability` and `GET /api/week-bands`. Since Phase 1 they return the **DTO contract** — `src/Apg.Api/Contracts/Dtos.cs`, mirrored field for field in `web/src/app/api/models.ts` — carrying every computed field. The raw-record shapes Phase 0 returned are gone.
 - **Write path (Phase 5):** `GET /api/match-proposal?processorSpaceId=&livestockAvailabilityId=` (default, ceiling, refusal, default price — asked at drop, before any dialog), `POST /api/matches` (always a new `Drafted` row; never merges), `DELETE /api/matches/{id}` (Drafted only — the undo, and Phase 6's delete-draft), `GET /api/transport-companies` (`SeedConfig.TransportCompanies`). Create and delete return both parents recomputed (`MatchWriteResultDto`); the client patches the two records by id.
 - **Write path (Phase 7 — debug record creation):** `GET /api/reference-data` (processors, each with **its own** plants and stock classes, plus the single availability stock-class list and the transaction types — all from `SeedConfig`, never derived from the loaded records the way the filter row options are); `GET /api/locations` (~299, each with the one farmer it belongs to); `POST /api/processor-spaces`, `PUT /api/processor-spaces/{id}` (**quantity, plant, delivery date, delivery time, notes only** — processor and stock class are not editable), `POST /api/processor-spaces/{id}/cancel`, and the three availability equivalents (`PUT` there edits **every** attribute). All six return `RecordWriteResultDto` — **the one record they touched, plus the recomputed week calendar**: a record created for a week the columns were not drawn on places into no band at all, and the client may not name a new week itself. Validation lives in `src/Apg.Api/Contracts/RecordWriter.cs`, pure over a `WorkingSet` exactly as `MatchWriter` is. **Cancelling a record never touches its matches** — the endpoints never consult the match set, and the domain helpers take none.
@@ -67,7 +74,14 @@ Run from the repo root unless stated.
 - **The seeded Processor Spaces are 70% ANZCO / 20% Alliance Group / 10% SFF** (`SeedConfig.ProcessorMix`), shuffled. Until after Phase 4 the seeder cycled `Processors[i % 3]` while the week came from `i % 6`; the two aliased, so every week held exactly one processor and always would. The shuffle removes that structural guarantee but does not promise a mixed week — at 70% ANZCO an all-ANZCO week is ordinary, and the current seed has one. Statuses are **34 Booked / 4 Confirmed / 2 Cancelled**, assigned *after* the matches exist so a Confirmed space is one `ProcessorSpaceRules.CanConfirm` agrees could be confirmed, and one Cancelled space keeps its live matches because cancelling never cascades. All of these are pinned by `SeedDeterminismTests`.
 - Every invented list (processors, plants, carriers, stock classes, farmer names) lives in `src/Apg.Api/Seeding/SeedConfig.cs` so APG's real values are a one-file swap.
 - LMS colours and metrics live in `web/src/styles/_lms-tokens.scss`, sampled from the screenshots, with Phase 2's matching-screen palette appended (surfaces, rules, the quantity ramp, semantics) as both SCSS variables and `:root` custom properties. The Material palettes in `web/src/styles/_theme-colors.scss` were generated from `#00567E`. Do not re-sample; the values are recorded in the build log.
-- The Material theme runs at `density: -2` with dialogs overridden to a 4px radius (`web/src/styles.scss`), so Material's own controls land on LMS's proportions without a per-component override each.
+- **The Angular initial-chunk budget is 1 MB warn / 1.5 MB error** (`web/angular.json`), raised from
+500 kB / 1 MB in Phase 8 with Mark's agreement. The bundle has been over 500 kB since Phase 3 and was
+within 41 kB of the old hard error after Phase 7's five dialogs; the remedy for a prototype whose whole
+job is one screen is a bigger budget, not lazy-loading the forms. The `anyComponentStyle` warning went
+4 kB → 6 kB for the same reason. **`npm run build` is now clean with no warnings** — if it starts
+warning again, something has grown, and that is worth knowing rather than drowning in a standing one.
+
+The Material theme runs at `density: -2` with dialogs overridden to a 4px radius (`web/src/styles.scss`), so Material's own controls land on LMS's proportions without a per-component override each.
 - Every dimension on the matching screen lives in `web/src/app/matching/_card-geometry.scss`. Do not hard-code a width, height or padding in a card, band or column stylesheet.
 
 Supporting choices are recorded in `Documents/ROADMAP.md`: EF Core + SQLite for persistence, xUnit for the domain tests, Angular CDK `DragDrop` for the matching interaction, SCSS for styling.
@@ -134,6 +148,10 @@ record/confirm-over-commit.ts  the warning before an edit that leaves a record o
 record/debug-ribbon.ts    the '# DEMO DATA TOOL #' strip both forms carry, in the shell's dev-flag colour
 record/record-vocabularies.ts  reference data + locations, fetched once, lazily, per session
 record/record-form.ts     the two validators both forms share (integer >= 1, blank-to-null)
+column/empty-column.ts    Phase 8. A side with NOTHING loaded — the column's glyph, a sentence and
+                          the + Add button. Checked before the filtered-empty case: only one of the
+                          two has a filter to blame, and offering Clear filters here would send an
+                          operator hunting for a cause that does not exist.
 testing/dto-fixtures.ts   DTO builders for the specs only
 ```
 
@@ -156,6 +174,34 @@ testing/dto-fixtures.ts   DTO builders for the specs only
 - **Dates are a native `<input matInput type="date">`, never a Material datepicker.** The native input's value *is* the ISO `yyyy-MM-dd` string the API wants; a datepicker's control value is a JavaScript `Date`, which no file under `matching/` may construct. Registering `provideNativeDateAdapter` would put one in a form control and `no-domain-arithmetic.spec.ts` would fail, correctly.
 - **Reducing a quantity below what is already matched is allowed**, warned about, and is the only route to the pink `Over-committed` state (design-system.md §4.3). Neither the form nor the server refuses it — `RecordWriter` has no clause about matches at all.
 - **Cancelling a record never cancels its matches.** They stay live on their own cards. The dialog lists every survivor by name first; the snack says so afterwards and its `SHOW IT` action ticks `Cancelled` into that column's status filter so the card comes back; and the counterparty card flags it, on the collapsed row and in the match table, from `MatchDto.spaceStatus` / `MatchDto.availabilityStatus`.
+
+**Polish and demo readiness (Phase 8).** Pass 1's closing phase added five things worth knowing:
+
+- **`Reset demo data` lives in the top bar** (`web/src/app/shell/demo-reset/`), left of the dev flag,
+  in design-system.md §14.1's white-on-petrol variant of the debug treatment. It confirms, re-seeds,
+  clears `apg.matching.preferences.v2`, then reloads — in that order, so a failed reset does not take
+  the operator's filters with it.
+- **The four quantity-ramp ink colours have exactly one definition**, the `quantity-ink` mixin in
+  `_card-geometry.scss`. They had lived inside the `card-shell` mixin, which `card-expansion.scss`
+  does not include, so an over-committed record's `-24` rendered in plain body text on the one surface
+  that spells the state out in words; two more copies sat in the two dialogs. Include the mixin; never
+  redeclare `.q-over`.
+- **Three screen-level states**: `empty-column.ts` for a side with nothing loaded (checked *before*
+  the filtered-empty case, because only one of them has a filter to blame), plus loading and
+  API-unreachable panels on `matching-screen`. Every one names what has happened and offers a way out.
+- **The six-dot grab glyph is positioned, not laid out** — absolutely placed in the card body's 8px
+  right gutter. A real cell would push the card's trailing edge from 32px to 42px and the Unmatched
+  column would stop lining up with its header (design-system.md §16.10).
+- **A wrapping `mat-hint` needs both halves of the fix** — `subscriptSizing="dynamic"` on the field
+  *and* `height: auto` on the subscript wrapper. Phase 8 added the missing template half to the
+  quantity prompt and both record forms; only the match modal had it.
+
+Two tests are the phase's own guards: `card/stock-class-coverage.spec.ts` reads both vocabularies out
+of `SeedConfig.cs` and fails naming any stock class without an explicit tile, and
+`nothing-renders-raw.spec.ts` sweeps every card, expansion and the match modal with every optional
+field null. **Angular renders `null` as an empty string, not as the word**, so that spec's second half
+— asserting the `-` fallbacks themselves — is the half that can actually fail; verified by removing a
+guard and watching the first half pass.
 
 **Every record write returns the recomputed week calendar**, and `RecordPatch.weeks` carries it, because a record created or moved beyond the loaded run of weeks would otherwise place into no band and vanish off the screen. `matching-screen.applyPatch` therefore **upserts** by id rather than replacing: a newly created record is in neither list yet.
 

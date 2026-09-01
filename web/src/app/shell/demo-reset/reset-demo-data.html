@@ -1,0 +1,51 @@
+<!--
+  design-system.md 11.6's shape — a warning panel with a 3px $lms-error left border — because this is
+  the one control in the application that destroys work. Every other destructive act removes one thing
+  and names it; this one removes everything, so it lists what goes.
+
+  The demo ribbon is the same component both record forms carry (design-system.md 14): a control that
+  drops a database and re-seeds it is demo scaffolding by definition, and its marking should not
+  differ from the marking on the forms that put those records there.
+
+  Like every other dialog on this screen, it decides and writes nothing. It closes true or false and
+  DemoReset performs the reset.
+-->
+<app-debug-ribbon note="Debug scaffolding for demos — it drops the database and re-seeds it." />
+
+<h2 mat-dialog-title>Reset the demo data?</h2>
+
+<mat-dialog-content>
+  <div class="warn">
+    <span class="material-symbols-outlined wicon" aria-hidden="true">warning</span>
+    <div class="wbody">
+      <strong>This cannot be undone.</strong>
+      The database is dropped and re-seeded from scratch, and the page reloads.
+    </div>
+  </div>
+
+  <p class="lead">What goes:</p>
+
+  <ul class="losses">
+    <li>Every match drafted, edited, confirmed or cancelled since the last reset.</li>
+    <li>Every record added, edited or cancelled from the demo tools.</li>
+    <li>Both columns' filters and sort, the column order, and any expanded cards.</li>
+  </ul>
+
+  <!--
+    Deliberately no record counts here. The seed is deterministic, so a count would be true today and
+    silently wrong the day the seeder is tuned — and nothing in the suite guards a sentence in a
+    dialog. What matters is the promise this can actually keep: the same set, every time.
+    Documents/DEMO.md carries the figures, and ResetRestoresTheSeedTests guards those.
+  -->
+  <p class="after">
+    What comes back is the seeded demo set, identical every time — including the worked examples the
+    walkthrough in <em>Documents/DEMO.md</em> depends on.
+  </p>
+</mat-dialog-content>
+
+<mat-dialog-actions align="end">
+  <button matButton [mat-dialog-close]="false" type="button">Keep it</button>
+  <button matButton="filled" class="danger" [mat-dialog-close]="true" type="button">
+    Reset demo data
+  </button>
+</mat-dialog-actions>

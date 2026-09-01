@@ -182,4 +182,18 @@ export class ApiClient {
   cancelAvailability(id: number): Observable<RecordWriteResultDto> {
     return this.http.post<RecordWriteResultDto>(`/api/livestock-availability/${id}/cancel`, {});
   }
+
+  // --- Phase 8: the demo reset ------------------------------------------------------------------
+
+  /**
+   * Drops the database, recreates it and re-seeds it (requirement 1.1). The seed is deterministic, so
+   * what comes back is byte-for-byte what was there before anyone touched it — including the worked
+   * demonstration cases the walkthrough depends on.
+   *
+   * The only write in the application that returns no record, because every record it could return
+   * has just been replaced. The caller reloads the page.
+   */
+  resetDatabase(): Observable<unknown> {
+    return this.http.post('/api/dev/reset-database', {});
+  }
 }

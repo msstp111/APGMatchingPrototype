@@ -50,6 +50,13 @@ writing the current week is **w/c 30 Aug** and the bands run 23-08 (past) throug
 changes to the figure. The pass also found three rendering defects in the match modal, all since fixed
 (see the Phase 6 entry in `BUILD-LOG.md`, "First browser pass"). Everything else below is still unrun.
 
+**Phase 8 added section I and verified what it could without a browser.** The pink Over-committed
+state was forced live against the API (availability #6, 144 → 100, `unmatched -22`,
+`quantityStateLabel: "Over-committed"`, all three matches untouched) and the reset was run and
+confirmed to restore the seed. What none of that shows is how any of it *renders*. Section I is the
+remainder, and its last item — running `Documents/DEMO.md` end to end — is the one that decides
+whether the demo is safe to give.
+
 **Phase 7 closed one open question without a browser.** Phase 6's pass reported that no `mat-label`
 was visible in either dialog and left the cause open. It is Material's own density table: from density
 `-2` down, `form-field-filled-label-display` is `none`, and the theme runs at `-2`. `web/src/styles.scss`
@@ -304,6 +311,50 @@ item is the one to run first: it is a claim about every dialog in the app, not j
       as a red error. Then check the price hint wraps the same way.
 - [ ] Cancelling the same record twice is refused with a message rather than silently repeated.
 
+## I. Phase 8 — polish, and the claims it could not check
+
+**Everything in this section is new in Phase 8 and none of it has been on a screen.** The first three
+items are the ones worth doing first: each is a claim about a control that did not exist before.
+
+- [ ] **Reset demo data.** The control is in the top bar, left of the `# DEV ENVIRONMENT #` flag, in
+      white on petrol — check it reads as *quieter* than the flag rather than competing with it
+      (§14.1). Click it: the dialog opens with the `# DEMO DATA TOOL #` ribbon and lists what is lost.
+      **Press `Keep it` first** and confirm nothing happened. Then filter a column, expand a card,
+      drag a match, and reset for real: the page reloads, the match is gone, and **both columns are
+      back at their default filters** with no `Filtered` chip. (Requirement 1.)
+- [ ] **The reset when the API is down.** Stop the API, click through the dialog: a snack says it could
+      not reset and names the port. Nothing should silently appear to have worked.
+- [ ] **The pink Over-committed state.** Expand availability **#6 — Lower Mount Pastures, Bull, 144
+      available** (bottom band), click `Edit`, and change the quantity to **100**. The form's live
+      caption warns, then a prompt names both figures, and neither blocks. The card then shows a
+      **pink** meter, the numeral **−22**, the over-run cap, and the literal word **`Over-committed`**.
+      **Compare it against the blue over-fill on space #4** and check the two are not confusable. This
+      is the state that should never occur in ordinary use; Phase 8 forced it live against the API and
+      confirmed the DTO, but nobody has seen it rendered. Reset afterwards. (Requirement 2.3, §4.3.)
+- [ ] **The loading state.** Hard-refresh with the network throttled: a spinning glyph and *"Loading
+      processor spaces and livestock availability…"*, not a blank content area.
+- [ ] **The error state.** Stop the API and reload: a `cloud_off` panel naming the port, with a
+      **Try again** button. Start the API, press it, and the screen fills without another reload.
+- [ ] **The empty-column state.** Not reachable with the seed — 40 spaces and 50 records always load.
+      Reach it by cancelling every space, or by stubbing an endpoint to return `[]`. Expect the
+      column's own glyph, *"No processor spaces yet"* and a `+ Add` button; expect **no**
+      `Clear filters`, because no filter is hiding anything. (§13.)
+- [ ] **The wrapping hints in the quantity prompt and both record forms.** Phase 7's addendum found
+      that only the match modal had both halves of the fix; Phase 8 added `subscriptSizing="dynamic"`
+      to the other three. **Drag space #14 onto availability #12** — the worst case, a 53-character
+      price hint in a 148px field — and check the hint wraps and **pushes the actions down rather than
+      painting over them**. Then open the space form and type a quantity below what is matched: the
+      over-commit caption is a whole sentence and wraps the same way.
+- [ ] **The expansion's 120ms open.** Expand a card: the block below fades and rises 2px over 120ms
+      while the card itself does not move at all. It should feel immediate, not animated. Collapse is
+      instant by design.
+- [ ] **The expanded card's unmatched figure is coloured.** Expand space **#4**: `Quantity unmatched`
+      reads **−66** in blue with `Over-filled` beside it. Before Phase 8 it rendered in plain black —
+      the ramp's four rules lived in a mixin the expansion did not include. (§4, §6.2.)
+- [ ] **Documents/DEMO.md, start to finish, against freshly reset data.** Every id and figure in it was
+      taken from the live API, but the *walkthrough* — the drags, the modal, the cancellation — has
+      only been run as HTTP calls. This is the item that decides whether the demo is safe to give.
+
 ## Things that look wrong and are correct
 
 Do not report these. Each is a decision with a reason recorded.
@@ -317,7 +368,7 @@ Do not report these. Each is a decision with a reason recorded.
 | The band header and the rail **both say `Week of 30 Aug`** | §8.4 and §8.5 each specify it. Only the rail sticks. |
 | Dropping inside one column **does nothing at all** | By specification. An error for a gesture that does not apply teaches an operator to fear the screen. (§10.) |
 | A card's DOM node **flashes** into the target list mid-drag | CDK moves the preview's sibling; change detection restores it. (Phase 5, "Deviations".) |
-| **No six-dot grab glyph** on hover | Not built. `cursor: grab` is the only handle cue. Phase 8's, if wanted. (§10.) |
+| The six-dot grab glyph **does not move anything** when it appears | Built in Phase 8, and positioned in the body's 8px right gutter rather than laid out as a cell — exactly so the row's trailing edge stays at 32px and the Unmatched column keeps lining up with its heading. Only its opacity changes. (§10, §16.10.) |
 | **Nothing responds to the keyboard** for dragging | Resolved question 14: a mouse is assumed at all times. Its absence is a decision. |
 | The first week is **all ANZCO** | Chance, not arithmetic — the mix is 70/20/10 shuffled. The aliasing bug that caused it was fixed after Phase 4. |
 | A cancelled record's **matches are still there**, on both cards | The rule this whole phase exists to show. Cancelling a record never cascades — it lets APG arrange alternatives before anyone is notified. Cancel them separately. (Phase 7, 5.2.) |

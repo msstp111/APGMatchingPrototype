@@ -19,7 +19,7 @@
   }
 
   <form [formGroup]="form" class="fields">
-    <mat-form-field appearance="fill" class="f-class">
+    <mat-form-field appearance="fill" class="f-class" subscriptSizing="dynamic">
       <mat-label>Stock class</mat-label>
       <mat-select formControlName="stockClass">
         @for (stockClass of data.reference.availabilityStockClasses; track stockClass) {
@@ -29,7 +29,7 @@
       <mat-error>Choose a stock class</mat-error>
     </mat-form-field>
 
-    <mat-form-field appearance="fill" class="f-qty">
+    <mat-form-field appearance="fill" class="f-qty" subscriptSizing="dynamic">
       <mat-label>Quantity available</mat-label>
       <input matInput type="number" formControlName="quantityAvailable" />
       <span matTextSuffix>head</span>
@@ -44,7 +44,7 @@
       ~300 locations, so the control types ahead over the options rather than opening all of them.
       Only a picked option sets the id the form submits.
     -->
-    <mat-form-field appearance="fill" class="f-location">
+    <mat-form-field appearance="fill" class="f-location" subscriptSizing="dynamic">
       <mat-label>Location</mat-label>
       <input
         matInput
@@ -67,14 +67,14 @@
       }
     </mat-form-field>
 
-    <mat-form-field appearance="fill" class="f-date">
+    <mat-form-field appearance="fill" class="f-date" subscriptSizing="dynamic">
       <!-- Native date input: its value is the ISO string the API wants, and no Date is constructed. -->
       <mat-label>Available from</mat-label>
       <input matInput type="date" formControlName="availableFrom" />
       <mat-error>Choose an available-from date</mat-error>
     </mat-form-field>
 
-    <mat-form-field appearance="fill" class="f-type">
+    <mat-form-field appearance="fill" class="f-type" subscriptSizing="dynamic">
       <mat-label>Transaction type</mat-label>
       <mat-select formControlName="transactionType">
         @for (type of data.reference.transactionTypes; track type) {
@@ -84,13 +84,13 @@
       <mat-error>Choose a transaction type</mat-error>
     </mat-form-field>
 
-    <mat-form-field appearance="fill" class="f-details">
+    <mat-form-field appearance="fill" class="f-details" subscriptSizing="dynamic">
       <mat-label>Availability details</mat-label>
       <textarea matInput rows="2" formControlName="availabilityDetails"></textarea>
       <mat-hint>Optional — pickup times, days the farmer is away</mat-hint>
     </mat-form-field>
 
-    <mat-form-field appearance="fill" class="f-notes">
+    <mat-form-field appearance="fill" class="f-notes" subscriptSizing="dynamic">
       <mat-label>Notes</mat-label>
       <textarea matInput rows="2" formControlName="notes"></textarea>
     </mat-form-field>

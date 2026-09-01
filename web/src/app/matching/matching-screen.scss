@@ -75,11 +75,90 @@
   font-size: 17px;
 }
 
-.error {
+// Loading and error (requirement 4.1). The same centred, hueless block the two empty-column states
+// use, so every "there is nothing here yet" in the application reads as one family. Only the error
+// carries colour, and only on its glyph and its rule — $lms-error is semantic and no part of the
+// quantity ramp.
+.state {
+  flex: 1 1 auto;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 44px 16px;
+  text-align: center;
+  background: lms.$lms-white;
+  border: 1px solid lms.$lms-divider;
+}
+
+.state .glyph {
+  font-size: 34px;
+  color: lms.$lms-faint;
+}
+
+.state .headline {
   margin: 0;
-  padding: 8px 10px;
-  border: 1px solid lms.$lms-error;
-  border-radius: 4px;
+  font-size: 14px;
+  font-weight: 500;
+  color: lms.$lms-text;
+}
+
+.state .prose {
+  margin: 0;
+  max-width: 520px;
+  font-size: 12px;
+  line-height: 18px;
+  color: lms.$lms-text-muted;
+}
+
+.state code {
+  font-family: 'Roboto Mono', ui-monospace, monospace;
+  font-size: 11.5px;
+  color: lms.$lms-text;
+}
+
+.state.error {
+  border-color: lms.$lms-error;
+}
+
+.state.error .glyph {
   color: lms.$lms-error;
+}
+
+.retry {
+  height: 30px;
+  margin-top: 4px;
+  padding: 0 12px;
+  border: 0;
+  border-radius: 4px;
+  background: lms.$lms-petrol;
+  color: lms.$lms-white;
+  font-family: inherit;
   font-size: 13px;
+  font-weight: 500;
+  letter-spacing: 0.3px;
+  cursor: pointer;
+}
+
+.retry:hover {
+  filter: brightness(1.08);
+}
+
+// A plain rotation rather than a mat-spinner: the state is one glyph and one line, and pulling in a
+// progress-spinner for it would cost more bundle than the whole state is worth.
+.spin {
+  animation: apg-spin 900ms linear infinite;
+}
+
+@keyframes apg-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .spin {
+    animation: none;
+  }
 }

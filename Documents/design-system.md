@@ -304,6 +304,13 @@ band is the draft delta. **Alpha, not hatching** — hatching belongs to Pending
 Segment widths clamp to `[0%, 100%]`. Reach for `matchedExclDraft` and `matchedInclDraft` from the
 DTO; never derive one from the other.
 
+**The four ink colours have exactly one definition**, the `quantity-ink` mixin in
+`_card-geometry.scss`, included by the card, the expanded card and both dialogs. Phase 8 found why
+that matters: the rules had lived inside the `card-shell` mixin, which the expanded card does not
+include, so **an over-committed record's `-24` rendered in plain body text on the one surface that
+spells the state out in words** — while two further copies sat in the two dialogs' own stylesheets. A
+colour defined four times is a colour that comes to differ in three of them.
+
 ### 4.1 Which colour
 
 Keyed on `quantityState` **and the side** — `Over` means opposite things on the two sides:
@@ -857,7 +864,7 @@ that rule is the backlog.
 
 | State | Treatment |
 | --- | --- |
-| **Card hover** | background `#F5F9FB`, `cursor: grab`, a six-dot grab glyph appears left of the chevron. **Nothing resizes** — a growing row makes a list of ten cards jitter under the pointer. |
+| **Card hover** | background `#F5F9FB`, `cursor: grab`, a six-dot grab glyph appears left of the chevron. **Nothing resizes** — a growing row makes a list of ten cards jitter under the pointer. **As built (Phase 8):** the glyph is *absolutely positioned in the card body's own 8px right gutter*, 6 × 10px, and only its opacity changes. A real cell between the body and the chevron would push the card's trailing edge from 32px to 42px while the header strip stayed at 32px, and the Unmatched column would stop lining up with its heading — the failure §16.10 warns is invisible in code review and glaring on screen. Phase 5 recorded the glyph as not built; this is it. |
 | **Card active / pressed** | background `#EEEEEE`, no movement |
 | **Dragging (CDK preview)** | **1:1 scale** — no tilt, no shrink; the operator is aiming at a 52px row and a transformed preview lies about where the pointer is. `0 8px 16px rgba(0,0,0,.24)` + `2px solid #00567E` outline, `cursor: grabbing`. Escape cancels. |
 | **Drag placeholder** (the gap left behind) | a flat `#EEEEEE` silhouette at the **same 52px height**, carrying the record name at 55% opacity. Same height matters: the list must not reflow mid-drag. **Not a dashed outline** — dashed already means Cancelled. |
@@ -1104,7 +1111,9 @@ existing app. Nothing ever shows a raw `undefined`, `NaN` or `Invalid Date`.
 | State | Treatment |
 | --- | --- |
 | **No results after filtering** | 44px vertical padding, centred: a 34px `filter_alt_off` glyph in `#9E9E9E`, `No processor spaces match these filters` at 14/500, **the active filters restated** in card-meta type, then `Clear filters` (flat) + `Reset to default` (text). "No results" without the reason is how an operator concludes the app is broken. |
-| **Empty column** | same layout, the column's own glyph, `No livestock availability yet`, *"Records appear here as farmers and agents submit them."*, and the debug `+ Add a record` stroked button. Distinct from the filtered case — nothing to clear. |
+| **Empty column** | same layout, the column's own glyph, `No livestock availability yet`, *"Records appear here as farmers and agents submit them."*, and the debug `+ Add a record` stroked button. Distinct from the filtered case — nothing to clear. **Built in Phase 8** (`column/empty-column.ts`); Phase 4 and Phase 7 both parked it. It is checked *before* the filtered case, and its condition is "nothing loaded for this side", not "nothing shown". |
+| **Loading** | **Phase 8.** The same centred block, a spinning `progress_activity` glyph and one line: *"Loading processor spaces and livestock availability…"*. Before Phase 8 the screen drew nothing until the week bands arrived, so a cold start's first paint was indistinguishable from an empty data set. |
+| **API unreachable** | **Phase 8.** The same block with a `cloud_off` glyph in `$lms-error`, the sentence naming the port, the command that starts the API, and a **Try again** button that re-issues all three reads. Colour on the glyph and the border only — `$lms-error` is semantic and no part of the quantity ramp. |
 | **Empty week band** | §8.4: the header renders, then a 44px `- no processor spaces this week`. |
 | **Record with no matches** | §6.2's table placeholder. Deliberately empty, not broken. |
 | **Missing default price** | `no default price` in `#9E9E9E`. Never blank, never `$0.00`. |
@@ -1137,6 +1146,32 @@ in this application; it is not a card, a status or a quantity, so it does not to
 
 The `Edit` and `Cancel` controls in a card's actions row (§6.2) are the same scaffolding and are
 deliberately quieter than `Confirm space` beside them.
+
+### 14.1 Reset demo data (Phase 8)
+
+**In the top bar, immediately left of the `# DEV ENVIRONMENT #` flag.** This section did not specify
+it and §12.1 left it as the one unhoused screen-level control; Phase 8 placed it there, with Mark.
+
+Three reasons, in order of weight: the flag beside it already means "this is not the real thing" in
+this application, so the control inherits the reading rather than having to argue for it; a shell
+control costs the 596px list nothing (§8.3), where the alternative cost about half a card per column;
+and a reset replaces the **whole database**, not one screen's data, so the matching screen is not
+where it belongs.
+
+Treatment is §14's, in the one variant that works on a petrol ground: 26px, 12px text, 3px radius, a
+`restart_alt` glyph, **white text and a white 55%-alpha ring** rather than petrol-on-white — because
+petrol on petrol reads as nothing. It is deliberately quieter than the flag: the flag is the
+statement, this is the tool.
+
+**It confirms first** (Phase 8, 1.2). The dialog carries the same `app-debug-ribbon` both record forms
+carry, and lists what is lost rather than summarising it — matches, records, and both columns' filters
+— because "this cannot be undone" is a claim and the list is the evidence for it. On confirm: re-seed,
+then clear the stored preferences, then reload the page. That order matters: a failed reset must not
+take the operator's filters with it.
+
+The reload is deliberate. A refetch would leave behind everything that is not fetched — expanded
+cards, a drag in flight, an open dialog, the in-memory half of the preference store — and a reset that
+leaves a card expanded on a match that no longer exists is worse than one that takes a second.
 
 ---
 
@@ -1236,9 +1271,20 @@ deliberately, and it is better that the list is written down than rediscovered a
    `#FAFAFA`, a 1px bottom rule and `position: sticky`, because unlike a paginated table our list
    scrolls and the header has to survive it.
 
+5. **Sorting is a control, not a column header.** LMS sorts by clicking a column header, which then
+   carries the arrow — `DATE ↓` in the Purchases and Killsheets screenshots. Ours is a right-aligned
+   sort control on the filter row, and the micro-cap strip is not clickable. **Found in Phase 8's
+   comparison against the PNGs and recorded rather than fixed**: the strip's cells are 40–112px and
+   several would not hold a label plus an arrow, sorting here reorders cards *within* week bands
+   rather than the whole list so a header arrow would overstate what it does, and Phase 4 owned the
+   sort control. It is a fifth deliberate divergence, not a defect — but it is the one a
+   pixel-for-pixel comparison notices next, so it is written down here with the other four.
+
 Everything else — the blues, Roboto, `-` for empty, `appearance="fill"` form fields, square corners,
 zebra striping, the muted micro-cap headers, the deliberate refusal to reuse LMS's create FAB for debug
-tooling — is carried straight from the screenshots.
+tooling — is carried straight from the screenshots. Phase 8 held the finished markup and tokens against
+all four PNGs and found nothing else off-family: the shell is faithful down to the user's name in the
+sidebar header, the version and copyright block, and the inert nav list in its original order.
 
 ---
 

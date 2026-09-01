@@ -1,0 +1,61 @@
+@use '../../../styles/lms-tokens' as lms;
+
+// The same 44px-padded, centred, hueless block the filtered-empty state uses, so the two read as one
+// family. An empty column is information, not an error, and nothing here carries colour.
+.empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  padding: 44px 16px;
+  text-align: center;
+  background: lms.$lms-white;
+}
+
+.glyph {
+  font-size: 34px;
+  color: lms.$lms-faint;
+}
+
+.headline {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 500;
+  color: lms.$lms-text;
+}
+
+.prose {
+  margin: 0;
+  font-size: 11.5px;
+  line-height: 14px;
+  color: lms.$lms-text-muted;
+}
+
+// design-system.md 14: stroked, 26px, petrol on white with a #BDBDBD ring. Visibly lighter than any
+// primary action, so it still reads as tooling even when it is the only control on offer.
+.add {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  height: 26px;
+  margin-top: 4px;
+  padding: 0 10px;
+  border: 1px solid lms.$lms-rule-strong;
+  border-radius: 3px;
+  background: lms.$lms-white;
+  color: lms.$lms-petrol;
+  font-family: inherit;
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 120ms ease-out;
+
+  &:hover {
+    background: lms.$lms-petrol-tint;
+  }
+
+  .material-symbols-outlined {
+    font-size: 15px;
+    line-height: 15px;
+  }
+}

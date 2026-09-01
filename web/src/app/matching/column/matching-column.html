@@ -50,7 +50,13 @@
       <span class="s-chev"></span>
     </div>
 
-    @if (isFilteredEmpty()) {
+    @if (isEmpty()) {
+      <!--
+        Nothing loaded at all, which is a different answer from "filtered to nothing": there is no
+        filter to clear, so the only way forward is a record (design-system.md 13).
+      -->
+      <app-empty-column [side]="side()" />
+    } @else if (isFilteredEmpty()) {
       <!-- Never a blank column: the filters that emptied it are restated, with two ways out. -->
       <app-filtered-empty [side]="side()" [spaces]="spaces()" [availability]="availability()" />
     } @else {

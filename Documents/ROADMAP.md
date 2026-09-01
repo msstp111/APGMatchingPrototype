@@ -374,12 +374,35 @@ history instead of arriving disguised as filter work.
 
 ## Deferred beyond pass 1
 
-Roughly in the order they would earn their place:
+**Pass 1 closed on 2026-09-01.** Roughly in the order they would earn their place:
 
 1. Record detail views for both entities, with their match tables and dual sums.
-2. The standalone Match list view — and with it, visibility of cancelled matches.
+2. The standalone Match list view — and with it, visibility of cancelled matches. **In pass 1 a
+   cancelled match is visible nowhere**: it is retained with its reason, `GET /api/matches/{id}` 404s
+   on it, and both parents' `matches` arrays exclude it. That is by design (resolved question 4) and
+   it is the first thing to explain at a demo.
 3. The farmer/agent Availability flow, including Finance Stock draw-down against `purchases.csv`.
+   **The `+ Add` buttons and the record forms are debug scaffolding and must not be mistaken for
+   this** — they are marked three ways over precisely so they are not.
 4. Roles and per-processor visibility gating (ANZCO / SFF-after-Confirmed / Alliance-never).
-5. `Notified` status and the notification mediums (in-app, SMS, email).
+5. `Notified` status and the notification mediums (in-app, SMS, email). Note it is **not inert in the
+   rules** — it counts in both matched sums and blocks confirmation on both sides.
 6. Default pricing maintenance.
 7. Weekly roll-up views on the two list screens.
+
+### Turned up during the build, and worth pass 2's attention
+
+8. **The browser pass has never been run in full.** `Documents/browser-checklist.md` is nine sections
+   and only two items have been ticked. Everything geometric and every pointer path in this build is
+   argued for rather than seen. Run it before anything else is built on top of the layout.
+9. **Sorting is a control, not a column header** (design-system.md §16a.5). LMS sorts by clicking the
+   header; ours does not, and a pixel-for-pixel comparison notices it. Recorded as a fifth deliberate
+   divergence rather than fixed, because the strip's cells are 40–112px and sorting here reorders
+   within week bands rather than the whole list.
+10. **Delivery time is free text and cannot be sorted chronologically** (`AM kill`, `Yard by 6:30am`).
+    Phase 3 and Phase 4 both declined an alphabetical secondary sort as worse than none. The remedy is
+    a sortable time field on the record, which is a data change.
+11. **The Angular initial bundle is ~960 kB.** Phase 8 raised the budget to 1 MB warn / 1.5 MB error
+    rather than lazy-loading Phase 7's five dialogs. If pass 2 adds screens, lazy-load the routes.
+12. **The seeded price table runs weeks −4 to +8.** A record created outside that window has no
+    default price, which is honest and looks like a bug to anyone who has not read this.

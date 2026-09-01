@@ -200,6 +200,41 @@ $meter-gap: 6px;
 }
 
 // ---------------------------------------------------------------------------------------------
+// The quantity ramp's ink — the ONE definition of it
+//
+// `quantityClass(state, side)` in card-chrome.ts answers one of these four names for every surface
+// that prints a quantity in words or figures: the collapsed card's over label, the expanded card's
+// unmatched value, both dialogs' record blocks. Requirement 2.2 asks that the ramp be consistent
+// everywhere it appears, and it was not: the four rules lived inside `card-shell`, which the
+// expanded card does not include, so its unmatched value carried a ramp class that nothing painted
+// and rendered in plain body text. Two more copies sat in the two dialogs' own stylesheets.
+//
+// One mixin now, included by the card, the expansion and both dialogs. A colour defined four times is
+// a colour that comes to differ in three of them.
+//
+// `-ink` rather than `-bar`: the bar tones are for the meter's fill, these are darkened to pass
+// contrast on white and on the zebra stripe (design-system.md 2).
+// ---------------------------------------------------------------------------------------------
+
+@mixin quantity-ink {
+  .q-under {
+    color: lms.$q-under-ink;
+  }
+
+  .q-exact {
+    color: lms.$q-exact-ink;
+  }
+
+  .q-over {
+    color: lms.$q-over-ink;
+  }
+
+  .q-pink {
+    color: lms.$q-pink-ink;
+  }
+}
+
+// ---------------------------------------------------------------------------------------------
 // The whole 52px card row, shared by both sides
 //
 // The two cards differ only in which DTO field goes in which cell. Everything structural is here so
@@ -219,6 +254,12 @@ $meter-gap: 6px;
     background: lms.$lms-card;
     border-bottom: 1px solid lms.$lms-divider;
     box-sizing: border-box;
+    // design-system.md 10: 120ms ease-out on hover. Colour and shadow only — never a dimension, and
+    // never a transform, because the pointer is aiming at a 52px row and anything that moves under it
+    // moves the target. It is short enough not to lag a pointer sweeping down the list.
+    transition:
+      background-color 120ms ease-out,
+      box-shadow 120ms ease-out;
   }
 
   // Positional striping, one step lighter than LMS's own #EEEEEE (design-system.md 3.2).
@@ -233,6 +274,40 @@ $meter-gap: 6px;
     background: lms.$lms-hover;
     box-shadow: 0 1px 2px rgb(0 0 0 / 10%);
     cursor: grab;
+  }
+
+  // design-system.md 10's six-dot grab glyph, which Phase 5 recorded as not built.
+  //
+  // It is **absolutely positioned in the card body's own 8px right gutter**, not a cell in the row,
+  // and that is the whole trick. A real cell between the body and the chevron would push the card's
+  // trailing edge from 32px to 42px while the header strip stayed at 32px, and the Unmatched column
+  // would stop lining up with its own heading — which 16.10 warns is invisible in code review and
+  // glaring on screen. Positioned, it costs no width at all: the name column keeps its 114px.
+  //
+  // Six 2px dots, two columns by three rows, 6 x 10px in an 8px gutter. Reserved space rather than an
+  // inserted one, and only its opacity changes, so 10 says truthfully that nothing resizes on hover.
+  .card {
+    position: relative;
+  }
+
+  .grab {
+    position: absolute;
+    top: 50%;
+    right: $col-chevron + 1px;
+    width: 6px;
+    height: 10px;
+    margin-top: -5px;
+    opacity: 0;
+    pointer-events: none;
+    background-image: radial-gradient(circle 1px at 1px 1px, lms.$lms-faint 99%, transparent 100%);
+    background-size: 4px 4px;
+    background-position: 0 0;
+    transition: opacity 120ms ease-out;
+  }
+
+  // Not on the stay-behind: it is the shadow a lifted card leaves, and nothing about it is grabbable.
+  .card:not(.stay):hover .grab {
+    opacity: 1;
   }
 
   .card.cancelled {
@@ -364,22 +439,7 @@ $meter-gap: 6px;
     color: #ffffff;
   }
 
-  // The over-state ink, for line 2's literal label. Hue here is the quantity ramp's, not status's.
-  .q-under {
-    color: lms.$q-under-ink;
-  }
-
-  .q-exact {
-    color: lms.$q-exact-ink;
-  }
-
-  .q-over {
-    color: lms.$q-over-ink;
-  }
-
-  .q-pink {
-    color: lms.$q-pink-ink;
-  }
+  @include quantity-ink;
 
   // --- Phase 5 drag (design-system.md 10) ---
   // The drop list is a wrapper around the 52px row. Nothing about it may change the row's height or
