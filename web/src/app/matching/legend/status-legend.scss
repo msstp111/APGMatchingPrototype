@@ -1,0 +1,167 @@
+@use '../card-geometry' as geo;
+@use '../../../styles/lms-tokens' as lms;
+
+// The spine classes themselves, from the one place they are defined. The legend must not draw its own
+// hatch: two definitions of a pattern is two patterns, eventually.
+@include geo.spines;
+
+.rule {
+  margin: 0 0 4px;
+  padding: 8px 10px;
+  background: lms.$lms-petrol-tint;
+  font-size: 12.5px;
+  line-height: 18px;
+  color: lms.$lms-text;
+}
+
+.sec {
+  margin: 18px 0 6px;
+  font-size: 12.5px;
+  font-weight: 600;
+  color: lms.$lms-text;
+}
+
+// --- the three-column body: sample, name, prose ---
+// A grid rather than a flex row per line, so every sample and every name sits on the same two
+// verticals right down the dialog. That alignment is the whole reason it reads as a key.
+.rows {
+  display: grid;
+  grid-template-columns: auto auto 1fr;
+  gap: 0;
+  border-top: 1px solid lms.$lms-divider;
+}
+
+.row {
+  display: contents;
+}
+
+// `stretch`, NOT `start`. Each cell carries its own 1px bottom rule — there is no row element to hang
+// one off, because `display: contents` dissolves it — so the three cells have to be the same height or
+// the rule arrives as three stubs at three different heights, which is what the first draft did. The
+// cells stretch; their CONTENT is pulled to the top instead, below.
+.row > * {
+  align-self: stretch;
+  padding: 8px 10px 8px 0;
+  border-bottom: 1px solid lms.$lms-divider;
+}
+
+// The first cell holds whatever the row is a sample of. Its width is left to the content: the meter
+// rows put a real app-fill-meter in here, whose host is a rigid 112px block, and a width of our own
+// would either crush it or leave the other rows short of it.
+//
+// `flex-start` on both axes so the sample sits level with the first line of prose beside it, now that
+// the cell itself stretches to the full height of the row.
+.swatch {
+  display: flex;
+  align-items: flex-start;
+  justify-content: flex-start;
+  min-width: geo.$col-meter-block;
+}
+
+// A scrap of card, so the 3px Booked edge reads as thin against the 6px ones — weight alone is what
+// separates "nothing has happened yet" from everything else, and that comparison only works if all
+// four are drawn on the same ground.
+//
+// **No border, and the zebra fill rather than the white one.** Booked's spine is `$lms-divider`, which
+// is also the colour of every rule on this screen, so a bordered white scrap put a 3px #E0E0E0 spine
+// flush against a 1px #E0E0E0 border and the two merged into one thick corner — the one row in the
+// table that has to show a *thin* edge was the one row showing no edge at all. On the zebra tone the
+// spine is the only mark in the box, and every card in a band takes that stripe anyway, so nothing is
+// being misrepresented.
+.scrap {
+  display: flex;
+  width: 92px;
+  height: 30px;
+  background: lms.$lms-card-zebra;
+  box-sizing: border-box;
+}
+
+// 17px line height, matching the prose beside it, so the word and the first line of its explanation
+// sit on one baseline rather than a couple of pixels out.
+.key {
+  display: flex;
+  align-items: flex-start;
+  gap: 4px;
+  white-space: nowrap;
+  font-size: 12.5px;
+  font-weight: 500;
+  line-height: 17px;
+  color: lms.$lms-text;
+}
+
+.sicon {
+  font-size: 16px;
+  line-height: 17px;
+  color: lms.$lms-text-muted;
+}
+
+// Confirmed's tick is the filled variant, exactly as it is on the card.
+.sicon.filled {
+  font-variation-settings: 'FILL' 1;
+}
+
+.what {
+  font-size: 12px;
+  line-height: 17px;
+  color: lms.$lms-text;
+}
+
+// --- notes ---
+.notes {
+  margin: 8px 0 0;
+  padding-left: 18px;
+  font-size: 12px;
+  line-height: 17px;
+  color: lms.$lms-text-muted;
+}
+
+.notes li + li {
+  margin-top: 4px;
+}
+
+.notes strong,
+.note-solo strong {
+  color: lms.$lms-text;
+}
+
+.note-solo {
+  margin: 8px 0 0;
+  font-size: 12px;
+  line-height: 17px;
+  color: lms.$lms-text-muted;
+}
+
+// --- the cancelled-partner badge, as the match table paints it ---
+// Duplicated from card-expansion.scss rather than shared, because there it is a rule inside a table's
+// own stylesheet and lifting it into _card-geometry.scss to serve one legend would put a badge in the
+// file that owns the screen's geometry. If a third surface ever needs it, that is the time to move it.
+.orphan {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  padding: 1px 5px;
+  border-radius: 2px;
+  background: lms.$lms-error;
+  color: #ffffff;
+  font-size: 11px;
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+.orphan .material-symbols-outlined {
+  font-size: 14px;
+  line-height: 14px;
+}
+
+// The collapsed card's version: the same red, square, behind the expand chevron.
+.chev.orphaned {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: geo.$col-chevron;
+  height: geo.$col-chevron;
+  border-radius: 2px;
+  background: lms.$lms-error;
+  color: #ffffff;
+  font-size: 18px;
+}

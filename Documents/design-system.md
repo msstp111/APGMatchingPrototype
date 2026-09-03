@@ -568,7 +568,13 @@ Expand state is per-card, independent, and held for the session (Phase 3, 5.1).
 Position cannot identify a column (Phase 4, 5.4). Five channels do, none of them competing with the
 meter:
 
-1. **Column header** — 40px, sticky, with a 3px top rule: **petrol `#00567E`** on demand, **`#37393C`**
+1. **Column header** — **48px** (40px until Mark asked for breathing space around its controls; the
+   header holds a 26px `+ Add` and a 26px `Filtered` chip). Note what the change actually turned out
+   to be: `.chead` had no `flex: 0 0 auto`, and `.column` is a column flex box whose list has an auto
+   basis running to the full height of its cards, so the deficit was shared out in proportion to
+   every basis and the header was squashed to its **27px min-content height** on every viewport. The
+   declared 40 had never been in force, and neither would 48 have been. Both numbers on the header —
+   the height and the flip's centre line — depend on that one line. Sticky, with a 3px top rule: **petrol `#00567E`** on demand, **`#37393C`**
    on supply. The title takes the same colour. This is the shell's own brand blue on a header, not a
    hue on a card, so it does not collide with §3.
 2. **Lead glyph** — a works/factory outline on demand, a location pin on supply, in the header.
@@ -1097,8 +1103,11 @@ filtered out.
 
 ### 12.4 Flip
 
-A 28px circular `mat-icon-button` with a `swap_horiz` glyph, on the gutter between the columns, at the
-top, on white with a `#BDBDBD` ring. Purely presentational: no filter, sort, expansion or selection
+A 28px circular `mat-icon-button` with a `swap_horiz` glyph, on the gutter between the columns, on
+white with a `#BDBDBD` ring. It is **centred on the column-header row** — `top: calc(1px + $column-header-height / 2)`
+with a `translate(-50%, -50%)`, so it reads as part of that row rather than as a circle floating near
+the top of the seam. The number is read from `_card-geometry.scss`, never typed: a hard-coded offset
+is how the circle and the header came to disagree in the first place. Purely presentational: no filter, sort, expansion or selection
 state is lost, and the preference persists to `localStorage`. Column identity is carried by §6.3.
 
 ---

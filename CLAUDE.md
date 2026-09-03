@@ -134,7 +134,15 @@ card/space-card.ts, card/availability-card.ts     the 52px rows — each is a cd
 card/card-expansion.ts    fields + both sums + the match table (every row opens its match), and the
                           demand side's Confirm space action with its stated reason. Both cards.
 card/fill-meter.ts, card/stock-class-tile.ts, card/stock-classes.ts, card/card-chrome.ts
-                          matchSummaryLabel / matchBreakdown are the Phase 6 entry point
+                          matchSummaryLabel / matchBreakdown are the Phase 6 entry point. The tile is
+                          NO LONGER on either card row or the header strip — line 1 spells the stock
+                          class out in full two cells along. It survives on the quantity prompt, the
+                          match modal and the drag preview, which have no such column.
+legend/status-legend.ts   the key to the board — the four status spines, the four ramp colours (both
+                          over states side by side), the red cancelled-partner badge. Opened from a
+                          borderless ? in whichever column header is currently on the RIGHT
+                          (`showsLegend`, passed from the screen's flip). Draws itself from the real
+                          spines mixin and real app-fill-meter instances so it cannot drift.
 record/record-actions.ts   root — add / edit / cancel for both record types. Opens the dialogs,
                           performs the write, publishes to RecordPatches. The dialogs decide nothing.
 record/space-form.ts      add AND edit in one dialog. The plant and stock-class pickers hold the chosen

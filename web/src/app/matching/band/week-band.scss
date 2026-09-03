@@ -7,120 +7,29 @@
 
 // The rule is on the TOP, so the current week's 2px petrol rule opens its band rather than closing
 // the one above it (design-system.md 8.4).
+//
+// It is 2px of $lms-text-muted, NOT 1px of $lms-divider. At 1px the divider was the same weight as
+// the rule under every card, so the band header — one step of grey away from the zebra stripe — had
+// nothing structural marking it and got lost in the run. Matching the current week's 2px gives every
+// band the same structural weight and leaves PETROL, not thickness, as the thing that says "this is
+// the week you are in": the current-week rule is the only chromatic one on the board.
 .band {
-  display: flex;
-  align-items: stretch;
-  border-top: 1px solid lms.$lms-divider;
+  border-top: 2px solid lms.$lms-text-muted;
 }
 
 .band.current {
   border-top: 2px solid lms.$lms-petrol;
 }
 
-// --- the rail ---
-// A persistent gutter, not a header: it gives every band a fixed left margin, which is what stops the
-// cards below from looking like they belong to a different list.
-.rail {
-  position: relative;
-  flex: 0 0 geo.$rail-width;
-  width: geo.$rail-width;
-  padding: 8px 6px;
-  background: lms.$lms-surface;
-  border-right: 1px solid lms.$lms-divider;
-  box-sizing: border-box;
-}
-
+// --- the band header ---
 // Sticky at 28px, NOT 0: the column's micro-cap header strip occupies the first 28px of the scroll
-// container, and top: 0 would park the week label underneath it. design-system.md 8.5 and 16.8
-// disagree on this; the strip wins because it is the more specific statement about the scroll
-// container. z-index 1 keeps the label over the cards and under the strip (which is 3).
-.rail-label {
+// container, and top: 0 would park the week label underneath it. z-index 1 keeps the header over the
+// cards and under the strip (which is 3). It sticks because it is now the only place the week is
+// named — the 48px rail that used to carry it is gone (Phase 9), and its width went to the cards.
+.bhead {
   position: sticky;
   top: geo.$header-strip-height;
   z-index: 1;
-  display: flex;
-  flex-direction: column;
-  gap: 1px;
-  background: inherit;
-}
-
-.wk {
-  font-size: 10px;
-  line-height: 13px;
-  letter-spacing: 0.4px;
-  text-transform: uppercase;
-  color: lms.$lms-text-muted;
-}
-
-.dt {
-  font-size: 12px;
-  font-weight: 600;
-  line-height: 14px;
-  color: lms.$lms-text;
-}
-
-.tag {
-  margin-top: 4px;
-  font-size: 8.5px;
-  font-weight: 700;
-  line-height: 11px;
-  letter-spacing: 0.3px;
-  text-transform: uppercase;
-}
-
-.now {
-  color: lms.$lms-petrol;
-}
-
-.gone {
-  color: lms.$lms-faint;
-}
-
-// Runs from below the label to the band's end, showing how far the band extends. Behind the sticky
-// label, so the label always wins where they overlap.
-.leader {
-  position: absolute;
-  top: 44px;
-  bottom: 0;
-  left: 50%;
-  z-index: 0;
-  border-left: 1px dotted lms.$lms-petrol;
-  opacity: 0.45;
-}
-
-// --- current and past ---
-// De-emphasis sits on the band chrome and NEVER on the cards: fading a past card would collide with
-// Cancelled's desaturation, and a past week's records are still live and still matchable.
-.band.current .rail {
-  background: lms.$lms-petrol-tint;
-}
-
-.band.current .dt,
-.band.current .wk {
-  color: lms.$lms-petrol;
-  font-weight: 700;
-}
-
-.band.past .rail {
-  background: lms.$lms-band;
-}
-
-.band.past .dt,
-.band.past .wk {
-  color: lms.$lms-faint;
-}
-
-.band.past .leader {
-  display: none;
-}
-
-// --- the body ---
-.body {
-  flex: 1 1 auto;
-  min-width: 0;
-}
-
-.bhead {
   display: flex;
   align-items: center;
   gap: 8px;
@@ -132,6 +41,11 @@
 
 .band.current .bhead {
   background: lms.$lms-petrol-tint;
+}
+
+// Phase 9: the same 55% the cards take, so the two read as one scrim rather than two effects.
+.bhead.dim {
+  opacity: 0.55;
 }
 
 .blabel {
@@ -146,6 +60,29 @@
 
 .band.past .blabel,
 .band.past .totals {
+  color: lms.$lms-faint;
+}
+
+// The week itself, inside the label. Its own element so it can be read on its own.
+.dt {
+  font-weight: 700;
+}
+
+.tag {
+  font-size: 8.5px;
+  font-weight: 700;
+  line-height: 11px;
+  letter-spacing: 0.3px;
+  text-transform: uppercase;
+}
+
+// De-emphasis sits on the band chrome and NEVER on the cards: fading a past card would collide with
+// Cancelled's desaturation, and a past week's records are still live and still matchable.
+.now {
+  color: lms.$lms-petrol;
+}
+
+.gone {
   color: lms.$lms-faint;
 }
 

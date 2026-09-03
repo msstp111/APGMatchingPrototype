@@ -15,39 +15,57 @@
   [class.valid]="dropState() === 'valid'"
   [class.blocked]="dropState() === 'blocked'"
   [class.same]="dropState() === 'same'"
+  [class.hot]="isHot()"
+  [class.dim]="isDimmed()"
+  [class.origin]="isSource()"
   cdkDropList
   cdkDropListSortingDisabled
   cdkDropListAutoScrollDisabled
   [cdkDropListData]="dragCard()"
   [cdkDropListEnterPredicate]="accepts"
   (cdkDropListDropped)="dropped($event)"
+  (cdkDropListEntered)="entered()"
+  (cdkDropListExited)="leftCard()"
 >
   <!--
     CDK hides the dragged node and moves its placeholder into the list under the pointer. The
     stay-behind is not a CDK placeholder, so it never leaves this row.
   -->
   <ng-template #lines>
-    <div class="l1">
-      <app-stock-class-tile [stockClass]="space().stockClass" />
-      <span class="name" [title]="space().processor">{{ space().processor }}</span>
-      <span class="sclass" [title]="space().stockClass">{{ space().stockClass }}</span>
-      <span class="date">{{ space().deliveryDateLabel }}</span>
-      <span class="qty">{{ space().quantityRequired }}</span>
+    <!--
+      Row 1 of the card body's grid. There is no .l1 wrapper any more: every cell is a direct child of
+      .cbody and is placed by grid area, because line 2 now has to align to line 1's columns.
+    -->
+    <span class="name" [title]="space().processor">{{ space().processor }}</span>
+    <span class="sclass" [title]="space().stockClass">{{ space().stockClass }}</span>
 
-      <app-fill-meter
-        [original]="space().quantityRequired"
-        [matchedInclDraft]="space().matchedInclDraft"
-        [matchedExclDraft]="space().matchedExclDraft"
-        [unmatched]="space().unmatched"
-        [quantityState]="space().quantityState"
-        [quantityStateLabel]="space().quantityStateLabel"
-        side="demand"
-      />
-    </div>
+    <!--
+      The day of the month. Its month sits directly beneath it in row 2 — one date over the card's two
+      existing lines, which is what lets the cell be 40px instead of the 62px `dd-MM-yy` needs. Both
+      halves are preformatted by the server (NzTime.DayOfMonthLabel / MonthLabel): slicing a date is
+      still date arithmetic, and no-domain-arithmetic.spec.ts is right to forbid it here.
 
-    <div class="l2">
-      <span class="meta">{{ space().plant }} · {{ space().deliveryTime || '-' }}</span>
+      The title carries the whole thing, year included, on both halves — that is where the year went.
+    -->
+    <span class="day" [title]="space().deliveryDateLabel">{{ space().deliveryDayLabel }}</span>
+    <span class="qty">{{ space().quantityRequired }}</span>
 
+    <app-fill-meter
+      [original]="space().quantityRequired"
+      [matchedInclDraft]="space().matchedInclDraft"
+      [matchedExclDraft]="space().matchedExclDraft"
+      [unmatched]="space().unmatched"
+      [quantityState]="space().quantityState"
+      [quantityStateLabel]="space().quantityStateLabel"
+      side="demand"
+      [ghostQuantity]="proposedQuantity()"
+    />
+
+    <!-- Row 2. The month sits in the date column; everything else is pushed to the card's edge. -->
+    <span class="meta">{{ space().plant }} · {{ space().deliveryTime || '-' }}</span>
+    <span class="month" [title]="space().deliveryDateLabel">{{ space().deliveryMonthLabel }}</span>
+
+    <span class="trail">
       @if (isOver()) {
         <!-- The wording is the DTO's quantityStateLabel — "Over-filled" — never composed here. -->
         <span class="over" [class]="overInk()">{{ space().quantityStateLabel }}</span>
@@ -81,7 +99,7 @@
         }}</span>
         {{ space().status }}
       </span>
-    </div>
+    </span>
   </ng-template>
 
   @if (isSource()) {
@@ -137,23 +155,28 @@
       }}</span>
     </button>
 
-    <ng-template cdkDragPreview [matchSize]="true">
-      <div class="card">
-        <span class="spine" [class]="spine()"></span>
-        <div class="cbody">
-          <ng-container [ngTemplateOutlet]="lines" />
-        </div>
-      </div>
+    <!--
+      Phase 9. A 200px chip rather than a copy of the card, and no `matchSize`: at full card width the
+      preview sat over the row being aimed at, which is half of why the target was hard to read.
+    -->
+    <ng-template cdkDragPreview>
+      <app-drag-preview
+        [stockClass]="space().stockClass"
+        [name]="space().processor"
+        [headCount]="space().quantityRequired"
+      />
     </ng-template>
   </div>
 
   <!--
+    Only the refusal is badged. The `+` that used to sit on every eligible card went with Phase 9's
+    inversion: the whole opposite column is eligible, so a badge on all of it said nothing, and the
+    card under the pointer is marked by being the only one left lit.
+
     Absolutely positioned, so a target picking up its badge does not shift a single cell of line 1.
     Nothing on this screen resizes under the pointer.
   -->
-  @if (dropState() === 'valid') {
-    <span class="material-symbols-outlined dropcue">add</span>
-  } @else if (dropState() === 'blocked') {
+  @if (dropState() === 'blocked') {
     <span class="material-symbols-outlined dropcue" matTooltip="No unmatched quantity">block</span>
   }
 </div>

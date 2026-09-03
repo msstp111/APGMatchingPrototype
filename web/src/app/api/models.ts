@@ -205,6 +205,17 @@ export interface ProcessorSpaceDto {
   /** ISO `yyyy-MM-dd`. Render `deliveryDateLabel` instead. */
   readonly deliveryDate: string;
   readonly deliveryDateLabel: string;
+  /**
+   * The two halves of the card's date cell — `26` and `Aug`.
+   *
+   * The 52px card row splits the date over the two lines it already has: the day on line 1, the month
+   * directly beneath it on line 2. Both halves ship preformatted because the client may not slice a
+   * date any more than it may construct one — `no-domain-arithmetic.spec.ts` forbids both, and one of
+   * `deliveryDateLabel`'s own substrings is still a date derived in TypeScript.
+   */
+  readonly deliveryDayLabel: string;
+  /** `Aug`. The card upper-cases it in CSS; the wire keeps the readable form. */
+  readonly deliveryMonthLabel: string;
   readonly deliveryTime: string | null;
   readonly notes: string | null;
   readonly status: ProcessorSpaceStatus;
@@ -258,6 +269,10 @@ export interface LivestockAvailabilityDto {
    * a Phase 4 filter chip would want.
    */
   readonly availableFromShortLabel: string;
+  /** The day half of the card's split date cell — `24`. See `deliveryDayLabel`. */
+  readonly availableFromDayLabel: string;
+  /** The month half — `Aug`. Both cards share one geometry, so both sides carry both halves. */
+  readonly availableFromMonthLabel: string;
   readonly availabilityDetails: string | null;
   readonly transactionType: TransactionType;
   readonly notes: string | null;

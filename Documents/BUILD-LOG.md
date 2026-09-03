@@ -3444,3 +3444,162 @@ someone will notice.
 Test counts at close: `Apg.Domain.Tests` **160** (unchanged), `Apg.Api.Tests` **128** (122), Angular
 **252 across 26 files** (224 across 22 at the end of Phase 7). `dotnet build` is clean with 0
 warnings; `npm run build` is clean with none.
+
+---
+
+## Interstitial — the legend, and the tile off the cards
+
+Two small changes with Mark, outside the phase plan.
+
+### 1. A legend button, and the dialog behind it
+
+**`matching/legend/status-legend.*`**, opened from a borderless 26px `help` button in the column
+header, immediately right of `+ Add`.
+
+design-system.md 3 commits **hue exclusively to quantity** and **pattern exclusively to status**. That
+rule is what lets the board be scanned for a colour, and its cost is that status is said in a 6px
+hatch — which is not self-explanatory. The first question anyone new to the screen asks is whether the
+striped edge is a warning. It is not; on a working board it is the commonest edge in the supply column.
+Nothing on the screen was answering that, so this does, in four sections: the four status spines, the
+four ramp colours (both over states, side by side, because `Over` means opposite things on the two
+sides), the red cancelled-partner badge with the non-cascade stated in words, and the two colour
+systems' separation up top.
+
+**The legend draws itself from the real components.** The spines are the `spines` mixin's own classes
+and the meters are real `app-fill-meter` instances fed DTO-shaped figures. A legend redrawn by hand is
+a legend that comes to disagree with the thing it explains — the same argument as `quantity-ink`'s, and
+Phase 8 found what happens when a colour is defined in more than one place. `status-legend.spec.ts`
+asserts coverage rather than markup, so a fifth status or a re-keyed ramp fails here.
+
+**Placement is bound to the screen, not to a column.** `MatchingColumn` takes a `showsLegend` input and
+`matching-screen.html` passes `flipped()` / `!flipped()`, so the button is always on whichever column
+is currently on the right. A help control should stay in the corner it was last found in, unlike
+`+ Add`, which belongs to its column and rides the flip with it. One button, not one per column: the
+legend explains both sides equally.
+
+Treatment is deliberately **not** section 14's stroked debug button beside it — borderless, muted grey
+going petrol on hover, same 26px height so the header's controls keep one baseline. The ring is what
+says "debug tool", and this is not one.
+
+**This is a visual decision design-system.md does not cover**, which section 0 asks be recorded rather
+than invented silently. It wants a section 14.2 if it is ever formalised.
+
+#### Two layout faults, found by rendering it
+
+Both were invisible to the suite and obvious on screen, which is the argument for the browser pass this
+build keeps deferring. Verified by compiling the legend's SCSS standalone and screenshotting the markup
+in headless Chrome — worth knowing that this is possible without the API running.
+
+- **`display: contents` rows need `align-self: stretch`.** Each cell carries its own 1px bottom rule,
+  because the dissolved row element cannot carry one. Top-aligned, the three cells ended at three
+  different heights and the rule arrived as three stubs at three different y positions.
+- **Booked's spine is `$lms-divider`, the same colour as every rule on the screen.** On a bordered white
+  scrap its 3px sat flush against a 1px border of the identical colour and the two merged into a thick
+  corner: the one row in the table that has to demonstrate a *thin* edge showed no edge at all. The
+  scrap is now borderless on the zebra tone, where the spine is the only mark in the box.
+
+### 2. The stock-class tile is off both cards
+
+Removed from `space-card.html`, `availability-card.html` and the header strip's `.s-tile` spacer cell —
+all three together, because line 1's cells are shared geometry and dropping one from the cards alone
+would have unaligned the strip (design-system.md 16.10).
+
+Mark's call, and it overrides design-system.md 7 for the card rows only: the monogram abbreviates a
+stock class that line 1 already spells out **in full, two cells along**, so it was saying the same
+thing twice in the row's tightest 20px, and the 28px it cost (tile plus gap) went to the name column,
+which truncates. A side effect worth having: line 2's `.meta` now starts on the same vertical as line
+1's name, which it never did before.
+
+`$col-tile` and the `StockClassTile` component both stay. The tile still appears in the quantity
+prompt, the match modal and the drag preview, where there is no adjacent stock-class column and the
+tile is the only thing saying what is in play — which is also why `stock-class-coverage.spec.ts` still
+guards the mapping.
+
+### State at close
+
+Angular **287 tests across 29 files** (288 briefly, before the legend's tile-shape test went with the
+tile). `npm run build` clean, no warnings — initial total **991.11 kB** against the 1 MB warn budget,
+which is 9 kB of headroom and worth watching.
+
+**Not done, and left as a question for Mark:** the tile is still on the quantity prompt, the match
+modal and the drag preview. If the intent was "no monograms anywhere", those three are the rest of it.
+
+---
+
+## Interstitial — the split date cell
+
+**Why.** Mark, on a 1080p screen: the delivery column's heading read `DELIVE…` and its values read
+`26-08-…`. Both clipped, and clipping is what made the board feel broken rather than dense.
+
+The diagnosis matters more than the fix. `$col-date` is a hard 50px and **`.name` is the only column
+that flexes**, so a wider screen gives the date nothing — it hands every spare pixel to the processor's
+name. `dd-MM-yy` needs ~56px and `DELIVERY` in micro-caps needs ~62px. The column was never going to
+fit either at any viewport.
+
+Ten treatments were drawn on a scratch page against the real geometry and the real seed
+(`Card Date Treatments`, published as an artifact). Mark picked the stacked one, then asked for it to
+use **the card's two existing lines** rather than a two-line stack crammed into one 30px cell — which
+was the right call, and is the whole shape of what got built.
+
+### What changed
+
+**The date is now the day on line 1 and its month directly beneath it on line 2.** `26` over `AUG`,
+in the same column, aligned to the same heading.
+
+- **`NzTime` gained `DayOfMonthLabel` and `MonthLabel`** plus their formats. Both halves ship
+  preformatted on `ProcessorSpaceDto` (`deliveryDayLabel` / `deliveryMonthLabel`) and on
+  `LivestockAvailabilityDto` (`availableFromDayLabel` / `availableFromMonthLabel`). The client does not
+  slice `deliveryDateLabel` to get them: taking a substring of a date is date handling, and
+  `no-domain-arithmetic.spec.ts` is right to forbid it. The full `dd-MM-yy` stays on both DTOs and is
+  the hover text on both halves — **that is where the year went**.
+- **`.cbody` is a two-row grid, and `.l1` / `.l2` are gone.** A cell cannot sit under line 1's date
+  column while line 2 is a ragged flex flow, so line 2 adopted line 1's columns. Every cell is now a
+  direct child of `.cbody`, placed by grid area. Row heights are still 17px and 14px with a 3px gutter,
+  so the 52px card is unchanged to the pixel.
+- **The demand heading is `Date`, not `Delivery`.** The fix for a clipped word is a shorter word, not a
+  wider column: the 12px would have come straight off the processor's name, and nothing else in the
+  strip is a date. `From` on the supply side is unchanged.
+- **`$col-date` did not move.** It is still 50px — see below, because this is the part that is easy to
+  get wrong twice.
+
+### The 40px mistake, and what it taught
+
+The obvious move was to narrow the column to fit its new content: a two-digit day over a three-letter
+month needs ~26px, so 40px looked generous. It shipped, and two supply cards immediately truncated
+their match counts to `2 matches · confir…`.
+
+The reason is that **line 2's trailing run borrows the date column's slack.** `.trail` — over-state
+label, match count, status — shares the date column's grid area with the month and is pushed to the
+card's edge, so it reaches back across whatever the 26px month leaves. At `$col-date: 50px` that is
+184px; at 40px it is 174px. `2 matches · confirmed` beside a `Pending` status needs ~182px, and Pending
+is the wider status word, so exactly the Pending cards failed.
+
+So the column's spare width is not waste — it is shared between the two rows, and narrowing it takes
+the difference off line 2. Reverted to 50px, and `$col-month: 26px` was added so `.trail`'s max-width
+has an exact landmark to stop against rather than a guess. Without that max-width the two would
+*overlap* rather than truncate, which is a silent failure instead of a visible one.
+
+### One .NET trap, caught by a test written for it
+
+`date.ToString("d")` is **not** the day of the month. A one-character format string is read as a
+*standard* format specifier, so `"d"` is the short-date pattern and yields `08/24/2026` under the
+invariant culture. `"%d"` forces the custom specifier. Both compile. `A_single_digit_day_carries_no_
+leading_zero` is the test that caught it, and the percent is now commented in `NzTime` as load-bearing.
+
+### Also worth knowing
+
+- **design-system.md 6.1's drop order had to be restated.** On a flex row it fell out of source order;
+  inside `.trail` only `.mcount` may shrink, so the count still gives way first and the status icon and
+  its word are still the last things standing.
+- **The `line-1` mixin is gone.** The header strip is now the only flex row on the screen and declares
+  its own; `col-name` and `col-fixed` stay, and are still what keeps the strip and the cards aligned.
+- `quantity-states.spec.ts` moved from `.l2 .over` to `.trail .over` — same isolation from the fill
+  meter's own `over` class, new home.
+
+### State at close
+
+.NET **291 tests** (160 domain, 131 API — three new). Angular **287 tests across 29 files**.
+`npm run build` clean, no warnings; initial total **992.11 kB** against the 1 MB warn budget.
+
+Verified in headless Chrome at 1366 and 1920: `DATE` and `FROM` both render in full, no card truncates
+its match count at either width, and the day/month pair aligns to its heading on both columns.

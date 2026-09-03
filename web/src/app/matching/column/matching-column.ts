@@ -1,5 +1,14 @@
-import { ChangeDetectionStrategy, Component, computed, inject, input } from '@angular/core';
+import {
+  ChangeDetectionStrategy,
+  Component,
+  ElementRef,
+  computed,
+  effect,
+  inject,
+  input,
+} from '@angular/core';
 import { DecimalPipe } from '@angular/common';
+import { MatDialog } from '@angular/material/dialog';
 import { WeekBand } from '../band/week-band';
 import { BandView, MatchSide } from '../board/matching-board';
 import { LivestockAvailabilityDto, ProcessorSpaceDto } from '../../api/models';
@@ -8,6 +17,7 @@ import { DragStore } from '../drag/drag-state';
 import { ColumnFilters } from '../filters/column-filters';
 import { EmptyColumn } from './empty-column';
 import { FilteredEmpty } from '../filters/filtered-empty';
+import { StatusLegend } from '../legend/status-legend';
 import { isDemandDefault, isSupplyDefault } from '../filters/filter-service';
 import { MatchingPreferences } from '../filters/matching-preferences';
 import { RecordActions } from '../record/record-actions';
@@ -35,6 +45,15 @@ export class MatchingColumn {
   private readonly preferences = inject(MatchingPreferences);
   private readonly drag = inject(DragStore);
   private readonly records = inject(RecordActions);
+  private readonly dialog = inject(MatDialog);
+  private readonly host = inject<ElementRef<HTMLElement>>(ElementRef);
+
+  constructor() {
+    // The store needs to know where each column is to tell which side of the gutter the pointer is
+    // on. An effect rather than a constructor call because `side` is an input and is not readable
+    // until the first change detection; it settles once and never changes again.
+    effect(() => this.drag.registerColumn(this.side(), this.host.nativeElement));
+  }
 
   readonly side = input.required<MatchSide>();
 
@@ -101,8 +120,14 @@ export class MatchingColumn {
    */
   readonly isEmpty = computed(() => this.totalCount() === 0);
 
-  /** The opposite column takes the wash the moment a drag starts (design-system.md 10). */
-  readonly isDropTarget = computed(() => this.drag.isTargetSide(this.side()));
+  /**
+   * The opposite column takes the wash — but not at pickup any more (Phase 9, design-system.md 10).
+   *
+   * It waits for the pointer to cross the gutter, like every other drop treatment. A wash thrown over
+   * the far column the instant a card is lifted announces a target before the operator has chosen to
+   * look for one, and it was on screen for the whole of every drag including the ones that go nowhere.
+   */
+  readonly isDropTarget = computed(() => this.drag.isTargetSide(this.side()) && this.drag.armed());
 
   readonly isDragging = computed(() => this.drag.active() !== null);
 
@@ -116,6 +141,27 @@ export class MatchingColumn {
       ? 'Demo tool: add a Processor Space. Not the real create flow.'
       : 'Demo tool: add a Livestock Availability record. Not the farmer or agent submission form.',
   );
+
+  /**
+   * Whether this column carries the legend button — true for whichever column is currently on the
+   * **right**, which `matching-screen` decides from the flip.
+   *
+   * It is bound to a screen position rather than to a column because that is what it is: a help
+   * control belongs in the top-right corner of the screen and should stay there, unlike `+ Add`,
+   * which belongs to its column and rides the flip with it. The legend explains both sides equally,
+   * so putting one in each header would be the same sentence written twice.
+   */
+  readonly showsLegend = input(false);
+
+  /**
+   * The key to the board (design-system.md 3, 4, 7).
+   *
+   * It writes nothing, takes no data and returns no result — it is a reference card, and the one
+   * dialog on this screen that could be opened at any moment without consequence.
+   */
+  openLegend(): void {
+    this.dialog.open(StatusLegend, { width: '760px', autoFocus: 'dialog' });
+  }
 
   /** Opens the debug form for this column's own record type (requirements 1.1 and 1.2). */
   add(): void {

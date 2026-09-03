@@ -40,6 +40,16 @@ export class FillMeter {
   readonly quantityStateLabel = input.required<string>();
   readonly side = input.required<MatchSide>();
 
+  /**
+   * The head count a drop would add to this record, while the pointer is over it — or null, which is
+   * every other moment.
+   *
+   * The figure is the server's, handed down from `DropOutcome`; this component only turns it into a
+   * width. That is the same division of labour as everything else here: the numeral is rendered as
+   * given, and only the pixels are worked out locally.
+   */
+  readonly ghostQuantity = input<number | null>(null);
+
   readonly rampClass = computed(() => quantityClass(this.quantityState(), this.side()));
 
   /**
@@ -53,6 +63,30 @@ export class FillMeter {
 
   readonly inclWidth = computed(() => this.percent(this.matchedInclDraft()));
 
+  readonly hasGhost = computed(() => this.ghostQuantity() !== null && !this.isOver());
+
+  /** The ghost starts where the real fill ends — at the incl-draft edge, not the excl-draft one. */
+  readonly ghostLeft = computed(() => this.percent(this.matchedInclDraft()));
+
+  /**
+   * How much of the remaining track the proposed match would take.
+   *
+   * Clamped to what is left rather than allowed to run past the end: a proposal never over-fills,
+   * because the server capped it at the smaller of the two unmatched figures before it was sent. If
+   * it ever did, drawing it past 100% would be the meter telling a story the record does not support.
+   */
+  readonly ghostWidth = computed(() => {
+    const proposed = this.ghostQuantity();
+
+    if (proposed === null) {
+      return '0%';
+    }
+
+    const start = this.ratio(this.matchedInclDraft());
+
+    return `${Math.min(100 - start, this.ratio(proposed))}%`;
+  });
+
   /**
    * The whole meter in one hover string, so a value the eye had to estimate off an 8px bar is always
    * recoverable exactly (design-system.md 16.2).
@@ -64,17 +98,21 @@ export class FillMeter {
   );
 
   private percent(matched: number): string {
+    return `${this.ratio(matched)}%`;
+  }
+
+  private ratio(matched: number): number {
     const original = this.original();
 
     // A zero original would be a division by zero and a record with nothing to fill. Neither the seed
     // nor Phase 7's form can produce one, but a full bar is the honest answer if it ever happens: the
     // record is as filled as it can be.
     if (original <= 0) {
-      return '100%';
+      return 100;
     }
 
     const ratio = (matched / original) * 100;
 
-    return `${Math.min(100, Math.max(0, ratio))}%`;
+    return Math.min(100, Math.max(0, ratio));
   }
 }

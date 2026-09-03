@@ -70,7 +70,7 @@ describe('Quantity prompt', () => {
     // since a hint that wraps overflows Material's fixed-height subscript and paints over the actions.
     expect(text).toContain('max 142');
     expect(text).toContain('Default for Alliance Group · Cattle · w/c 23-08-26');
-    expect(text).toContain('There is no mapping between them');
+    expect(text).not.toContain('There is no mapping between them');
     expect(text).toContain('Transport company - can be added later');
   });
 
@@ -98,13 +98,20 @@ describe('Quantity prompt', () => {
     expect(hint).not.toContain('Mixed Cattle');
   });
 
-  it('omits the stock-class note when both records use the same class name', async () => {
-    const fixture = await mount({}, {
-      space: aSpace({ stockClass: 'Prime' }),
-      availability: anAvailability({ stockClass: 'Prime' }),
-    });
+  /**
+   * Supply above, demand below, with the arrow between them: the block reads the way the stock moves.
+   * Asserted on DOM order rather than on CSS, because nothing here reorders visually.
+   */
+  it('puts the availability record above the space, with an arrow between them', async () => {
+    const fixture = await mount();
+    const host = fixture.nativeElement as HTMLElement;
 
-    expect(fixture.nativeElement.textContent).not.toContain('There is no mapping between them');
+    const kickers = [...host.querySelectorAll('.rec .kicker')].map((element) =>
+      element.textContent?.trim(),
+    );
+
+    expect(kickers).toEqual(['Livestock Availability', 'Processor Space']);
+    expect(host.querySelector('.rec + .flow + .rec')).not.toBeNull();
   });
 
   it('explains the cap instead of silently clamping', async () => {

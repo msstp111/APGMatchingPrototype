@@ -1,70 +1,60 @@
 <!--
-  The rail is a persistent 48px gutter down the whole column, and its label sticks while the band
-  scrolls: on a screen about weeks, "which week am I looking at" must never require scrolling back up.
+  There is no left rail. Phase 3 gave every band a 48px gutter carrying "Week of / 16 Aug"; Phase 9
+  took it back and moved the week onto the band header, which already said the same thing one line
+  higher. The header is sticky in its place, so "which week am I looking at" still never requires
+  scrolling back up, and both columns gained 48px of card width.
 
-  "Week of" and "16 Aug" are on separate lines because the rail is 48px wide. The date is the server's
-  weekOfLabel; only the words are template text.
+  The date is the server's weekOfLabel; only the words are template text.
 -->
 <section class="band" [class.current]="band().week.isCurrentWeek" [class.past]="band().week.isPastWeek">
-  <div class="rail">
-    <div class="rail-label">
-      <span class="wk">Week of</span>
-      <span class="dt">{{ band().week.weekOfLabel }}</span>
-      @if (band().week.isCurrentWeek) {
-        <span class="tag now">This week</span>
-      } @else if (band().week.isPastWeek) {
-        <span class="tag gone">Past</span>
-      }
-    </div>
+  <!--
+    Band meta counts the band's own records, which is every card drawn in it: each record appears in
+    exactly one band, so there is nothing here that could be counted twice.
+  -->
+  <header class="bhead" [class.dim]="isDimmed()">
+    <span class="blabel">Week of <span class="dt">{{ band().week.weekOfLabel }}</span></span>
 
-    <!-- Shows how far the band extends, so a tall band does not lose its left edge. -->
-    <div class="leader" aria-hidden="true"></div>
-  </div>
-
-  <div class="body">
-    <!--
-      Band meta counts the band's own records, which is every card drawn in it: each record appears in
-      exactly one band, so there is nothing here that could be counted twice.
-    -->
-    <header class="bhead">
-      <span class="blabel">Week of {{ band().week.weekOfLabel }}</span>
-
-      @if (isDemand()) {
-        <span class="totals">
-          {{ band().meta.spaceCount }}
-          {{ band().meta.spaceCount === 1 ? 'space' : 'spaces' }}
-          ·
-          {{ band().meta.spaceHead | number }} head
-        </span>
-      } @else {
-        <span class="totals">
-          {{ band().meta.availabilityCount }}
-          {{ band().meta.availabilityCount === 1 ? 'record' : 'records' }}
-          ·
-          {{ band().meta.availabilityHead | number }} head
-        </span>
-      }
-    </header>
+    @if (band().week.isCurrentWeek) {
+      <span class="tag now">This week</span>
+    } @else if (band().week.isPastWeek) {
+      <span class="tag gone">Past</span>
+    }
 
     @if (isDemand()) {
-      @for (space of band().spaces; track space.id; let i = $index) {
-        <app-space-card [space]="space" [zebra]="i % 2 === 1" />
-      }
+      <span class="totals">
+        {{ band().meta.spaceCount }}
+        {{ band().meta.spaceCount === 1 ? 'space' : 'spaces' }}
+        ·
+        {{ band().meta.spaceHead | number }} head
+      </span>
     } @else {
-      @for (record of band().availability; track record.id; let i = $index) {
-        <app-availability-card [record]="record" [zebra]="i % 2 === 1" />
-      }
+      <span class="totals">
+        {{ band().meta.availabilityCount }}
+        {{ band().meta.availabilityCount === 1 ? 'record' : 'records' }}
+        ·
+        {{ band().meta.availabilityHead | number }} head
+      </span>
     }
+  </header>
 
-    <!--
-      Deliberately empty, and it says so: a blank band is otherwise indistinguishable from a bug. An
-      interior empty week is real information — the leading run of them is trimmed off in buildBoard,
-      so this only ever appears between or after populated weeks.
-    -->
-    @if (isEmpty()) {
-      <div class="none">
-        {{ isDemand() ? '- no processor spaces this week' : '- no livestock availability this week' }}
-      </div>
+  @if (isDemand()) {
+    @for (space of band().spaces; track space.id; let i = $index) {
+      <app-space-card [space]="space" [zebra]="i % 2 === 1" />
     }
-  </div>
+  } @else {
+    @for (record of band().availability; track record.id; let i = $index) {
+      <app-availability-card [record]="record" [zebra]="i % 2 === 1" />
+    }
+  }
+
+  <!--
+    Deliberately empty, and it says so: a blank band is otherwise indistinguishable from a bug. An
+    interior empty week is real information — the leading run of them is trimmed off in buildBoard,
+    so this only ever appears between or after populated weeks.
+  -->
+  @if (isEmpty()) {
+    <div class="none">
+      {{ isDemand() ? '- no processor spaces this week' : '- no livestock availability this week' }}
+    </div>
+  }
 </section>

@@ -50,7 +50,7 @@ export interface BoardView {
   /**
    * The supply column's bands, spanning the weeks its own records occupy.
    *
-   * Often a different week from `demand`'s, so the two rails legitimately show different weeks at the
+   * Often a different week from `demand`'s, so the two columns legitimately show different weeks at the
    * same height. They scroll independently and each trims to its own data.
    */
   readonly supply: readonly BandView[];
@@ -131,7 +131,7 @@ export function buildBoard(
  * the current week so a column whose records were all in the past still showed where "now" is. With
  * a week filter on the demand column that guarantee produced a run of empty headers below the only
  * band holding anything, which reads as missing data rather than as a calendar. What 2.6 was
- * protecting is still carried: every past band has a grey `Past` tag on its rail and no future band
+ * protecting is still carried: every past band has a grey `Past` tag on its header and no future band
  * does, so "am I looking at old stock" does not depend on the current week being on screen.
  *
  * Nothing is cached: filtering rebuilds the board, so both ends move when a filter changes which

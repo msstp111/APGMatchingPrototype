@@ -31,8 +31,12 @@ $lms-card: #ffffff; // a card's own background
 $lms-card-zebra: #f5f5f5; // alternate card — one step lighter than LMS's #EEEEEE, because a card
 // carries a patterned spine and a desaturated Cancelled state, and
 // #EEEEEE under both muddies them
-$lms-band: #f0f0f0; // week band header, past-week rail
-$lms-petrol-tint: #e8f1f6; // current-week band, valid drop target, info panels
+$lms-band: #f0f0f0; // week band header
+$lms-petrol-tint: #e8f1f6; // current-week band, info panels
+$lms-drop-target: #d1e1e8; // a card the drag may land on — deliberately DEEPER than the tint above,
+// which is ~9% petrol and was previously used for both. At the same
+// strength a drop target and the current-week band were indistinguishable;
+// ~18% reads as a step in value rather than a second use of one colour
 $lms-hover: #f5f9fb; // card hover
 $lms-column-wash: #f6fafc; // the opposite column during a drag
 
@@ -85,6 +89,7 @@ $lms-attention-bg: #f5f5f5; // the panel behind a consequential warning
   --lms-card-zebra: #{$lms-card-zebra};
   --lms-band: #{$lms-band};
   --lms-petrol-tint: #{$lms-petrol-tint};
+  --lms-drop-target: #{$lms-drop-target};
   --lms-hover: #{$lms-hover};
   --lms-column-wash: #{$lms-column-wash};
   --lms-rule-strong: #{$lms-rule-strong};

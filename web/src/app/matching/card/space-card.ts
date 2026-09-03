@@ -13,10 +13,11 @@ import { ProcessorSpaceDto } from '../../api/models';
 import { CardStateStore } from '../board/card-state';
 import { acceptsFrom, pairFromDrop } from '../drag/card-drag';
 import { DragCard, DragStore } from '../drag/drag-state';
+import { DragPreview } from '../drag/drag-preview';
+import { DropOutcome } from '../drag/drop-outcome';
 import { MatchDrop } from '../match/match-drop';
 import { CardExpansion } from './card-expansion';
 import { FillMeter } from './fill-meter';
-import { StockClassTile } from './stock-class-tile';
 import {
   cancelledPartnerCount,
   cancelledPartnerTitle,
@@ -49,9 +50,9 @@ import {
     CdkDragHandle,
     CdkDragPreview,
     CdkDropList,
-    StockClassTile,
     FillMeter,
     CardExpansion,
+    DragPreview,
   ],
   templateUrl: './space-card.html',
   styleUrl: './space-card.scss',
@@ -60,6 +61,7 @@ export class SpaceCard {
   private readonly state = inject(CardStateStore);
   private readonly drag = inject(DragStore);
   private readonly matchDrop = inject(MatchDrop);
+  private readonly outcome = inject(DropOutcome);
 
   readonly space = input.required<ProcessorSpaceDto>();
 
@@ -111,11 +113,42 @@ export class SpaceCard {
   /** The stay-behind face: CDK will have moved or hidden the dragged node. */
   readonly isSource = computed(() => this.drag.isSource('demand', this.space().id));
 
+  /** The one card under the pointer (Phase 9). Every other treatment on this row keys off it. */
+  readonly isHot = computed(() => this.drag.isHot('demand', this.space().id));
+
+  /**
+   * This row recedes so the two ends of the gesture are the only lit ones.
+   *
+   * Both spotlights are the same call: in the target column it is everything but the hot card, in the
+   * source column everything but the one that was picked up. `DragStore.isDimmed` decides which
+   * question this card is being asked, because only it knows where the pointer is.
+   */
+  readonly isDimmed = computed(() => this.drag.isDimmed('demand', this.space().id));
+
+  /**
+   * The head count the drop would add here, or null unless this is the hovered card.
+   *
+   * Guarded on `isHot` as well as on the service, because `DropOutcome` holds one answer for the
+   * whole screen: without the guard every card in the column would ghost the same segment.
+   */
+  readonly proposedQuantity = computed(() =>
+    this.isHot() && this.dropState() === 'valid' ? this.outcome.quantity() : null,
+  );
+
   /** A property, not a method: CDK reads the predicate once per drag and it must not be rebound. */
   readonly accepts = acceptsFrom('demand');
 
   toggle(): void {
     this.state.toggleExpanded('demand', this.space().id);
+  }
+
+  /** CDK says the pointer is over this card. The enter predicate has already refused same-column. */
+  entered(): void {
+    this.drag.enter(this.dragCard());
+  }
+
+  leftCard(): void {
+    this.drag.leave('demand', this.space().id);
   }
 
   dragStarted(): void {

@@ -40,7 +40,7 @@
       <!--
         Each column gets its own trimmed run of bands, so each starts at the week of its own earliest
         surviving record — recomputed whenever a filter changes which record that is. The two often
-        differ, and their rails will show different weeks at the same height. That is correct: the
+        differ, and their band headers will show different weeks at the same height. That is correct: the
         columns scroll independently and neither may be trimmed by the other's data.
 
         The order is CSS, so flipping never destroys a column: no filter, sort or expanded card is
@@ -53,6 +53,7 @@
         [bands]="board().demand"
         [spaces]="spaces()"
         [total]="spaces().length"
+        [showsLegend]="flipped()"
       />
 
       <button
@@ -73,6 +74,7 @@
         [bands]="board().supply"
         [availability]="availability()"
         [total]="availability().length"
+        [showsLegend]="!flipped()"
       />
     </div>
   }

@@ -41,9 +41,21 @@ export function pairFromDrop(event: CdkDragDrop<DragCard, DragCard>): MatchPair 
     return null;
   }
 
-  const source = event.item.data;
-  const target = event.container.data;
+  return pairOf(event.item.data, event.container.data);
+}
 
+/**
+ * The pair two cards name, whichever way round they were picked up, or null if they are not a pair.
+ *
+ * Split out of {@link pairFromDrop} in Phase 9 so the hover can ask the same question the drop asks.
+ * It is still **one** implementation of requirement 1.2 — the drop path did not grow a second one, it
+ * delegates here — which matters because the pill that appears on hover and the dialog that opens on
+ * release must be talking about the same two records or the screen has lied.
+ */
+export function pairOf(
+  source: DragCard | undefined | null,
+  target: DragCard | undefined | null,
+): MatchPair | null {
   if (!source || !target) {
     return null;
   }

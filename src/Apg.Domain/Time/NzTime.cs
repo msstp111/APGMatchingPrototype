@@ -47,6 +47,30 @@ public static class NzTime
     /// </summary>
     public const string ShortDateLabelFormat = "d MMM";
 
+    /// <summary>
+    /// The day of the month on its own — <c>26</c>, <c>4</c>. Unpadded, because it is set at the card's
+    /// primary size and a leading zero there reads as part of a longer number that has been cut off.
+    /// </summary>
+    /// <remarks>
+    /// Half of the matching card's date cell. The card splits a delivery date over the two lines it
+    /// already has: the day on line 1, <see cref="MonthLabelFormat"/> beneath it on line 2. It is only
+    /// ever rendered directly under its own month, and the full <see cref="DateLabelFormat"/> label is
+    /// still on the same DTO for the row's hover text and for every wider surface.
+    /// </remarks>
+    /// <remarks>
+    /// <b>The percent is load-bearing.</b> A one-character format string is read as a <em>standard</em>
+    /// format specifier, so a bare <c>"d"</c> is the short-date pattern and yields <c>08/24/2026</c>
+    /// under the invariant culture. <c>"%d"</c> forces the custom specifier, which is the day of the
+    /// month. Both compile; only one is a day.
+    /// </remarks>
+    public const string DayOfMonthLabelFormat = "%d";
+
+    /// <summary>
+    /// The abbreviated month — <c>Aug</c>. The card upper-cases it in CSS, so the wire keeps the one
+    /// form that reads correctly in a sentence as well as in a column.
+    /// </summary>
+    public const string MonthLabelFormat = "MMM";
+
     private static readonly TimeZoneInfo Zone = TimeZoneInfo.FindSystemTimeZoneById(TimeZoneId);
 
     /// <summary>The New Zealand time zone, resolved exactly once.</summary>
@@ -106,6 +130,17 @@ public static class NzTime
     /// </summary>
     public static string ShortDateLabel(DateOnly date) =>
         date.ToString(ShortDateLabelFormat, CultureInfo.InvariantCulture);
+
+    /// <summary>
+    /// The day half of the matching card's split date — <c>26</c>. Pair with <see cref="MonthLabel"/>;
+    /// neither is meaningful on its own, which is why both ship on every record DTO that carries a date.
+    /// </summary>
+    public static string DayOfMonthLabel(DateOnly date) =>
+        date.ToString(DayOfMonthLabelFormat, CultureInfo.InvariantCulture);
+
+    /// <summary>The month half of that same split — <c>Aug</c>.</summary>
+    public static string MonthLabel(DateOnly date) =>
+        date.ToString(MonthLabelFormat, CultureInfo.InvariantCulture);
 
     /// <summary>
     /// Every Sunday from <paramref name="first"/>'s week to <paramref name="last"/>'s week inclusive,

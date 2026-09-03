@@ -1,0 +1,144 @@
+<!--
+  The key to the board. Nothing here is drawn by hand that the screen already draws for itself: the
+  spines are the `spines` mixin's own classes, the meters are real `app-fill-meter` instances, and the
+  cancelled-partner badge is the same `.orphan` treatment the expanded match table carries. A legend
+  redrawn independently is a legend that drifts away from the thing it explains.
+-->
+<h2 mat-dialog-title>What the cards are telling you</h2>
+
+<mat-dialog-content>
+  <p class="rule">
+    Two things are being said at once, and each has its own channel so they never compete:
+    <strong>the left edge and the icon carry status</strong> — never colour;
+    <strong>the meter carries quantity</strong> — never pattern.
+  </p>
+
+  <!-- 1. the left edge -->
+  <h3 class="sec">The card's left edge — where a record has got to</h3>
+
+  <div class="rows">
+    @for (row of statuses; track row.label) {
+      <div class="row">
+        <!--
+          The spine shown against a scrap of card, because the 3px Booked edge only reads as thin
+          next to the 6px ones — weight alone is what separates "nothing has happened yet" from
+          everything else, and a swatch floating on grey would lose that.
+        -->
+        <span class="swatch" aria-hidden="true">
+          <span class="scrap">
+            <span class="spine" [class]="row.spine"></span>
+          </span>
+        </span>
+
+        <span class="key">
+          <span class="material-symbols-outlined sicon" [class.filled]="row.filled" aria-hidden="true">
+            {{ row.icon }}
+          </span>
+          {{ row.label }}
+        </span>
+
+        <span class="what">{{ row.what }}</span>
+      </div>
+    }
+  </div>
+
+  <ul class="notes">
+    <li>
+      <strong>A Processor Space is never Pending.</strong> A space with nothing but drafted matches
+      against it stays <em>Booked</em>, so it stays inside the default filter and does not quietly
+      disappear from the column while you are working on it.
+    </li>
+    <li>
+      <strong>Cancelled is the one status that changes the whole card</strong>, and it does it by
+      taking colour away rather than adding any.
+    </li>
+  </ul>
+
+  <!-- 2. the meter -->
+  <h3 class="sec">The meter — how full the record is</h3>
+
+  <div class="rows">
+    @for (row of meters; track row.side + row.state) {
+      <div class="row">
+        <span class="swatch">
+          <app-fill-meter
+            [original]="row.original"
+            [matchedInclDraft]="row.matchedInclDraft"
+            [matchedExclDraft]="row.matchedExclDraft"
+            [unmatched]="row.unmatched"
+            [quantityState]="row.state"
+            [quantityStateLabel]="row.stateLabel"
+            [side]="row.side"
+          />
+        </span>
+
+        <span class="key">{{ row.stateLabel }}</span>
+
+        <span class="what">{{ row.what }}</span>
+      </div>
+    }
+  </div>
+
+  <ul class="notes">
+    <li>
+      Orange and green mean the same thing on both columns. Only the over state differs, because
+      over-filling a processor's space is normal and over-committing a farmer's stock is not.
+    </li>
+    <li>
+      A Livestock Availability record says <em>Under-committed</em> and <em>Fully committed</em> where
+      a Processor Space says <em>Under-filled</em> and <em>Filled</em> — the same two colours, the
+      words that suit the side.
+    </li>
+  </ul>
+
+  <!-- 3. the red badge -->
+  <h3 class="sec">The red badge — a match whose other half was cancelled</h3>
+
+  <div class="rows">
+    <div class="row">
+      <span class="swatch" aria-hidden="true">
+        <span class="orphan">
+          <span class="material-symbols-outlined" aria-hidden="true">block</span>
+          space cancelled
+        </span>
+      </span>
+
+      <span class="key">In the match table</span>
+
+      <span class="what">
+        Cancelling a record never cancels its matches — that is deliberate, so APG can line up an
+        alternative before anyone is told their booking has gone. The match stays live and still holds
+        stock on this card, and the badge names the side that has gone. Cancel the match itself from
+        the match window when you are ready.
+      </span>
+    </div>
+
+    <div class="row">
+      <span class="swatch" aria-hidden="true">
+        <span class="material-symbols-outlined chev orphaned">expand_more</span>
+      </span>
+
+      <span class="key">On a collapsed card</span>
+
+      <span class="what">
+        The same thing said in the only space a 52px row has left: a red square behind the expand
+        chevron. Open the card and the match table names which match it is.
+      </span>
+    </div>
+  </div>
+
+  <p class="note-solo">
+    Red is the one place on this screen where colour is not a quantity. It is allowed because it is not
+    reporting a status — the card's own status is untouched — it is flagging work outstanding.
+  </p>
+
+  <p class="note-solo">
+    The two columns do not share a stock-class list, and nothing on this screen tries to match them up
+    for you. Judging whether a class on one side suits a class on the other is the job you are here to
+    do — the stock class is spelled out in full on every card rather than abbreviated to a symbol.
+  </p>
+</mat-dialog-content>
+
+<mat-dialog-actions align="end">
+  <button matButton="filled" mat-dialog-close type="button">Got it</button>
+</mat-dialog-actions>

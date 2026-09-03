@@ -1,0 +1,17 @@
+<!--
+  Three fields and no more. A drag lasts a second or two and the operator already knows what they
+  picked up; the chip's job is to keep them oriented, not to restate the row they can still see.
+-->
+<div class="chip">
+  <app-stock-class-tile [stockClass]="stockClass()" />
+  <span class="cname" [title]="name()">{{ name() }}</span>
+  <span class="chead">{{ headCount() }} head</span>
+</div>
+
+<!--
+  Attached under the chip, right-aligned, and absent until the server has answered. It never guesses:
+  an outcome that appeared instantly and then corrected itself would be worse than one that waits.
+-->
+@if (hasOutcome()) {
+  <span class="outcome">Match {{ proposed() }} head</span>
+}

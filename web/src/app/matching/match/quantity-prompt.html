@@ -1,47 +1,12 @@
 <!--
-  design-system.md 11.1, in its order: both records summarised with their own status spines, the
-  stock-class note, then the three fields. The summaries are read-only on purpose — this dialog is the
-  last point at which the operator can check they grabbed the card they meant to.
+  design-system.md 11.1, reordered: the availability record on top, the space below it, and an arrow
+  between them, so the block reads the way the stock moves — supply into demand. Then the three fields.
+  The summaries are read-only on purpose — this dialog is the last point at which the operator can
+  check they grabbed the card they meant to.
 -->
 <h2 mat-dialog-title>Match {{ titleQuantity() }} head</h2>
 
 <mat-dialog-content>
-  <div class="rec">
-    <span class="spine" [class]="spaceSpine"></span>
-
-    <div class="rbody">
-      <div class="rhead">
-        <span class="kicker demand">Processor Space</span>
-        <span class="rstatus">{{ space.status }}</span>
-      </div>
-
-      <div class="rname">
-        <app-stock-class-tile [stockClass]="space.stockClass" />
-        <span class="nm">{{ space.processor }} {{ space.plant }}</span>
-        <span class="cls">{{ space.stockClass }}</span>
-      </div>
-
-      <div class="facts">
-        <span class="fact">
-          <span class="fk">Delivery</span>
-          <span class="fv">{{ space.deliveryDateLabel }}</span>
-        </span>
-        <span class="fact">
-          <span class="fk">Time</span>
-          <span class="fv">{{ space.deliveryTime || 'not set' }}</span>
-        </span>
-        <span class="fact">
-          <span class="fk">Required</span>
-          <span class="fv">{{ space.quantityRequired }}</span>
-        </span>
-        <span class="fact">
-          <span class="fk">Unmatched</span>
-          <span class="fv strong" [class]="spaceUnmatchedInk">{{ space.unmatched }}</span>
-        </span>
-      </div>
-    </div>
-  </div>
-
   <div class="rec">
     <span class="spine" [class]="availabilitySpine"></span>
 
@@ -80,10 +45,54 @@
     </div>
   </div>
 
-  @if (stockClassesDiffer) {
-    <!-- Information, not a warning: no amber and no warning icon (design-system.md 11.1). -->
-    <p class="note">{{ stockClassNote }}</p>
-  }
+  <!--
+    Supply above, demand below, and the arrow says which way the animals travel. It is decoration over
+    an order that already reads top-to-bottom, so it is hidden from assistive technology.
+  -->
+  <div class="flow" aria-hidden="true">
+    <svg viewBox="0 0 24 24" width="20" height="20" focusable="false">
+      <path
+        d="M12 3v14.2l-5.1-5.1-1.4 1.4L12 20.4l6.5-6.9-1.4-1.4-5.1 5.1V3z"
+        fill="currentColor"
+      />
+    </svg>
+  </div>
+
+  <div class="rec">
+    <span class="spine" [class]="spaceSpine"></span>
+
+    <div class="rbody">
+      <div class="rhead">
+        <span class="kicker demand">Processor Space</span>
+        <span class="rstatus">{{ space.status }}</span>
+      </div>
+
+      <div class="rname">
+        <app-stock-class-tile [stockClass]="space.stockClass" />
+        <span class="nm">{{ space.processor }} {{ space.plant }}</span>
+        <span class="cls">{{ space.stockClass }}</span>
+      </div>
+
+      <div class="facts">
+        <span class="fact">
+          <span class="fk">Delivery</span>
+          <span class="fv">{{ space.deliveryDateLabel }}</span>
+        </span>
+        <span class="fact">
+          <span class="fk">Time</span>
+          <span class="fv">{{ space.deliveryTime || 'not set' }}</span>
+        </span>
+        <span class="fact">
+          <span class="fk">Required</span>
+          <span class="fv">{{ space.quantityRequired }}</span>
+        </span>
+        <span class="fact">
+          <span class="fk">Unmatched</span>
+          <span class="fv strong" [class]="spaceUnmatchedInk">{{ space.unmatched }}</span>
+        </span>
+      </div>
+    </div>
+  </div>
 
   <div class="fields">
     <mat-form-field appearance="fill" class="f-quantity" subscriptSizing="dynamic">

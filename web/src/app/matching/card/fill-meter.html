@@ -6,6 +6,14 @@
   <div class="track">
     <div class="seg incl" [style.width]="inclWidth()"></div>
     <div class="seg excl" [style.width]="exactWidth()"></div>
+    <!--
+      What the drop in flight would add, hatched so it cannot be mistaken for a fill that exists.
+      Petrol, not a ramp colour: it is the gesture speaking, not the record.
+    -->
+    @if (hasGhost()) {
+      <div class="ghost" [style.left]="ghostLeft()" [style.width]="ghostWidth()"></div>
+    }
+
     @if (isOver()) {
       <div class="over-run"></div>
     }

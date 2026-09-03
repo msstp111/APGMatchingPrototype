@@ -120,6 +120,35 @@ public class DtoProjectionTests
         Assert.Equal("27-08-26", dto.DeliveryDateLabel);
     }
 
+    /// <summary>
+    /// The card splits the date over its two lines, so both halves ship preformatted. The client may
+    /// not slice <c>DeliveryDateLabel</c> to get them: taking a substring of a date is date handling,
+    /// and it belongs here with every other date rule.
+    /// </summary>
+    [Fact]
+    public void A_space_carries_its_delivery_date_split_into_a_day_and_a_month()
+    {
+        var dto = Space();
+
+        Assert.Equal("27", dto.DeliveryDayLabel);
+        Assert.Equal("Aug", dto.DeliveryMonthLabel);
+    }
+
+    /// <summary>
+    /// The day is unpadded. It is set at the card's primary size directly above its month, and a
+    /// leading zero there reads as the first digit of a longer number that has been cut off.
+    /// </summary>
+    [Fact]
+    public void A_single_digit_day_carries_no_leading_zero()
+    {
+        var set = Fixture();
+        var dto = Space(set with { Spaces = [SpaceOn(set.Spaces[0].Id, new DateOnly(2026, 9, 4))] });
+
+        Assert.Equal("4", dto.DeliveryDayLabel);
+        Assert.Equal("Sep", dto.DeliveryMonthLabel);
+        Assert.Equal("04-09-26", dto.DeliveryDateLabel);
+    }
+
     [Fact]
     public void A_space_carries_the_week_its_delivery_date_falls_in()
     {
@@ -211,6 +240,16 @@ public class DtoProjectionTests
     public void An_availability_record_carries_its_available_from_date_in_the_prose_form_too()
     {
         Assert.Equal("24 Aug", Availability().AvailableFromShortLabel);
+    }
+
+    /// <summary>Both cards share one geometry, so the supply side carries the same split.</summary>
+    [Fact]
+    public void An_availability_record_carries_its_available_from_date_split_too()
+    {
+        var dto = Availability();
+
+        Assert.Equal("24", dto.AvailableFromDayLabel);
+        Assert.Equal("Aug", dto.AvailableFromMonthLabel);
     }
 
     /// <summary>

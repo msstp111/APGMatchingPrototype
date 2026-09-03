@@ -12,37 +12,49 @@
   [class.valid]="dropState() === 'valid'"
   [class.blocked]="dropState() === 'blocked'"
   [class.same]="dropState() === 'same'"
+  [class.hot]="isHot()"
+  [class.dim]="isDimmed()"
+  [class.origin]="isSource()"
   cdkDropList
   cdkDropListSortingDisabled
   cdkDropListAutoScrollDisabled
   [cdkDropListData]="dragCard()"
   [cdkDropListEnterPredicate]="accepts"
   (cdkDropListDropped)="dropped($event)"
+  (cdkDropListEntered)="entered()"
+  (cdkDropListExited)="leftCard()"
 >
   <ng-template #lines>
-    <div class="l1">
-      <app-stock-class-tile [stockClass]="record().stockClass" />
-      <span class="name" [title]="record().locationName || '-'">{{
-        record().locationName || '-'
-      }}</span>
-      <span class="sclass" [title]="record().stockClass">{{ record().stockClass }}</span>
-      <span class="date">{{ record().availableFromLabel }}</span>
-      <span class="qty">{{ record().quantityAvailable }}</span>
+    <!-- Row 1 of the card body's grid — the same cells and the same widths as the demand card. -->
+    <span class="name" [title]="record().locationName || '-'">{{
+      record().locationName || '-'
+    }}</span>
+    <span class="sclass" [title]="record().stockClass">{{ record().stockClass }}</span>
 
-      <app-fill-meter
-        [original]="record().quantityAvailable"
-        [matchedInclDraft]="record().matchedInclDraft"
-        [matchedExclDraft]="record().matchedExclDraft"
-        [unmatched]="record().unmatched"
-        [quantityState]="record().quantityState"
-        [quantityStateLabel]="record().quantityStateLabel"
-        side="supply"
-      />
-    </div>
+    <!-- The day, with its month directly beneath it in row 2. See the demand card for why. -->
+    <span class="day" [title]="record().availableFromLabel">{{
+      record().availableFromDayLabel
+    }}</span>
+    <span class="qty">{{ record().quantityAvailable }}</span>
 
-    <div class="l2">
-      <span class="meta">{{ record().farmerName || '-' }} · {{ transactionType() }}</span>
+    <app-fill-meter
+      [original]="record().quantityAvailable"
+      [matchedInclDraft]="record().matchedInclDraft"
+      [matchedExclDraft]="record().matchedExclDraft"
+      [unmatched]="record().unmatched"
+      [quantityState]="record().quantityState"
+      [quantityStateLabel]="record().quantityStateLabel"
+      side="supply"
+      [ghostQuantity]="proposedQuantity()"
+    />
 
+    <!-- Row 2. The month sits in the date column; everything else is pushed to the card's edge. -->
+    <span class="meta">{{ record().farmerName || '-' }} · {{ transactionType() }}</span>
+    <span class="month" [title]="record().availableFromLabel">{{
+      record().availableFromMonthLabel
+    }}</span>
+
+    <span class="trail">
       @if (isOver()) {
         <!-- "Over-committed", from the DTO. If this ever shows, it is a bug and it is meant to. -->
         <span class="over" [class]="overInk()">{{ record().quantityStateLabel }}</span>
@@ -76,7 +88,7 @@
         }}</span>
         {{ record().status }}
       </span>
-    </div>
+    </span>
   </ng-template>
 
   @if (isSource()) {
@@ -132,19 +144,28 @@
       }}</span>
     </button>
 
-    <ng-template cdkDragPreview [matchSize]="true">
-      <div class="card">
-        <span class="spine" [class]="spine()"></span>
-        <div class="cbody">
-          <ng-container [ngTemplateOutlet]="lines" />
-        </div>
-      </div>
+    <!--
+      Phase 9. A 200px chip rather than a copy of the card, and no `matchSize`: at full card width the
+      preview sat over the row being aimed at, which is half of why the target was hard to read.
+    -->
+    <ng-template cdkDragPreview>
+      <app-drag-preview
+        [stockClass]="record().stockClass"
+        [name]="record().locationName || '-'"
+        [headCount]="record().quantityAvailable"
+      />
     </ng-template>
   </div>
 
-  @if (dropState() === 'valid') {
-    <span class="material-symbols-outlined dropcue">add</span>
-  } @else if (dropState() === 'blocked') {
+  <!--
+    Only the refusal is badged. The `+` that used to sit on every eligible card went with Phase 9's
+    inversion: the whole opposite column is eligible, so a badge on all of it said nothing, and the
+    card under the pointer is marked by being the only one left lit.
+
+    Absolutely positioned, so a target picking up its badge does not shift a single cell of line 1.
+    Nothing on this screen resizes under the pointer.
+  -->
+  @if (dropState() === 'blocked') {
     <span class="material-symbols-outlined dropcue" matTooltip="No unmatched quantity">block</span>
   }
 </div>

@@ -378,6 +378,22 @@ Do not report these. Each is a decision with a reason recorded.
 | A record created **months out** adds a run of empty week bands | Interior empty weeks keep their headers: a gap in the calendar is information. Only the runs at each *end* are trimmed. (§9.3.) |
 | A brand-new space says **`no default price`** when dragged | The seeded price table runs weeks −4 to +8. Beyond it there is honestly no price, and the prompt says so rather than inventing one. (§11.1.) |
 
+## L. The legend, and the tile's removal (interstitial)
+
+Both changes are geometry and colour, which is exactly what jsdom cannot check.
+
+| Check | What it should be |
+| --- | --- |
+| The `?` button sits in the **right-hand** column's header, right of `+ Add` | It is bound to screen position, not to a column: hit the flip and it moves to the other header so it stays in the same corner. `+ Add` goes the other way. |
+| It does **not** read as a second debug tool | Borderless and muted; the `+ Add` beside it keeps its `#BDBDBD` ring, which is what marks scaffolding. Same 26px height, one baseline. |
+| In the legend, the **3px Booked edge reads as thinner** than the other three | Weight alone is what separates "nothing has happened yet" from everything else (§3.1). Each spine is drawn on a borderless zebra scrap: Booked's spine IS `$lms-divider`, so a bordered white scrap merged the two into one thick corner and the row that has to show a thin edge showed none. |
+| The legend's four meters look **exactly like the ones on the cards** | They are real `app-fill-meter` instances at the same 112px. If they differ, the legend has drifted and the test suite cannot see it. |
+| Both over states are visible together — **blue and pink** | The one place the two `Over` meanings can be compared side by side. Blue is permitted; pink is a flag. (§4.1.) |
+| The legend fits at **1366×768** without the dialog scrolling awkwardly | 720px wide, four sections. If it needs a scroll it should be a clean one, not a clipped last row. |
+| Line 1's **name column is wider** than before, and line 2's meta starts on the same vertical | The tile's 20px plus its 8px gap went to the name, which truncates. The alignment of the two lines is a side effect, not a goal. |
+| The header strip's cells still sit **exactly over** the card's | The `.s-tile` spacer came out with the tile. If the strip is 28px out of step, only one of the three was changed. (§16.10.) |
+| The tile is **still** in the quantity prompt, the match modal and the drag preview | Deliberate: nothing else on those three says what species is in play. Flag it if it now looks orphaned. |
+
 ## Recording the result
 
 For each failure, note **what you saw, which item it was, and the section it cites** — the citations

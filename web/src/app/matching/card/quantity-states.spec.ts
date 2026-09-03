@@ -140,26 +140,26 @@ describe('Quantity states, on both sides', () => {
     }
   });
 
-  // Scoped to .l2 deliberately: the fill meter's own root also takes an `over` class when the state
+  // Scoped to .trail deliberately: the fill meter's own root also takes an `over` class when the state
   // is Over, so a bare '.over' finds the meter and reads the numeral. The two are in different
   // components and Angular scopes their styles, so it is only a selector hazard — but it is one.
   it('says the literal word on line 2, from the DTO and never composed here', async () => {
     const space = await mount(SpaceCard, { space: overFilledSpace });
     const record = await mount(AvailabilityCard, { record: overCommittedRecord });
 
-    expect(space.querySelector('.l2 .over')?.textContent?.trim()).toBe('Over-filled');
-    expect(record.querySelector('.l2 .over')?.textContent?.trim()).toBe('Over-committed');
+    expect(space.querySelector('.trail .over')?.textContent?.trim()).toBe('Over-filled');
+    expect(record.querySelector('.trail .over')?.textContent?.trim()).toBe('Over-committed');
 
     // The ink beside the word is the same ramp entry the meter took, not a second decision.
-    expect(space.querySelector('.l2 .over')?.className).toContain('q-over');
-    expect(record.querySelector('.l2 .over')?.className).toContain('q-pink');
+    expect(space.querySelector('.trail .over')?.className).toContain('q-over');
+    expect(record.querySelector('.trail .over')?.className).toContain('q-pink');
   });
 
   it('carries no over label at all when the record is not over', async () => {
     // The word is a statement, not a slot. An empty one would read as a value that failed to load.
     const space = await mount(SpaceCard, { space: aSpace() });
 
-    expect(space.querySelector('.l2 .over')).toBeNull();
+    expect(space.querySelector('.trail .over')).toBeNull();
   });
 
   // --- the expanded card, which spells the state out in words -------------------------------------

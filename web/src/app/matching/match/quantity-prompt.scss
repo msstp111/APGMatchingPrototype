@@ -19,7 +19,6 @@ $field-gap: 8px;
 
 .rec {
   display: flex;
-  margin-bottom: 8px;
   border: 1px solid lms.$lms-divider;
   border-radius: 4px;
   background: #fafafa;
@@ -101,13 +100,14 @@ $field-gap: 8px;
   font-weight: 500;
 }
 
-.note {
-  margin: 8px 0 12px;
-  padding: 8px 10px;
-  border: 1px solid lms.$lms-divider;
-  border-radius: 4px;
-  background: lms.$lms-white;
-  font-size: 12.5px;
+// The arrow between the two records, and the gap that used to be `.rec`'s own bottom margin. Muted,
+// because it says direction, not status: hue on this screen belongs to the quantity meter alone.
+.flow {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 20px;
+  margin: 4px 0;
   color: lms.$lms-text-muted;
 }
 
@@ -117,6 +117,7 @@ $field-gap: 8px;
   display: flex;
   align-items: flex-start;
   gap: $field-gap;
+  margin-top: 12px;
 }
 
 .f-quantity,

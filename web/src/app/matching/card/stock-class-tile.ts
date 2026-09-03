@@ -7,9 +7,11 @@ import { stockClassTile } from './stock-classes';
  * Shape rather than colour, because hue belongs to the quantity meter and twenty-two saturated
  * swatches would destroy the three-colour ramp the screen is scanned for (design-system.md 7).
  *
- * The tile is 20px inside a 17px line box, so it overflows by 1.5px top and bottom. That is harmless —
- * the row is centred inside a 51px content box with 8.5px of slack either side — and it is precisely
- * why the card's height is set explicitly rather than summed from its parts (design-system.md 16.11).
+ * **It is no longer on the cards.** Mark had it removed from both card rows and from the header strip:
+ * line 1 already spells the stock class out in full two cells along, so the monogram was saying the
+ * same thing twice in the row's tightest 20px. It remains on the three surfaces where nothing else
+ * says it — the quantity prompt, the match modal and the drag preview — which is also why the
+ * `stock-class-coverage.spec.ts` guard still matters.
  */
 @Component({
   selector: 'app-stock-class-tile',

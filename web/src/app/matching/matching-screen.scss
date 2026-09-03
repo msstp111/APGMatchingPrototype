@@ -1,3 +1,4 @@
+@use 'card-geometry' as geo;
 @use '../../styles/lms-tokens' as lms;
 
 // The screen fills the shell's content area and does not scroll itself: each column scrolls
@@ -47,12 +48,17 @@
   order: 1;
 }
 
-// A 28px circle in the gutter, at the top, over the seam between the two columns.
+// A 28px circle in the gutter, over the seam between the two columns, sitting on the centre line of
+// the two column headers rather than a few pixels down from the top of them.
+//
+// The centre is computed, not typed: half `$column-header-height` plus the 1px the column's own top
+// border spends before its header begins. Raise the header and the circle follows it — a hard-coded
+// `top` here is exactly how the two came to disagree, which is the complaint this fixes.
 .flip {
   position: absolute;
-  top: 4px;
+  top: calc(1px + #{geo.$column-header-height} / 2);
   left: 50%;
-  transform: translateX(-50%);
+  transform: translate(-50%, -50%);
   z-index: 2;
   display: inline-flex;
   align-items: center;

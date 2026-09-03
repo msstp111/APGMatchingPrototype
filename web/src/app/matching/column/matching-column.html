@@ -34,41 +34,66 @@
       <span class="material-symbols-outlined" aria-hidden="true">construction</span>
       + Add {{ isDemand() ? 'space' : 'record' }}
     </button>
+
+    <!--
+      The key to the board, in the top-right corner of the screen. It is on whichever column is
+      currently on the RIGHT rather than on a column of its own choosing, because it explains both
+      sides equally and a help control should stay where it was last found — unlike + Add, which
+      belongs to its column and follows it across the flip.
+
+      Borderless, so it does not read as a second debug tool sitting beside the first one.
+    -->
+    @if (showsLegend()) {
+      <button
+        type="button"
+        class="help"
+        (click)="openLegend()"
+        title="What the card edges, colours and badges mean"
+        aria-label="What the card edges, colours and badges mean"
+      >
+        <span class="material-symbols-outlined" aria-hidden="true">help</span>
+      </button>
+    }
   </header>
 
   <app-column-filters [side]="side()" [spaces]="spaces()" [availability]="availability()" />
 
   <div class="list-wrap">
     <div class="list" columnAutoScroll>
-    <div class="strip">
-      <span class="s-tile"></span>
-      <span class="s-name">{{ isDemand() ? 'Processor' : 'Location' }}</span>
-      <span class="s-sclass">Stock class</span>
-      <span class="s-date">{{ isDemand() ? 'Delivery' : 'From' }}</span>
-      <span class="s-qty">{{ isDemand() ? 'Req' : 'Avail' }}</span>
-      <span class="s-meter">Unmatched</span>
-      <span class="s-chev"></span>
-    </div>
+      <div class="strip">
+        <span class="s-name">{{ isDemand() ? 'Processor' : 'Location' }}</span>
+        <span class="s-sclass">Stock class</span>
+        <!--
+        'Date', not 'Delivery'. DELIVERY needs about 62px in micro-caps and the cell is 50px, so it
+        clipped to DELIVE… at every viewport — the name is the only column that flexes, so a wider
+        screen never reached it. The fix is the shorter word rather than a wider column: nothing else
+        in this strip is a date, and the 12px would have come straight off the processor's name.
+      -->
+        <span class="s-date">{{ isDemand() ? 'Date' : 'From' }}</span>
+        <span class="s-qty">{{ isDemand() ? 'Req' : 'Avail' }}</span>
+        <span class="s-meter">Unmatched</span>
+        <span class="s-chev"></span>
+      </div>
 
-    @if (isEmpty()) {
-      <!--
+      @if (isEmpty()) {
+        <!--
         Nothing loaded at all, which is a different answer from "filtered to nothing": there is no
         filter to clear, so the only way forward is a record (design-system.md 13).
       -->
-      <app-empty-column [side]="side()" />
-    } @else if (isFilteredEmpty()) {
-      <!-- Never a blank column: the filters that emptied it are restated, with two ways out. -->
-      <app-filtered-empty [side]="side()" [spaces]="spaces()" [availability]="availability()" />
-    } @else {
-      <!--
+        <app-empty-column [side]="side()" />
+      } @else if (isFilteredEmpty()) {
+        <!-- Never a blank column: the filters that emptied it are restated, with two ways out. -->
+        <app-filtered-empty [side]="side()" [spaces]="spaces()" [availability]="availability()" />
+      } @else {
+        <!--
         Every band renders, including the empty ones. A missing band would make two weeks look
         adjacent when they are not (requirement 1.6). The leading run of empty bands is trimmed off
         per column in buildBoard, and re-trimmed whenever a filter changes which record is oldest.
       -->
-      @for (band of bands(); track band.week.weekCommencing) {
-        <app-week-band [band]="band" [side]="side()" />
+        @for (band of bands(); track band.week.weekCommencing) {
+          <app-week-band [band]="band" [side]="side()" />
+        }
       }
-    }
     </div>
 
     @if (isDragging()) {

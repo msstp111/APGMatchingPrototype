@@ -1,0 +1,59 @@
+@use '../card-geometry' as geo;
+@use '../../../styles/lms-tokens' as lms;
+
+// The host is what CDK positions, so it must not be the thing that is painted: the pill hangs below
+// the chip and outside its box, and a host with a background would draw a rectangle around both.
+:host {
+  position: relative;
+  display: block;
+  width: geo.$drag-chip-width;
+}
+
+.chip {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  height: geo.$drag-chip-height;
+  padding: 0 8px;
+  box-sizing: border-box;
+  background: lms.$lms-card;
+  border: 2px solid lms.$lms-petrol;
+  border-radius: 3px;
+  box-shadow: 0 6px 14px rgb(0 0 0 / 24%);
+  font-size: 12px;
+  font-weight: 500;
+  color: lms.$lms-text;
+}
+
+.cname {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.chead {
+  flex: 0 0 auto;
+  color: lms.$lms-text-muted;
+  @include geo.numerals;
+}
+
+// Petrol on white, not a quantity colour: this is the gesture speaking, not a record reporting its
+// own state, and the ramp's hues belong to the meter alone.
+.outcome {
+  position: absolute;
+  top: 100%;
+  right: 0;
+  margin-top: 4px;
+  padding: 2px 8px;
+  border-radius: 9px;
+  background: lms.$lms-petrol;
+  color: lms.$lms-card;
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 15px;
+  white-space: nowrap;
+  box-shadow: 0 2px 6px rgb(0 0 0 / 22%);
+  @include geo.numerals;
+}

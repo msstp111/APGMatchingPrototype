@@ -17,7 +17,16 @@
 }
 
 // --- 1. the column header ---
+//
+// `flex: 0 0 auto` is load-bearing and was missing. `.column` is a column flex box whose `.list-wrap`
+// has an auto basis — the full height of forty cards — so the flex deficit is enormous, and it is
+// shared out in proportion to every basis, the header's included. The header was therefore squashed
+// to its 27px min-content height on every viewport, which is why `$column-header-height` could be
+// raised from 40 to 48 and nothing on screen moved: neither number was ever in force. The filter row
+// below already declares `0 0 auto` for the same reason; the list is the one thing here that may
+// shrink, and its `min-height: 0` says so.
 .chead {
+  flex: 0 0 auto;
   display: flex;
   align-items: center;
   gap: 8px;
@@ -119,7 +128,7 @@
 // --- 3. the scrolling list ---
 // The wrap is the positioned ancestor of the auto-scroll veils, so they stay pinned to the visible
 // edges rather than scrolling with the cards. The list itself is still the scroll container — the
-// band rails stick relative to THIS, which is why their offset is the strip's height rather than zero.
+// band headers stick relative to THIS, which is why their offset is the strip's height, not zero.
 .list-wrap {
   flex: 1 1 auto;
   min-height: 0;
@@ -161,7 +170,7 @@
   background: linear-gradient(to top, rgb(0 86 126 / 14%), transparent);
 }
 
-// z-index 3 so it sits over the sticky week rails (1) and the cards.
+// z-index 3 so it sits over the sticky band headers (1) and the cards.
 .strip {
   position: sticky;
   top: 0;
@@ -170,7 +179,7 @@
   align-items: center;
   gap: geo.$col-gap;
   height: geo.$header-strip-height;
-  // 48px rail + 6px spine + the card's own 8px padding, so each cell sits over its column.
+  // the 6px spine + the card's own 8px padding, so each cell sits over its column.
   padding: 0 8px 0 (geo.$leading-offset + 8px);
   background: lms.$lms-surface;
   border-bottom: 1px solid lms.$lms-divider;
@@ -179,10 +188,6 @@
 
 // Widths from the shared partial, identical to the cards' — this alignment is what makes a list of
 // cards read as a table.
-.s-tile {
-  flex: 0 0 geo.$col-tile;
-}
-
 .s-name {
   @include geo.col-name;
 }
@@ -206,4 +211,34 @@
 
 .s-chev {
   flex: 0 0 geo.$col-chevron;
+}
+
+// The legend button, on whichever column is currently on the right (the screen decides).
+//
+// Deliberately NOT §14's stroked treatment: the button next to it is a debug tool and the ring is
+// what says so. Borderless, petrol, 26px — the same height as .add so the header's row of controls
+// stays on one baseline, but with none of its weight. A help control is chrome, not an action.
+.help {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  padding: 0;
+  border: 0;
+  border-radius: 3px;
+  background: none;
+  color: lms.$lms-text-muted;
+  cursor: pointer;
+}
+
+.help:hover {
+  background: lms.$lms-hover;
+  color: lms.$lms-petrol;
+}
+
+.help .material-symbols-outlined {
+  font-size: 18px;
+  line-height: 18px;
 }

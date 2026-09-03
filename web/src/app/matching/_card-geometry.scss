@@ -8,20 +8,30 @@
 // Two numbers are load-bearing and appear in more than one place on purpose:
 //   * the 112px meter block equals the header strip's Unmatched cell — if they differ the columns
 //     stop lining up (design-system.md 4, 16.10);
-//   * the 54px leading offset is 48px rail + 6px spine, so a card's tile sits under its own header
-//     cell. There is a 6px variant for a card shown outside a band; Phase 3 never needs it
-//     (design-system.md 16.9).
+//   * the leading offset is the spine's 6px, so a card's first cell sits under its own header cell.
+//     It was 54px while bands carried a 48px week rail on their left; Phase 9 removed the rail and
+//     moved the week onto the band header, and every leading measurement lost 48px with it.
 
 @use '../../styles/lms-tokens' as lms;
 
 // --- the pieces the whole screen is measured from ---
-$rail-width: 48px;
 $spine-width: 6px;
 $spine-width-booked: 3px;
 $card-height: 52px; // including its 1px bottom rule
 $header-strip-height: 28px;
 $band-header-height: 30px;
-$column-header-height: 40px;
+// 48px, not the 40px §6.3 specified. The header carries the title, the showing count, the Filtered
+// chip, Reset, the 26px + Add button and the legend's ?, and it was tight around all of them — which
+// also made the 28px flip circle on the seam beside them read as too big for the band it was in.
+//
+// This number only started to mean anything when `.chead` was given `flex: 0 0 auto` in
+// matching-column.scss. Without it the header was shrunk to its 27px min-content height on every
+// viewport and neither 40 nor 48 was ever in force; that comment is the one to read before touching
+// this one.
+//
+// It is also what the flip is centred on: `.flip` in matching-screen.scss reads this number, so the
+// circle and the header row share one centre line and cannot drift apart.
+$column-header-height: 48px;
 $filter-row-height: 40px; // reserved by Phase 3, filled by Phase 4
 $filter-chip-height: 26px; // design-system.md 12.2
 $filter-chip-radius: 13px; // a pill: half the chip's height (design-system.md 5.3)
@@ -31,16 +41,38 @@ $expansion-actions-padding: 10px 10px 0; // design-system.md 6.2, item 4
 // drag/column-auto-scroll.ts. If they disagree, the column scrolls somewhere other than where it
 // says it will.
 $auto-scroll-zone: 48px;
+// The drag preview (design-system.md 10, Phase 9). A chip, not a copy of the card: at full card width
+// the thing in your hand covers the row you are aiming at.
+$drag-chip-width: 200px;
+$drag-chip-height: 30px;
 // Phase 3's $search-strip-height is gone. design-system.md 12.1's shared search strip was
 // deliberately not built (Phase 4) — the per-column filters cover it, and the 52px it reserved went
 // back to the list, which is what section 8.3 asks to protect.
-$leading-offset: $rail-width + $spine-width; // 54px
+$leading-offset: $spine-width; // 6px
 
 // --- line 1's columns (design-system.md 6.1) ---
 $col-gap: 8px;
+// The monogram tile is no longer a cell on line 1 — Mark had it removed from both cards and from the
+// header strip, because the class it abbreviates is spelled out in full two cells along and 20px of a
+// 518px row is worth more to the name. The dimension stays because the tile itself lives on: the
+// quantity prompt, the match modal and the drag preview all still carry one, where there is no
+// adjacent stock-class column and the tile is the only thing saying what species is in play.
 $col-tile: 20px;
 $col-stock-class: 96px;
+// UNCHANGED at 50px, and worth saying why, because this change began as a complaint about it.
+// 50px was never too small for a date. It was too small for `dd-MM-yy` (~56px) and for the word
+// DELIVERY (~62px in micro-caps), which is why the value clipped to `26-08-…` and its heading to
+// `DELIVE…` at every viewport. Splitting the date over the card's two rows drops the content to a
+// two-digit day over a three-letter month, and shortening the heading to DATE drops that too; both
+// now sit inside 50px with room to spare.
+//
+// The room to spare is not waste. Row 2 only spends $col-month of this column, and the trailing run
+// borrows the rest — see `.trail`. Narrowing this column would take that back off line 2 and start
+// truncating match counts, which is the trade the 40px version of this change made and lost.
 $col-date: 50px;
+// A month abbreviation is always three letters, so the cell holding one can be a fixed width rather
+// than a shrink-to-fit. It exists so `.trail` has an exact landmark to stop against.
+$col-month: 26px;
 $col-quantity: 40px;
 $col-meter-block: 112px; // 66 meter + 6 gap + 40 numeral
 $col-chevron: 24px;
@@ -90,15 +122,13 @@ $meter-gap: 6px;
 }
 
 // ---------------------------------------------------------------------------------------------
-// Line 1, shared by both cards and by the header strip
+// The header strip's cells
+//
+// The `line-1` mixin that used to sit here is gone with the split date cell: the two lines became one
+// grid, so the strip is the only flex row left on the screen and it declares its own flex in
+// matching-column.scss. The two width mixins below are still shared, and are still the reason the
+// strip and the cards cannot drift apart (design-system.md 6.1).
 // ---------------------------------------------------------------------------------------------
-
-@mixin line-1 {
-  display: flex;
-  align-items: center;
-  gap: $col-gap;
-  min-width: 0;
-}
 
 // The name column is the only one that flexes, so it absorbs the difference between the 518px card
 // at 1366px and anything wider. It truncates rather than wrapping: a card must never grow a third
@@ -314,61 +344,136 @@ $meter-gap: 6px;
     @include cancelled-card;
   }
 
+  // ---------------------------------------------------------------------------------------------
+  // The card body is a TWO-ROW GRID, not two stacked flex lines (the split date cell).
+  //
+  // The date used to be one `dd-MM-yy` label in a 50px cell, and it did not fit: the value clipped to
+  // `26-08-…` and the heading above it clipped to `DELIVE…`, at every viewport, because the name is
+  // the only column that flexes and a wider screen therefore gives the date nothing. Mark chose to
+  // split the date over the two lines the card already has — the day on line 1, the month directly
+  // beneath it — which is what makes the cell fit in 40px instead of the 62px `dd-MM-yy` would need.
+  //
+  // A cell cannot sit under line 1's date column while line 2 is a ragged flex flow, so line 2 now
+  // adopts line 1's columns and the two lines become one grid. Consequences worth knowing:
+  //
+  //   * `.l1` / `.l2` are GONE. Every cell is a direct child of `.cbody` and is placed by grid area,
+  //     so the two templates now list eight cells rather than two rows of them.
+  //   * the row heights are still 17px and 14px with a 3px gutter — 34px of content centred in the
+  //     51px box, exactly as before, so the 52px card is unchanged.
+  //   * line 2's trailing run (over label, match count, status) shares the columns that Req and
+  //     Unmatched occupy above it. It is allowed to reach back across the date column's gap but never
+  //     INTO it, which is what the max-width below buys; see `.trail`.
+  // ---------------------------------------------------------------------------------------------
   .cbody {
     flex: 1 1 auto;
     min-width: 0;
-    display: flex;
-    flex-direction: column;
-    justify-content: center;
-    gap: 3px;
+    display: grid;
+    grid-template-columns:
+      minmax(0, 1fr)
+      $col-stock-class
+      $col-date
+      $col-quantity
+      $col-meter-block;
+    grid-template-rows: 17px 14px;
+    column-gap: $col-gap;
+    row-gap: 3px;
+    align-content: center;
+    align-items: center;
     padding: 0 8px;
   }
 
-  .l1 {
-    @include line-1;
-    height: 17px;
+  // Every cell truncates rather than wrapping: a card must never grow a third line
+  // (design-system.md 6.1). In a flex row `min-width: 0` was the name column's job alone; on a grid
+  // track every item needs it or the track refuses to shrink below its content.
+  .cbody > * {
+    min-width: 0;
+    @include truncate;
+  }
+
+  // --- row 1 ---
+  .name {
+    grid-area: 1 / 1;
     @include card-primary;
   }
 
-  .l2 {
-    @include line-1;
-    height: 14px;
-    @include card-meta;
-  }
-
-  // --- line 1's cells, in the order they appear ---
-  .name {
-    @include col-name;
-  }
-
   .sclass {
-    @include col-fixed($col-stock-class);
+    grid-area: 1 / 2;
+    @include card-primary;
     color: lms.$lms-text-muted;
   }
 
-  .date {
-    @include col-fixed($col-date);
+  // The day of the month, at the card's primary size and a step heavier, because it is the figure the
+  // eye lands on when scanning a band for a delivery. Its month sits directly beneath it.
+  .day {
+    grid-area: 1 / 3;
+    @include card-primary;
+    font-weight: 600;
     @include numerals;
   }
 
   .qty {
-    @include col-fixed($col-quantity, right);
+    grid-area: 1 / 4;
+    @include card-primary;
+    text-align: right;
     @include numerals;
   }
 
-  // --- line 2 ---
-  // The left-hand meta is the only item that truncates; everything to its right is present or absent.
-  .meta {
-    @include col-name;
+  app-fill-meter {
+    grid-area: 1 / 5;
   }
 
+  // --- row 2 ---
+  .meta {
+    grid-area: 2 / 1;
+    @include card-meta;
+  }
+
+  // The month, under its own day. Micro-caps rather than the meta size: it is a label on the figure
+  // above it, not a second piece of prose, and at 11.5px sentence case it read as one.
+  .month {
+    grid-area: 2 / 3;
+    justify-self: start;
+    width: $col-month;
+    font-size: 9px;
+    font-weight: 600;
+    line-height: 12px;
+    letter-spacing: 0.7px;
+    text-transform: uppercase;
+    color: lms.$lms-text-muted;
+  }
+
+  // Line 2's trailing run — the over-state label, the match count and the status.
+  //
+  // It shares the date column's grid area with the month and is pushed to the card's edge, so it
+  // spends the slack the three-letter month leaves rather than starting where Req does. That is worth
+  // 184px instead of 160px, and 160px is not enough: "2 matches · confirmed" beside a Pending status
+  // needs about 182 and truncated on every Pending card in the seed before this reached back.
+  //
+  // The max-width is what keeps a shared area honest — without it the two overlap instead of
+  // truncating, which is a silent failure rather than a visible one.
+  .trail {
+    grid-area: 2 / 3 / 3 / 6;
+    justify-self: end;
+    max-width: calc(100% - #{$col-month + $col-gap});
+    display: flex;
+    align-items: center;
+    gap: $col-gap;
+    overflow: hidden;
+    @include card-meta;
+  }
+
+  // design-system.md 6.1's drop order, restated for the grid: the match count goes first, then the
+  // over-state label, and the status icon and its word are the last things standing. On a flex row
+  // that fell out of source order; inside `.trail` it has to be said, so only the count may shrink.
   .over {
     flex: 0 0 auto;
     font-weight: 500;
   }
 
   .mcount {
-    flex: 0 0 auto;
+    flex: 0 1 auto;
+    min-width: 0;
+    @include truncate;
   }
 
   // The way into a card's matches (Phase 6, 1.1). Phase 5 named this line the entry point and ruled
@@ -448,15 +553,23 @@ $meter-gap: 6px;
     position: relative;
   }
 
-  .target.valid .card {
+  // Every state below is withheld until the pointer has crossed the gutter: `dropState` returns
+  // `none` before that, so a drag with no target in mind lights nothing (Phase 9, lab idea 4).
+  //
+  // **Eligibility is no longer announced, and that is the heart of the phase.** Phase 5 outlined and
+  // filled every card the drag could land on — thirty of them, all saying the same thing, none of
+  // them saying which one the pointer was on. The whole opposite column is eligible; a mark on all of
+  // it carries no information. So `.valid` on its own now draws NOTHING, and the two things that are
+  // genuinely worth saying are said instead: the card under the pointer, and the cards that would
+  // refuse it.
+  //
+  // The fill is $lms-drop-target, NOT $lms-petrol-tint. The tint is the current-week band's, and at
+  // one strength the two were the same colour saying two unrelated things — a target three rows down
+  // and "this is the week you are in" were indistinguishable at a glance.
+  .target.valid.hot .card {
     outline: 2px solid lms.$lms-petrol;
     outline-offset: -2px;
-    background: lms.$lms-petrol-tint;
-  }
-
-  .target.blocked .card {
-    background: #eeeeee;
-    cursor: not-allowed;
+    background: lms.$lms-drop-target;
   }
 
   // Same column: nothing but the cursor. An outline here would be an error for a gesture that
@@ -465,7 +578,56 @@ $meter-gap: 6px;
     cursor: no-drop;
   }
 
+  // --- Phase 9: the card under the pointer, and everything that is not ---
+  //
+  // The hot card is not painted a different colour — it is the one card left at full strength while
+  // its neighbours recede. That is deliberate: hue is committed to the quantity meter, and the
+  // screen already carried too many lit rows at once, which is the complaint this phase answers.
+  // Adding a twelfth signal would have made it worse; taking eleven away is what fixed it.
+  // The badge recedes with its card. It is a sibling of `.card`, not a child — pinned there so a
+  // target picking one up moves no cell of line 1 — so it needs naming, or a full-strength glyph is
+  // left floating over a receded row.
+  .target.dim .card,
+  .target.dim .dropcue {
+    opacity: 0.55;
+  }
+
+  // A full record: the one exception still worth marking, now that eligibility is not.
+  //
+  // Deliberately *after* the scrim above and deliberately further down it. A card that would refuse
+  // the drop is more emphatically out of the running than one that is merely not the card under the
+  // pointer, and the two rules carry equal specificity, so source order is what says so.
+  .target.blocked .card,
+  .target.blocked .dropcue {
+    opacity: 0.45;
+  }
+
+  .target.blocked .card {
+    background: #eeeeee;
+    cursor: not-allowed;
+  }
+
+  .target.blocked.hot .card {
+    box-shadow: inset 0 0 0 2px lms.$lms-faint;
+  }
+
+  // The origin, marked rather than merely un-dimmed (design-system.md 10; lab idea 12b).
+  //
+  // DOTTED, not dashed: dashed already means Cancelled on this screen and §10 rejected a dashed
+  // placeholder for exactly that reason. Solid-with-fill is "you may drop here"; dotted-with-none is
+  // "you came from here", and the two never appear in the same column.
+  //
+  // On the .target WRAPPER, not the card, so a dimmed card cannot take the ring down with it. The
+  // -2px offset is what keeps it off the geometry: no border, no padding, no change to the 52px row.
+  .target.origin {
+    outline: 2px dotted lms.$lms-petrol;
+    outline-offset: -2px;
+  }
+
   // Stay-behind while this card is the drag source. Not a CDK placeholder — those move.
+  //
+  // It keeps its full opacity while the column around it dims, which is the whole of how the origin
+  // reads: nothing is added to it, everything else is taken away.
   .card.stay {
     pointer-events: none;
   }

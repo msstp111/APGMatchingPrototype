@@ -41,6 +41,17 @@ public sealed record ProcessorSpaceDto
     /// <summary>The same date preformatted for display, in LMS's <c>dd-MM-yy</c>.</summary>
     public required string DeliveryDateLabel { get; init; }
 
+    /// <summary>
+    /// The day of the month alone — <c>26</c>. The matching card's date cell splits the date over the
+    /// two lines the card already has: this on line 1, <see cref="DeliveryMonthLabel"/> directly
+    /// beneath it. Both halves ship because neither is derivable client-side and the pair replaces one
+    /// clipped <c>dd-MM-yy</c> in a 50px cell.
+    /// </summary>
+    public required string DeliveryDayLabel { get; init; }
+
+    /// <summary>The abbreviated month — <c>Aug</c>. The card upper-cases it; the wire does not.</summary>
+    public required string DeliveryMonthLabel { get; init; }
+
     public required string? DeliveryTime { get; init; }
 
     public required string? Notes { get; init; }
@@ -127,6 +138,15 @@ public sealed record LivestockAvailabilityDto
     /// what a Phase 4 filter chip would want.
     /// </remarks>
     public required string AvailableFromShortLabel { get; init; }
+
+    /// <summary>
+    /// The day of the month alone — <c>24</c> — for the card's split date cell. The supply card and the
+    /// demand card share one geometry, so both sides carry both halves.
+    /// </summary>
+    public required string AvailableFromDayLabel { get; init; }
+
+    /// <summary>The abbreviated month — <c>Aug</c>. The card upper-cases it; the wire does not.</summary>
+    public required string AvailableFromMonthLabel { get; init; }
 
     public required string? AvailabilityDetails { get; init; }
 

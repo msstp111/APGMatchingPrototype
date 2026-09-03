@@ -127,8 +127,6 @@ export class QuantityPrompt {
       : this.quantityHint;
   });
 
-  readonly stockClassesDiffer = this.space.stockClass !== this.availability.stockClass;
-
   /**
    * The key is the **Processor Space** stock class (resolved question 7). Naming the three parts of
    * the key in the hint is what makes a wrong-side lookup visible on screen: an operator who knows the
@@ -152,12 +150,6 @@ export class QuantityPrompt {
     this.proposal.defaultPricePerKg != null
       ? `Default for ${this.space.processor} · ${this.space.stockClass} · w/c ${this.space.weekCommencingLabel}`
       : `No default price for ${this.space.processor} · ${this.space.stockClass} · w/c ${this.space.weekCommencingLabel}`;
-
-  /**
-   * Information, not a warning. The two lists genuinely do not map onto each other — that is the
-   * domain, and the judgement the whole screen exists to support is a human one.
-   */
-  readonly stockClassNote = `${this.space.stockClass} and ${this.availability.stockClass} come from different stock-class lists. There is no mapping between them — the judgement is yours.`;
 
   readonly transportOptions = computed(() => {
     const typed = this.typedTransport().trim().toLowerCase();

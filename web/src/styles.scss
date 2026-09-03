@@ -63,10 +63,13 @@ body {
 }
 
 // CDK appends the drag preview to <body>, so these rules cannot live on a component.
+//
+// Phase 9 emptied this rule of everything but the cursor. The preview is now `app-drag-preview`, a
+// chip that dresses itself, and its outcome pill hangs OUTSIDE the chip's box — an outline and a
+// shadow here would have drawn a second border around the pair of them.
 .cdk-drag-preview {
-  box-shadow: 0 8px 16px rgb(0 0 0 / 24%);
-  outline: 2px solid #00567e;
   cursor: grabbing;
+  overflow: visible;
 }
 
 // CDK's placeholder follows the pointer into the other column. Hide every one of them: the source

@@ -24,6 +24,8 @@ import { aMatch, anAvailability, aSpace, weeks } from './testing/dto-fixtures';
 describe('Matching screen', () => {
   const space: ProcessorSpaceDto = aSpace({
     deliveryDateLabel: 'THE-LABEL',
+    deliveryDayLabel: 'THE-DAY',
+    deliveryMonthLabel: 'THE-MONTH',
     matchedInclDraft: 70,
     matchedExclDraft: 40,
     unmatched: 999,
@@ -35,6 +37,8 @@ describe('Matching screen', () => {
   const availability: LivestockAvailabilityDto = anAvailability({
     availableFromLabel: 'THE-FROM-LABEL',
     availableFromShortLabel: 'THE-SHORT-LABEL',
+    availableFromDayLabel: 'THE-FROM-DAY',
+    availableFromMonthLabel: 'THE-FROM-MONTH',
     status: 'Pending',
     matchedInclDraft: 70,
     // 777 unmatched against 90 available is nonsense, and deliberately so: the client must print the
@@ -98,9 +102,9 @@ describe('Matching screen', () => {
     return (await render()).textContent ?? '';
   }
 
-  /** The week a column starts at, read off the first rail label it renders. */
+  /** The week a column starts at, read off the first band header it renders. */
   function firstRailLabel(column: Element): string {
-    return column.querySelector('app-week-band .rail-label .dt')?.textContent?.trim() ?? '';
+    return column.querySelector('app-week-band .bhead .dt')?.textContent?.trim() ?? '';
   }
 
   it('renders the space figures exactly as the DTO supplies them', async () => {
@@ -126,11 +130,29 @@ describe('Matching screen', () => {
     expect(rendered).toContain('Pending');
   });
 
+  /**
+   * The card row prints the date as the server's two halves — the day on line 1, the month directly
+   * beneath it — and keeps the whole `dd-MM-yy` label as the hover text on both, which is where the
+   * year lives now. Every one of those four strings is the DTO's; none is composed here, and the ISO
+   * value still reaches the screen nowhere at all.
+   */
   it('renders the supplied date labels and never the raw ISO values', async () => {
-    const rendered = await text();
+    const element = await render();
+    const rendered = element.textContent ?? '';
 
-    expect(rendered).toContain('THE-LABEL');
-    expect(rendered).toContain('THE-FROM-LABEL');
+    expect(rendered).toContain('THE-DAY');
+    expect(rendered).toContain('THE-MONTH');
+    expect(rendered).toContain('THE-FROM-DAY');
+    expect(rendered).toContain('THE-FROM-MONTH');
+
+    for (const [selector, label] of [
+      ['app-space-card', 'THE-LABEL'],
+      ['app-availability-card', 'THE-FROM-LABEL'],
+    ]) {
+      expect(element.querySelector(`${selector} .day`)?.getAttribute('title')).toBe(label);
+      expect(element.querySelector(`${selector} .month`)?.getAttribute('title')).toBe(label);
+    }
+
     expect(rendered).not.toContain('2026-08-27');
     expect(rendered).not.toContain('2026-08-24');
   });
@@ -758,7 +780,7 @@ function cardNames(column: Element): string[] {
 }
 
 function railLabels(column: Element): string[] {
-  return [...column.querySelectorAll('.rail-label .dt')].map(
+  return [...column.querySelectorAll('.bhead .dt')].map(
     (label) => label.textContent?.trim() ?? '',
   );
 }
