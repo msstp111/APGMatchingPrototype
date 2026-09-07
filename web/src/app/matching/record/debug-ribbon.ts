@@ -32,6 +32,6 @@ import { ChangeDetectionStrategy, Component, input } from '@angular/core';
 export class DebugRibbon {
   /** What this particular form is scaffolding for, in one line. */
   readonly note = input<string>(
-    'Debug scaffolding for demos — not the farmer or agent submission form.',
+    'Debug scaffolding for demos, not the farmer or agent submission form.',
   );
 }

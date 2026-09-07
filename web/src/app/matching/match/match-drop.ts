@@ -99,7 +99,7 @@ export class MatchDrop {
     }
 
     const bar = this.snackBar.open(
-      `Match created — ${match.quantityMatched} head, ${match.processor} ${match.plant}`,
+      `Match created: ${match.quantityMatched} head, ${match.processor} ${match.plant}`,
       'Undo',
       { duration: CREATION_MS, panelClass: SNACK_PANEL },
     );

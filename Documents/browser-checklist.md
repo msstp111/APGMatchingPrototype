@@ -77,8 +77,23 @@ it is a claim about every dialog rather than one screen.
       date, quantity and meter should each sit under their own micro-cap heading. This is the whole
       thesis of the design — a card is a table row — and §16.9 warns it is *"invisible in code review
       and glaring on screen"*. It was wrong in the first cut of the Phase 2 canvas.
-- [ ] **The trailing edge lines up too**: the Unmatched column against its own header, 32px in from
-      the right. (§16.10 — the card spends 8px padding + 24px chevron, the strip 24px spacer + 8px.)
+- [x] **The trailing edge lines up too**: the Unmatched column against its own header, **40px** in
+      from the right. **RUN 2026-09-07 — it FAILED, and is now fixed.** §16.10 item 10 asserted 32px
+      on both sides and had forgotten that `.strip` is a flex row with `gap: $col-gap`: the strip
+      spent 8px padding + 8px gap + 24px cell = 40, the card 24px chevron + 8px body padding = 32, so
+      `Unmatched` sat 8px left of the numerals underneath it — from Phase 3 until now. The card was
+      given `padding-right: $card-edge` (which §6.2's notch wanted anyway) and both ends are 40.
+      Measured in the running app: the card's `app-fill-meter` and the strip's `.s-meter` both end on
+      x=781. Re-check this if either end is ever touched again, and measure rather than adding up.
+- [ ] **The leading edge lines up too, past the new grip.** Since 2026-09-07 the row starts with a
+      full-height 30px drag grip — the spine painted over its leading 6px — then the body's 8px
+      padding, so the strip's leading pad is 38px. `Processor` / `Location` must sit exactly over the
+      name in the cards below it — get this wrong and every heading on line 1 sits 30px off. (§16.12.)
+- [ ] **The grips are one straight column, whatever the status.** Scroll the supply side to
+      **Terrace Rimu Crossing** and **Elm Ford Acres** (both Pending, both hatched) sitting among
+      Booked cards: the six dots must be at the same x on every row, with the hatch running *over* the
+      grip's left edge. In the first cut the grip followed the spine, and Booked's 3px against every
+      other status's 6px stepped the whole column in and out. (§16.12.)
 - [ ] **Long values ellipse rather than wrapping.** Availability **#28, Granite Glen Agriculture**
       (the longest location name in the seed) and any `Nat Beef - Premium` space (the longest stock
       class, 96px column). Neither may push the card to a second line. (§6.1.)
@@ -159,8 +174,10 @@ it is a claim about every dialog rather than one screen.
       **#6**. Expand either card, click the row: the modal must show the same figures and the same
       ceiling either way. (Requirement 1.2.)
 - [ ] **The match label on line 2 opens the card.** `2 matches · 1 draft` is a button; `no matches` is
-      not. Clicking it must **not** start a drag — it sits inside the drag handle and stops
-      `pointerdown`. Try clicking it with a slight wobble.
+      not. Since 2026-09-07 the body around it opens the card too, so what to watch for here is the
+      *opposite* failure: the label must open the card and leave it open, not toggle twice and look
+      like it did nothing. Try clicking it with a slight wobble as well — the body no longer drags, so
+      a wobble must not lift the card either.
 - [ ] **No text overlaps anything else.** The first pass found `mat-hint` text painting over the notes
       below it and over the footer, because Material's subscript wrapper is a fixed height and a hint
       that wraps overflows rather than pushing down. Hints in this modal are now capped at one line of
@@ -194,7 +211,7 @@ it is a claim about every dialog rather than one screen.
 - [ ] **Change quantity and transport together on a Confirmed match**: **both** consequences are named
       in the one sentence. (Fixed in Phase 6's review; the write applies both fields.)
 - [ ] **Change only the price on a Confirmed match**: **no prompt.**
-- [ ] **`Delete draft` appears only on a draft; `Cancel match…` only past one. Never both.** Space
+- [ ] **`Undo match` appears only on a draft; `Cancel match…` only past one. Never both.** Space
       **#1** shows all of it from one card: match **#3** and **#4** are drafts, match **#2** is
       confirmed. (Resolved question 3.)
 - [ ] **Cancel a match.** The reason list offers exactly three, nothing is preselected, the action is
@@ -368,7 +385,7 @@ Do not report these. Each is a decision with a reason recorded.
 | The band header and the rail **both say `Week of 30 Aug`** | §8.4 and §8.5 each specify it. Only the rail sticks. |
 | Dropping inside one column **does nothing at all** | By specification. An error for a gesture that does not apply teaches an operator to fear the screen. (§10.) |
 | A card's DOM node **flashes** into the target list mid-drag | CDK moves the preview's sibling; change detection restores it. (Phase 5, "Deviations".) |
-| The six-dot grab glyph **does not move anything** when it appears | Built in Phase 8, and positioned in the body's 8px right gutter rather than laid out as a cell — exactly so the row's trailing edge stays at 32px and the Unmatched column keeps lining up with its heading. Only its opacity changes. (§10, §16.10.) |
+| The card shows a **hand cursor, not a grab cursor**, and there is no six-dot glyph in the right gutter | Both went on 2026-09-07. The two gestures are separated: the always-visible 24px `drag_indicator` grip at the *left* of the row drags, the rest of the row expands, and each carries its own cursor. The grip is a real cell, so the strip's leading pad is 38px rather than 14px. (§10, §16.12.) The trailing edge went from 32px to 40px on the same date, for an unrelated reason: it was misaligned with its own header and had been since Phase 3 — see section A. |
 | **Nothing responds to the keyboard** for dragging | Resolved question 14: a mouse is assumed at all times. Its absence is a decision. |
 | The first week is **all ANZCO** | Chance, not arithmetic — the mix is 70/20/10 shuffled. The aliasing bug that caused it was fixed after Phase 4. |
 | A cancelled record's **matches are still there**, on both cards | The rule this whole phase exists to show. Cancelling a record never cascades — it lets APG arrange alternatives before anyone is notified. Cancel them separately. (Phase 7, 5.2.) |
@@ -392,7 +409,64 @@ Both changes are geometry and colour, which is exactly what jsdom cannot check.
 | The legend fits at **1366×768** without the dialog scrolling awkwardly | 720px wide, four sections. If it needs a scroll it should be a clean one, not a clipped last row. |
 | Line 1's **name column is wider** than before, and line 2's meta starts on the same vertical | The tile's 20px plus its 8px gap went to the name, which truncates. The alignment of the two lines is a side effect, not a goal. |
 | The header strip's cells still sit **exactly over** the card's | The `.s-tile` spacer came out with the tile. If the strip is 28px out of step, only one of the three was changed. (§16.10.) |
-| The tile is **still** in the quantity prompt, the match modal and the drag preview | Deliberate: nothing else on those three says what species is in play. Flag it if it now looks orphaned. |
+| The tile is **still** in the drag chip, and **nowhere else** | It came off the card rows and header strip in §16.10 and off both match dialogs on 2026-09-07. The chip keeps it because it has three fields in 200px and no room to spell a class out; the dialogs spell theirs out in words. |
+
+## The two match dialogs — RUN 2026-09-07, all passed (re-run after the title and badge change)
+
+Driven in headless Chrome 152 at 1600×1100 (deviceScaleFactor 2) over the DevTools Protocol: the drag
+was real pointer events, the modal was opened by clicking a row of an expanded card's match table.
+Kept here because the claims are geometric and jsdom cannot see any of them.
+
+| Check | What it should be | Seen |
+| --- | --- | --- |
+| The drop prompt's title names the act and the slot | `Draft match: ANZCO Rangitikei`, and no head count | ✔ |
+| The modal's title names the act and the slot | `Confirm match: ANZCO Rangitikei` on a Drafted match; `Edit match: ANZCO Rangitikei` on a Confirmed one, whose footer offers `Cancel match…` and no `Confirm match` | ✔ both |
+| Neither dialog carries a monogram tile | `app-stock-class-tile` absent from both; each name line starts at the block's own padding | ✔ |
+| The modal stacks its parents | Livestock Availability, arrow, Processor Space — the drop prompt's order, `.rec + .flow + .rec` | ✔ |
+| Each block spans the dialog | 512px inside the 640px dialog, both equal | ✔ |
+| Nothing in either block truncates | `scrollWidth <= clientWidth` on all four names and sub-lines — the thing the 300px side-by-side halves could not manage | ✔ |
+| No stock-class commentary | `.note` absent, and both classes still legible in the tiles and sub-lines | ✔ |
+| The wrapping hints still push the footer down | The ceiling sentence runs to four lines and the price hint to three; the footer sits below both, not under them | ✔ |
+
+## M. The expanded card, round two — RUN 2026-09-07, all passed
+
+`design-system.md` §6.2's four devices and the exclusivity rule, added the same day from
+`Documents/expansion-lab-2.html` (ideas 3, 5, 6, 8 and 0 of ten). Every row below was measured in the
+**running app** — `dotnet run` plus `npm start`, headless Chromium over CDP, element rects and pixel
+scans rather than a judgement by eye — because each one is a claim about a single pixel and every one
+of them had already been got wrong once in the lab.
+
+| Claim | What was measured | |
+| --- | --- | --- |
+| The drawer's content begins where the card's name begins | `.name` and the sheet's first `.label` both at **x=241**; the match table's first cell at 233 with 8px of padding, so its text lands on 241 too | ✔ |
+| The rail's hairline continues the grip's rule | grip's `right - 1` and the `::before` rail both at **x=232** (independent pixel scan: both at x=883 in a 1500px window) | ✔ |
+| $expansion-rail is 29px, not 30 | computed `padding-left: 29px`; at 30 the rule lands a pixel right of the grip's — the lab's first cut did exactly that | ✔ |
+| The notch is centred on its chevron | chevron centre and notch centre both at **x=801**; pixel scan of the gap in the sheet's top border gives 1444–1459, centre 1451.5, against the chevron apex at 1451.5 | ✔ |
+| The card's trailing run is 40px, matching the strip | meter block and `.s-meter` both end on **x=781** — see section A, this one was a failure before today | ✔ |
+| The drawer rises; nothing else on the screen has a shadow | `.expansion` box-shadow `0 3px 8px -3px rgba(0,0,0,.3)`; the host's border-bottom is `0px`; `.card:hover` declares colour only | ✔ |
+| The sums are type on white, at 20px | no ground on `.sums`; `$lms-expansion-head` and `$lms-expansion-head-rule` no longer exist in the stylesheet | ✔ |
+| One drawer per column | two demand cards clicked in turn → `app-space-card app-card-expansion` count stays **1** | ✔ |
+| ...but the two columns are independent | a demand card and a supply card open together → 1 and 1, neither closing the other. This is the half of the rule that a shorter implementation would silently break | ✔ |
+
+Two more, checked in the same pass:
+
+| Claim | What was seen | |
+| --- | --- | --- |
+| The **last** card in a band opens correctly | Opened the last space in `WEEK OF 30 AUG`: notch under its chevron, rail unbroken, and the drawer's 1px foot meets the next band's 2px petrol rule directly. The frame's bottom edge is quiet against that rule, which is right — the band rule is what closes a band | ✔ |
+| The **no-matches** drawer still reads | The table placeholder and the actions row are unchanged | ✔ |
+
+**One thing to watch, found in that same shot and not a defect.** On a record with no matches the two
+sums are `0` and `0`, and at 20px they are now the loudest thing in the drawer — a large, emphatic
+pair of zeros above the sentence that explains there is nothing to total yet. It is honest and it is
+not wrong, but it is the one case where idea 3's anchor anchors nothing. If it grates in the demo, the
+cheapest answer is to render the sums at the card-figure size when `matchedInclDraft` is 0, and the
+next cheapest is to drop the pair entirely on a record with no live matches — the field row already
+carries `Quantity required` and `Quantity unmatched`, which are the only two figures that mean
+anything in that state.
+
+**Still open:** whether the 20px sums outweigh the collapsed row's own 15px meter numeral when the eye
+sweeps a column (§5.1 has no step above 15px anywhere else on this screen, and this is the first).
+That one needs a person looking at it, not a measurement.
 
 ## Recording the result
 

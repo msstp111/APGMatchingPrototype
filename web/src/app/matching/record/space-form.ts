@@ -137,7 +137,7 @@ export class SpaceForm {
     const matched = this.space?.matchedInclDraft ?? 0;
 
     return entered !== null && matched > 0 && entered < matched
-      ? `Already ${matched} head matched — saving this leaves the space over-filled.`
+      ? `Already ${matched} head matched. Saving this leaves the space over-filled.`
       : null;
   });
 

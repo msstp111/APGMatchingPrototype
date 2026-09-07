@@ -4,7 +4,7 @@
   The summaries are read-only on purpose — this dialog is the last point at which the operator can
   check they grabbed the card they meant to.
 -->
-<h2 mat-dialog-title>Match {{ titleQuantity() }} head</h2>
+<h2 mat-dialog-title>Draft match: {{ spaceName }}</h2>
 
 <mat-dialog-content>
   <div class="rec">
@@ -17,7 +17,6 @@
       </div>
 
       <div class="rname">
-        <app-stock-class-tile [stockClass]="availability.stockClass" />
         <span class="nm">{{ availability.locationName || '-' }}</span>
         <span class="cls">{{ availability.stockClass }}</span>
       </div>
@@ -68,8 +67,7 @@
       </div>
 
       <div class="rname">
-        <app-stock-class-tile [stockClass]="space.stockClass" />
-        <span class="nm">{{ space.processor }} {{ space.plant }}</span>
+        <span class="nm">{{ spaceName }}</span>
         <span class="cls">{{ space.stockClass }}</span>
       </div>
 

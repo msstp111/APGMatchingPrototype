@@ -168,7 +168,7 @@ export class AvailabilityForm {
     const matched = this.record?.matchedInclDraft ?? 0;
 
     return entered !== null && matched > 0 && entered < matched
-      ? `Already ${matched} head matched — saving this leaves the record over-committed, and its ` +
+      ? `Already ${matched} head matched. Saving this leaves the record over-committed, and its ` +
           `matches are not changed by it.`
       : null;
   });

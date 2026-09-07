@@ -15,8 +15,7 @@ import { MatInputModule } from '@angular/material/input';
 import { catchError, of } from 'rxjs';
 import { ApiClient } from '../../api/api-client';
 import { CreateMatchRequest, MatchProposalDto } from '../../api/models';
-import { StockClassTile } from '../card/stock-class-tile';
-import { quantityClass, spineClass, transactionTypeLabel } from '../card/card-chrome';
+import { quantityClass, spaceName, spineClass, transactionTypeLabel } from '../card/card-chrome';
 import { MatchPair } from '../drag/card-drag';
 
 /** What the drop hands the prompt: the two records in full, and the server's terms for matching them. */
@@ -52,7 +51,6 @@ export interface QuantityPromptData {
     MatFormFieldModule,
     MatInputModule,
     MatAutocompleteModule,
-    StockClassTile,
   ],
   templateUrl: './quantity-prompt.html',
   styleUrl: './quantity-prompt.scss',
@@ -102,8 +100,21 @@ export class QuantityPrompt {
   readonly availabilityUnmatchedInk = quantityClass(this.availability.quantityState, 'supply');
   readonly transactionType = transactionTypeLabel(this.availability.transactionType);
 
-  /** The title carries the primary number, and follows the field as it is edited. */
-  readonly titleQuantity = computed(() => this.quantityValue() ?? 0);
+  /**
+   * `Draft match — ANZCO Kokiri`: the act, then the space the animals are going to.
+   *
+   * The word in front is `Draft` because that is what pressing `Create match` produces — a `Drafted`
+   * match, not a commitment — and because the dialog that comes next says `Confirm match`. Two
+   * dialogs that both said only `Match` left the operator to work out which of the two acts they were
+   * being asked for.
+   *
+   * **The number that used to be here is gone.** It read `Draft match — 132 head` and followed the
+   * quantity field as it was edited, which is where the figure already is, 200px below. Naming the
+   * processor and plant instead says which of a screen full of near-identical ANZCO slots this dialog
+   * is about — the one thing the operator cannot otherwise recover once the dialog covers the board
+   * (Mark's call, 2026-09-07).
+   */
+  readonly spaceName = spaceName(this.space);
 
   /**
    * Short enough for one line of a 148px field, and it has to be.

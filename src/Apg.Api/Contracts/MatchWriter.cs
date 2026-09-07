@@ -102,7 +102,7 @@ public static class MatchWriter
         var maximum = MatchCreation.MaxMatchQuantity(unmatched);
 
         return request.QuantityMatched > maximum
-            ? $"Capped at {maximum} — that is all this livestock availability record has unmatched"
+            ? $"Capped at {maximum}, which is all this livestock availability record has unmatched"
             : null;
     }
 
@@ -206,7 +206,7 @@ public static class MatchWriter
         var ceiling = EditCeiling(set, match);
 
         return request.QuantityMatched > ceiling
-            ? $"Capped at {ceiling} — that is the availability record's remaining supply plus this match's own {match.QuantityMatched}"
+            ? $"Capped at {ceiling}, which is the availability record's remaining supply plus this match's own {match.QuantityMatched}"
             : null;
     }
 

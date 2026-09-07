@@ -6,6 +6,24 @@
 -->
 <div class="expansion">
   @if (space(); as s) {
+    <!--
+      The sums come FIRST: they are the drawer's caption bar, not a band in the middle of it.
+      An expansion that opened straight into a field row had no visible top edge of its own and
+      read as more rows of the list; a titled strip has one, and these two figures are what the
+      block is for. design-system.md 6.2 carries the order.
+    -->
+    <div class="sums">
+      <div class="field">
+        <span class="label">Quantity Matched incl. Draft</span>
+        <span class="value sum">{{ s.matchedInclDraft }}</span>
+      </div>
+
+      <div class="field">
+        <span class="label">Quantity Matched</span>
+        <span class="value sum">{{ s.matchedExclDraft }}</span>
+      </div>
+    </div>
+
     <div class="fields">
       <div class="field grow">
         <span class="label">Notes</span>
@@ -23,18 +41,6 @@
           <span class="ink" [class]="quantityInk(s)">{{ s.unmatched }}</span>
           <span class="state">{{ s.quantityStateLabel }}</span>
         </span>
-      </div>
-    </div>
-
-    <div class="sums">
-      <div class="field">
-        <span class="label">Quantity Matched incl. Draft</span>
-        <span class="value sum">{{ s.matchedInclDraft }}</span>
-      </div>
-
-      <div class="field">
-        <span class="label">Quantity Matched</span>
-        <span class="value sum">{{ s.matchedExclDraft }}</span>
       </div>
     </div>
 
@@ -97,7 +103,7 @@
           } @empty {
             <tr>
               <td class="empty" colspan="6">
-                No matches yet — drag a livestock availability record onto this space.
+                No matches yet. Drag a livestock availability record onto this space.
               </td>
             </tr>
           }
@@ -145,6 +151,24 @@
   }
 
   @if (availability(); as a) {
+    <!--
+      The sums come FIRST: they are the drawer's caption bar, not a band in the middle of it.
+      An expansion that opened straight into a field row had no visible top edge of its own and
+      read as more rows of the list; a titled strip has one, and these two figures are what the
+      block is for. design-system.md 6.2 carries the order.
+    -->
+    <div class="sums">
+      <div class="field">
+        <span class="label">Quantity Matched incl. Draft</span>
+        <span class="value sum">{{ a.matchedInclDraft }}</span>
+      </div>
+
+      <div class="field">
+        <span class="label">Quantity Matched</span>
+        <span class="value sum">{{ a.matchedExclDraft }}</span>
+      </div>
+    </div>
+
     <div class="fields">
       <div class="field grow">
         <span class="label">Availability details</span>
@@ -172,18 +196,6 @@
           <span class="ink" [class]="quantityInk(a)">{{ a.unmatched }}</span>
           <span class="state">{{ a.quantityStateLabel }}</span>
         </span>
-      </div>
-    </div>
-
-    <div class="sums">
-      <div class="field">
-        <span class="label">Quantity Matched incl. Draft</span>
-        <span class="value sum">{{ a.matchedInclDraft }}</span>
-      </div>
-
-      <div class="field">
-        <span class="label">Quantity Matched</span>
-        <span class="value sum">{{ a.matchedExclDraft }}</span>
       </div>
     </div>
 
@@ -243,7 +255,7 @@
           } @empty {
             <tr>
               <td class="empty" colspan="7">
-                No matches yet — drag this record onto a processor space.
+                No matches yet. Drag this record onto a processor space.
               </td>
             </tr>
           }

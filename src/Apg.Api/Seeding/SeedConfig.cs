@@ -116,7 +116,7 @@ public static class SeedConfig
         "Repeat booking for the same customer.",
         "Confirm tally the day before.",
         "Space may extend if supply allows.",
-        "Contract kill — do not substitute.",
+        "Contract kill. Do not substitute.",
         "Prefer even lines, no stragglers.",
     ];
 

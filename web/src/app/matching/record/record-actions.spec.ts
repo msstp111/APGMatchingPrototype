@@ -272,7 +272,7 @@ describe('Record actions', () => {
 
     actions().addSpace();
 
-    expect(snacks[1].message).toBe("Processor space added — hidden by this column's filters");
+    expect(snacks[1].message).toBe("Processor space added, hidden by this column's filters");
   });
 
   it('creates a record and publishes it with the recomputed calendar', () => {

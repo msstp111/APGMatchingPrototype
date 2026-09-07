@@ -94,7 +94,7 @@ export class FillMeter {
   readonly hoverTitle = computed(
     () =>
       `${this.matchedExclDraft()} matched / ${this.matchedInclDraft()} incl. draft ` +
-      `of ${this.original()} — ${this.unmatched()} unmatched (${this.quantityStateLabel()})`,
+      `of ${this.original()}, ${this.unmatched()} unmatched (${this.quantityStateLabel()})`,
   );
 
   private percent(matched: number): string {

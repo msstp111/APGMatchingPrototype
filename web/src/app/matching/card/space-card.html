@@ -76,16 +76,17 @@
 
           Phase 6 makes it the way in. Clicking opens the expansion, whose match table opens a match —
           Phase 5's log named this label the entry point and ruled out drawing a second chip beside it.
-          The pointerdown is stopped because this sits inside the drag handle: without it, a click that
-          drifts a pixel would lift the card instead of opening it.
+          The whole body opens the card now, so this button no longer has to be the way in; it stays
+          because the dotted underline is what says the matches are reachable. Its click is stopped so
+          the body's own handler does not toggle a second time and land back where it started. The
+          pointerdown that used to be stopped here is gone with the body's drag handle.
         -->
       @if (hasMatches()) {
         <button
           type="button"
           class="mcount"
           [title]="matchesTitle()"
-          (pointerdown)="$event.stopPropagation()"
-          (click)="toggle()"
+          (click)="$event.stopPropagation(); toggle()"
         >
           {{ matchesLabel() }}
         </button>
@@ -105,6 +106,9 @@
   @if (isSource()) {
     <div class="card stay" [class.zebra]="zebra()" aria-hidden="true">
       <span class="spine" [class]="spine()"></span>
+      <span class="grip" aria-hidden="true">
+        <span class="material-symbols-outlined">drag_indicator</span>
+      </span>
       <div class="cbody">
         <ng-container [ngTemplateOutlet]="lines" />
       </div>
@@ -122,17 +126,39 @@
     (cdkDragStarted)="dragStarted()"
     (cdkDragEnded)="dragEnded()"
   >
+    <!--
+      The status spine. Still first in the template, but no longer a cell: card-shell takes it out of
+      flow and paints it over the grip's leading edge. Booked's spine is 3px and every other status's
+      is 6px, and while it was in flow that difference moved the grip beside it — a column of glyphs
+      stepping in and out by 3px down the list.
+    -->
     <span class="spine" [class]="spine()"></span>
 
-    <div class="cbody" cdkDragHandle>
-      <ng-container [ngTemplateOutlet]="lines" />
-    </div>
+    <!--
+      The grip: a full-height 30px cell — 6px of spine overlay plus a 24px glyph area — and the ONLY
+      `cdkDragHandle` on the card (2026-09-07). Until then the whole body was the handle, so a hand
+      cursor covered all 508px of a row whose commonest action is expanding it, and expanding meant
+      reaching the chevron in the far corner. The two are separated now — this drags, the body below
+      expands — and the glyph is a real cell rather than the hover-only six dots §10 had in the right
+      gutter, because a drag target should be big and in the place the eye starts.
+    -->
+    <span
+      class="grip"
+      cdkDragHandle
+      title="Drag onto a card in the other column to match"
+      aria-hidden="true"
+    >
+      <span class="material-symbols-outlined">drag_indicator</span>
+    </span>
 
     <!--
-      design-system.md 10's grab affordance. It sits in the body's right gutter and is positioned
-      rather than laid out, so picking it up costs the row no width and moves no cell.
+      The body is the expand target. It carries no role and no tabindex: the chevron beside it is the
+      focusable control with the aria-expanded state, and a second tab stop saying the same thing on
+      the same row would only be one more thing to tab past.
     -->
-    <span class="grab" aria-hidden="true"></span>
+    <div class="cbody" (click)="toggle()">
+      <ng-container [ngTemplateOutlet]="lines" />
+    </div>
 
     <!--
       The chevron carries the cancelled-partner badge (Phase 7, 5.3): a solid red square behind it

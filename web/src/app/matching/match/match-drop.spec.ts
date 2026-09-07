@@ -134,7 +134,7 @@ describe('Match drop', () => {
     expect(writes[0].availability?.id).toBe(8);
     expect(writes[1].availability?.unmatched).toBe(90);
     expect(openSnack).toHaveBeenCalledWith(
-      'Match created — 40 head, ANZCO Rangitikei',
+      'Match created: 40 head, ANZCO Rangitikei',
       'Undo',
       expect.anything(),
     );
@@ -146,7 +146,7 @@ describe('Match drop', () => {
         () =>
           new HttpErrorResponse({
             status: 400,
-            error: { message: 'Capped at 12 — that is all this livestock availability record has unmatched' },
+            error: { message: 'Capped at 12, which is all this livestock availability record has unmatched' },
           }),
       ),
     );
@@ -154,7 +154,7 @@ describe('Match drop', () => {
     TestBed.inject(MatchDrop).dropped(pair);
 
     expect(openSnack).toHaveBeenCalledWith(
-      'Capped at 12 — that is all this livestock availability record has unmatched',
+      'Capped at 12, which is all this livestock availability record has unmatched',
       '',
       expect.anything(),
     );

@@ -1,0 +1,1575 @@
+<!doctype html>
+<html lang="en-NZ">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>APG matching — expanded-card treatment lab</title>
+<!--
+  ============================================================================================
+  THROWAWAY. Not part of the Angular application, not routed, not imported anywhere.
+  One self-contained file: no build step, no framework, no CDN, no network. Opens over file://.
+  Same pattern as drag-lab.html, and for the same reason.
+
+  THE PROBLEM IT EXISTS TO SOLVE
+  An expanded card does not read as one object. The column is a run of white / #F5F5F5 striped
+  52px rows; the expansion opens below one of them as four more bands of white / #FAFAFA /
+  white+#F5F5F5, at a 30px row rhythm, with no boundary of its own. Its match table stripes with
+  `$lms-card-zebra` — the SAME #F5F5F5 the card list stripes with — so the drawer is built out of
+  the list's own vocabulary and dissolves into it.
+
+  Geometry and colour are copied from the real screen so the alternatives are judged against the
+  thing the designer already knows:
+      web/src/styles/_lms-tokens.scss                     every colour below
+      web/src/app/matching/_card-geometry.scss            every dimension below, and card-shell
+      web/src/app/matching/card/card-expansion.scss       THE BASELINE — what ships today
+      web/src/app/matching/card/space-card.html           the 52px row's grid
+      web/src/app/matching/card/fill-meter.scss           the meter
+      web/src/app/matching/band/week-band.scss            band headers
+      web/src/app/matching/column/matching-column.scss    column header, 28px strip
+
+  Material Symbols is deliberately not used — the icon font would not load offline, so every
+  glyph here is inline SVG.
+
+  HOW TO READ IT: each idea is one class on a `.board` element. Nothing here is scoped to a
+  component, so ideas compose; the presets across the top are just sets of those classes.
+  ============================================================================================
+-->
+<style>
+:root {
+  /* --- sampled LMS tokens, copied verbatim from _lms-tokens.scss --- */
+  --lms-petrol: #00567e;
+  --lms-surface: #fafafa;
+  --lms-zebra: #eeeeee;
+  --lms-divider: #e0e0e0;
+  --lms-text: #212121;
+  --lms-text-muted: #757575;
+  --lms-card: #ffffff;
+  --lms-card-zebra: #f5f5f5;
+  --lms-band: #f0f0f0;
+  --lms-petrol-tint: #e8f1f6;
+  --lms-hover: #f5f9fb;
+  --lms-rule-strong: #bdbdbd;
+  --lms-rule-soft: #efefef;
+  --lms-faint: #9e9e9e;
+  --lms-attention-ink: #5c5f62;
+  --q-under-bar: #e8820c;
+  --q-under-ink: #a85b00;
+  --q-exact-bar: #2e7d32;
+  --q-exact-ink: #1b5e20;
+  --q-over-bar: #1565c0;
+  --q-over-ink: #0d47a1;
+  --q-track: #e0e0e0;
+  --lms-error: #ba1a1a;
+
+  /* --- values PROPOSED by this lab, and nowhere in the app yet ---
+         The drawer ground has to be darker than everything in the list, because white is already
+         the top of the range: #FFF card, #F5F5F5 zebra, #F0F0F0 band, #FAFAFA empty band. There is
+         no room above, so the only free direction is down. It is a cool neutral rather than a
+         petrol tint: $lms-petrol-tint is spoken for by the current-week band AND $lms-drop-target
+         sits just below it, and a third petrol value on the same column would say "this week" or
+         "droppable" before it said "open". */
+  --exp-ground: #e8eaed;
+  --exp-rule: #d5d9dd;      /* a rule that survives on that ground */
+  --exp-sheet-edge: #cfd4d8; /* the inset sheet's hairline */
+
+  /* Shipped, and now also the tray's fill: $lms-expansion-head, the sums caption bar's grey. */
+  --lms-expansion-head: #dfe4e8;
+
+  /* --- geometry, from _card-geometry.scss --- */
+  --card-h: 52px;
+  --strip-h: 28px;
+  --band-h: 30px;
+  --chead-h: 48px;
+  --filter-h: 40px;
+  --spine: 6px;
+  --spine-booked: 3px;
+  --col-gap: 8px;
+  --col-sclass: 96px;
+  --col-date: 50px;
+  --col-month: 26px;
+  --col-qty: 40px;
+  --col-meter: 112px;
+  --col-chev: 24px;
+  --meter-track: 66px;
+  --meter-numeral: 40px;
+  --leading: 6px; /* $leading-offset === $spine-width */
+}
+
+* { box-sizing: border-box; }
+
+html, body { height: 100%; margin: 0; }
+
+body {
+  display: flex;
+  background: var(--lms-surface);
+  color: var(--lms-text);
+  font-family: Roboto, "Segoe UI", "Helvetica Neue", Arial, sans-serif;
+  font-size: 13px;
+  overflow: hidden;
+}
+
+/* ============================================================================================
+   the page frame: lab on the left, notes panel pinned right
+   ============================================================================================ */
+
+.lab {
+  flex: 1 1 auto;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+
+.intro {
+  flex: 0 0 auto;
+  padding: 12px 14px 10px;
+  border-bottom: 1px solid var(--lms-divider);
+  background: #fff;
+}
+
+.intro h1 { margin: 0 0 4px; font-size: 15px; font-weight: 600; }
+
+.intro p {
+  margin: 0;
+  max-width: 96ch;
+  font-size: 12.5px;
+  line-height: 17px;
+  color: #3d4144;
+}
+
+.intro code {
+  font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  font-size: 11.5px;
+  background: var(--lms-surface);
+  border: 1px solid var(--lms-divider);
+  padding: 0 3px;
+}
+
+/* --- presets: the row you actually click --- */
+.presets {
+  flex: 0 0 auto;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 14px;
+  background: #fff;
+  border-bottom: 1px solid var(--lms-divider);
+}
+
+.presets .plabel {
+  font-size: 10.5px;
+  font-weight: 500;
+  letter-spacing: 0.7px;
+  text-transform: uppercase;
+  color: var(--lms-text-muted);
+  margin-right: 2px;
+}
+
+.presets button {
+  height: 26px;
+  padding: 0 9px;
+  border: 1px solid var(--lms-rule-strong);
+  border-radius: 13px;
+  background: #fff;
+  font-family: inherit;
+  font-size: 11.5px;
+  color: var(--lms-text);
+  cursor: pointer;
+}
+
+.presets button:hover { background: var(--lms-hover); }
+
+.presets button.on {
+  background: var(--lms-petrol);
+  border-color: var(--lms-petrol);
+  color: #fff;
+}
+
+.presets .sep { width: 1px; height: 20px; background: var(--lms-divider); margin: 0 4px; }
+
+.presets label {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 11.5px;
+  color: #3d4144;
+  cursor: pointer;
+}
+
+/* --- the stage the boards stand on --- */
+.stage {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  gap: 18px;
+  padding: 14px;
+  overflow: auto;
+}
+
+.stack { flex: 1 1 0; display: flex; flex-direction: column; min-width: 0; }
+
+.stack > .cap {
+  flex: 0 0 auto;
+  margin-bottom: 6px;
+  font-size: 10.5px;
+  font-weight: 600;
+  letter-spacing: 0.7px;
+  text-transform: uppercase;
+  color: var(--lms-text-muted);
+}
+
+.stack.compare { display: none; }
+body.comparing .stack.compare { display: flex; }
+
+/* ============================================================================================
+   THE REAL SCREEN, REPRODUCED
+   Everything from here to the ideas block is a copy of what ships. Do not "improve" it: its whole
+   job is to be the thing the alternatives are measured against.
+   ============================================================================================ */
+
+/* The column flexes exactly as the real one does — the name cell is the only track that grows, so a
+   wide monitor gives the width to the processor name and the match table stops wrapping. 620px is
+   roughly the 1366px viewport's 518px column plus the lab's own chrome; below that the table wraps,
+   which is worth seeing but not worth defaulting to. */
+.board {
+  flex: 1 1 auto;
+  min-width: 620px;
+  max-width: 900px;
+  height: 100%;
+  min-height: 0;
+  display: flex;
+}
+
+.column {
+  flex: 1 1 auto;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  background: var(--lms-card);
+  border: 1px solid var(--lms-divider);
+}
+
+/* --- column header (48px) --- */
+.chead {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  height: var(--chead-h);
+  padding: 0 10px;
+  border-bottom: 1px solid var(--lms-divider);
+}
+
+.chead .glyph { color: var(--lms-petrol); display: inline-flex; }
+.ctitle { margin: 0; font-size: 14px; font-weight: 600; }
+
+.showing {
+  margin-left: auto;
+  font-size: 11.5px;
+  color: var(--lms-text-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.add {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  height: 26px;
+  padding: 0 8px;
+  border: 1px solid var(--lms-rule-strong);
+  border-radius: 3px;
+  background: #fff;
+  color: var(--lms-petrol);
+  font-family: inherit;
+  font-size: 12px;
+  font-weight: 500;
+}
+
+/* --- filter row (40px) --- */
+.frow {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  height: var(--filter-h);
+  padding: 0 10px;
+  border-bottom: 1px solid var(--lms-divider);
+}
+
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  height: 26px;
+  padding: 0 9px;
+  border: 1px solid var(--lms-rule-strong);
+  border-radius: 13px;
+  font-size: 11.5px;
+  color: var(--lms-text);
+  white-space: nowrap;
+}
+
+.chip.set { border-color: var(--lms-petrol); color: var(--lms-petrol); background: var(--lms-petrol-tint); }
+
+.sortby {
+  margin-left: auto;
+  font-size: 10.5px;
+  font-weight: 500;
+  letter-spacing: 0.7px;
+  text-transform: uppercase;
+  color: var(--lms-text-muted);
+}
+
+/* --- the scrolling list --- */
+.list {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+  position: relative;
+}
+
+/* 28px micro-cap strip, sticky at 0 */
+.strip {
+  position: sticky;
+  top: 0;
+  z-index: 3;
+  display: flex;
+  align-items: center;
+  gap: var(--col-gap);
+  height: var(--strip-h);
+  padding: 0 8px 0 calc(var(--leading) + 8px);
+  background: var(--lms-surface);
+  border-bottom: 1px solid var(--lms-divider);
+  font-size: 10.5px;
+  font-weight: 500;
+  line-height: 12px;
+  letter-spacing: 0.7px;
+  text-transform: uppercase;
+  color: var(--lms-text-muted);
+}
+
+.s-name { flex: 1 1 auto; min-width: 0; }
+.s-sclass { flex: 0 0 var(--col-sclass); }
+.s-date { flex: 0 0 var(--col-date); }
+.s-qty { flex: 0 0 var(--col-qty); text-align: right; }
+.s-meter { flex: 0 0 var(--col-meter); text-align: right; }
+.s-chev { flex: 0 0 var(--col-chev); }
+
+/* --- week bands --- */
+.band { border-top: 2px solid var(--lms-text-muted); }
+.band.current { border-top-color: var(--lms-petrol); }
+
+.bhead {
+  position: sticky;
+  top: var(--strip-h);
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  height: var(--band-h);
+  padding: 0 10px;
+  background: var(--lms-band);
+  border-bottom: 1px solid var(--lms-divider);
+}
+
+.band.current .bhead { background: var(--lms-petrol-tint); }
+
+.blabel {
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 14px;
+  letter-spacing: 0.7px;
+  text-transform: uppercase;
+  color: var(--lms-text-muted);
+}
+
+.band.current .blabel { color: var(--lms-petrol); }
+.band.past .blabel, .band.past .totals { color: var(--lms-faint); }
+.blabel .dt { font-weight: 700; }
+
+.tag { font-size: 8.5px; font-weight: 700; line-height: 11px; letter-spacing: 0.3px; text-transform: uppercase; }
+.tag.now { color: var(--lms-petrol); }
+.tag.gone { color: var(--lms-faint); }
+
+.totals {
+  margin-left: auto;
+  font-size: 11px;
+  line-height: 14px;
+  color: var(--lms-text-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+/* --- the 52px card row (card-shell in _card-geometry.scss) --- */
+.cardwrap { display: block; }
+
+.card {
+  position: relative;
+  display: flex;
+  height: var(--card-h);
+  background: var(--lms-card);
+  border-bottom: 1px solid var(--lms-divider);
+  transition: background-color 120ms ease-out, box-shadow 120ms ease-out;
+}
+
+.card.zebra { background: var(--lms-card-zebra); }
+.card:hover { background: var(--lms-hover); box-shadow: 0 1px 2px rgb(0 0 0 / 10%); cursor: grab; }
+
+.spine { flex: 0 0 auto; align-self: stretch; }
+.sp-booked { width: var(--spine-booked); background: var(--lms-divider); }
+.sp-pending { width: var(--spine); background: repeating-linear-gradient(45deg, var(--lms-rule-strong) 0 2px, #fff 2px 4px); }
+.sp-confirmed { width: var(--spine); background: var(--lms-petrol); }
+
+.cbody {
+  flex: 1 1 auto;
+  min-width: 0;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) var(--col-sclass) var(--col-date) var(--col-qty) var(--col-meter);
+  grid-template-rows: 17px 14px;
+  column-gap: var(--col-gap);
+  row-gap: 3px;
+  align-content: center;
+  align-items: center;
+  padding: 0 8px;
+}
+
+.cbody > * { min-width: 0; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+
+.name { grid-area: 1 / 1; font-size: 13px; font-weight: 500; line-height: 16px; }
+.sclass { grid-area: 1 / 2; font-size: 13px; font-weight: 500; line-height: 16px; color: var(--lms-text-muted); }
+.day { grid-area: 1 / 3; font-size: 13px; font-weight: 600; line-height: 16px; font-variant-numeric: tabular-nums; }
+.qty { grid-area: 1 / 4; font-size: 13px; font-weight: 500; line-height: 16px; text-align: right; font-variant-numeric: tabular-nums; }
+.meter { grid-area: 1 / 5; }
+
+.meta { grid-area: 2 / 1; font-size: 11.5px; line-height: 14px; color: var(--lms-text-muted); }
+
+.month {
+  grid-area: 2 / 3;
+  justify-self: start;
+  width: var(--col-month);
+  font-size: 9px;
+  font-weight: 600;
+  line-height: 12px;
+  letter-spacing: 0.7px;
+  text-transform: uppercase;
+  color: var(--lms-text-muted);
+}
+
+.trail {
+  grid-area: 2 / 3 / 3 / 6;
+  justify-self: end;
+  max-width: calc(100% - (var(--col-month) + var(--col-gap)));
+  display: flex;
+  align-items: center;
+  gap: var(--col-gap);
+  overflow: hidden;
+  font-size: 11.5px;
+  line-height: 14px;
+  color: var(--lms-text-muted);
+}
+
+.over { flex: 0 0 auto; font-weight: 500; }
+
+.mcount {
+  flex: 0 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  padding: 0;
+  border: 0;
+  background: none;
+  font: inherit;
+  color: inherit;
+  cursor: pointer;
+  text-decoration-line: underline;
+  text-decoration-style: dotted;
+  text-underline-offset: 2px;
+}
+
+.status { flex: 0 0 auto; display: inline-flex; align-items: center; gap: 3px; white-space: nowrap; }
+
+.chev {
+  flex: 0 0 var(--col-chev);
+  align-self: center;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: var(--col-chev);
+  height: var(--col-chev);
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: none;
+  color: var(--lms-text-muted);
+  cursor: pointer;
+}
+
+/* --- the fill meter --- */
+.meter { display: flex; align-items: center; gap: 6px; }
+
+.track {
+  position: relative;
+  flex: 0 0 var(--meter-track);
+  width: var(--meter-track);
+  height: 8px;
+  border-radius: 1px;
+  background: var(--q-track);
+  overflow: hidden;
+}
+
+.seg { position: absolute; top: 0; left: 0; height: 100%; border-radius: 1px; }
+.incl { opacity: 0.45; }
+
+.numeral {
+  flex: 0 0 var(--meter-numeral);
+  width: var(--meter-numeral);
+  font-size: 15px;
+  font-weight: 600;
+  line-height: 16px;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.q-under .seg { background: var(--q-under-bar); }
+.q-under .numeral { color: var(--q-under-ink); }
+.q-exact .seg { background: var(--q-exact-bar); }
+.q-exact .numeral { color: var(--q-exact-ink); }
+.q-over .seg { background: var(--q-over-bar); }
+.q-over .numeral { color: var(--q-over-ink); }
+
+.ink.q-under { color: var(--q-under-ink); }
+.ink.q-exact { color: var(--q-exact-ink); }
+.ink.q-over { color: var(--q-over-ink); }
+
+/* ============================================================================================
+   THE EXPANSION, EXACTLY AS IT SHIPS — card-expansion.scss
+   Four horizontal bands, every one of them built out of a value the list beside it already uses:
+     .fields  #FFFFFF          = the card
+     .sums    #FAFAFA          = the page ground / an empty band
+     table    #FFFFFF/#F5F5F5  = the card / the zebra stripe
+   ============================================================================================ */
+
+/* `.exphost` is the app-card-expansion HOST and `.expansion` the div inside it — both really exist
+   in the component (card-expansion.html), and keeping them apart is what lets ideas 1 and 2 both
+   set a background without one silently winning. */
+.cardwrap > .exphost { display: none; }
+.cardwrap.expanded > .exphost { display: block; }
+
+@keyframes apg-expand { from { opacity: 0; transform: translateY(-2px); } }
+
+.exphost {
+  padding-left: var(--leading);
+  border-bottom: 1px solid var(--lms-divider);
+  animation: apg-expand 120ms ease-out;
+}
+
+.expansion { background: var(--lms-card); }
+
+.fields {
+  display: flex;
+  gap: 24px;
+  padding: 8px 10px 6px;
+  border-bottom: 1px solid var(--lms-rule-soft);
+}
+
+.field { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.field.grow { flex: 1 1 auto; }
+.field.right { margin-left: auto; text-align: right; }
+
+.label {
+  font-size: 10.5px;
+  font-weight: 500;
+  line-height: 12px;
+  letter-spacing: 0.7px;
+  text-transform: uppercase;
+  color: var(--lms-text-muted);
+}
+
+.value { font-size: 12.5px; line-height: 16px; color: var(--lms-text); }
+.value.num { font-variant-numeric: tabular-nums; }
+.ink { font-weight: 500; }
+.state { margin-left: 6px; font-weight: 400; color: var(--lms-text-muted); }
+
+.sums {
+  display: flex;
+  gap: 24px;
+  padding: 8px 10px;
+  background: var(--lms-surface);
+  border-bottom: 1px solid var(--lms-divider);
+}
+
+.sum { font-size: 14px; font-weight: 500; font-variant-numeric: tabular-nums; }
+
+/* idea 10 keeps these two in the field row instead; hidden until then. */
+.field.folded { display: none; }
+
+.table-wrap { overflow-x: auto; }
+
+.matches {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12.5px;
+  text-align: left;
+}
+
+.matches th {
+  height: 26px;
+  padding: 0 8px;
+  border-bottom: 1px solid var(--lms-divider);
+  white-space: nowrap;
+  font-size: 10.5px;
+  font-weight: 500;
+  line-height: 12px;
+  letter-spacing: 0.7px;
+  text-transform: uppercase;
+  color: var(--lms-text-muted);
+}
+
+.matches td {
+  height: 30px;
+  padding: 0 8px;
+  border-bottom: 1px solid var(--lms-rule-soft);
+  color: var(--lms-text);
+  vertical-align: middle;
+}
+
+.matches tbody tr:nth-child(even) td { background: var(--lms-card-zebra); }
+.matches .num { text-align: right; font-variant-numeric: tabular-nums; }
+.matches tbody tr:hover td { background: var(--lms-hover); cursor: pointer; }
+
+.sub { margin-left: 6px; color: var(--lms-text-muted); }
+.muted { color: var(--lms-text-muted); }
+.faint { color: var(--lms-faint); }
+.mstat { color: var(--lms-text-muted); vertical-align: -3px; }
+
+.orphan {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  margin-left: 6px;
+  padding: 1px 5px;
+  border-radius: 2px;
+  background: var(--lms-error);
+  color: #fff;
+  font-size: 11px;
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+.actions { display: flex; align-items: center; gap: 8px; padding: 10px 10px 0; }
+
+.btn-outlined {
+  height: 30px;
+  padding: 0 14px;
+  border: 1px solid var(--lms-rule-strong);
+  border-radius: 4px;
+  background: none;
+  font-family: inherit;
+  font-size: 13px;
+  color: var(--lms-faint);
+}
+
+.btn-text {
+  height: 30px;
+  padding: 0 8px;
+  border: 0;
+  border-radius: 4px;
+  background: none;
+  font-family: inherit;
+  font-size: 12px;
+  color: var(--lms-text-muted);
+  cursor: pointer;
+}
+
+.btn-text.danger { color: var(--lms-error); }
+.why { font-size: 11.5px; color: var(--lms-text-muted); }
+
+/* pad the bottom of the drawer: the actions row's 0 bottom padding is the card's, not the lab's */
+.actions { padding-bottom: 8px; }
+
+/* ============================================================================================
+   THE IDEAS
+   One class per idea on `.board`. Each idea touches as few properties as it can and, wherever
+   possible, properties no other idea touches — which is what lets 1 + 2 + 3 compose without a
+   single override between them.
+   ============================================================================================ */
+
+/* --- 1. one surface, no internal stripes ---------------------------------------------------
+   The drawer stops being four bands and becomes one. The table's zebra goes entirely: it is the
+   list's own stripe, borrowed, and it is the single strongest reason the drawer reads as more
+   rows. Rows are separated by rules on a ground that is darker than anything in the list.
+   Real change: card-expansion.scss — :host background, three background declarations deleted. */
+.i1 .expansion { background: var(--exp-ground); }
+.i1 .fields { border-bottom-color: var(--exp-rule); }
+.i1 .sums { background: none; border-bottom-color: var(--exp-rule); }
+.i1 .matches th { border-bottom-color: var(--exp-rule); }
+.i1 .matches td { border-bottom-color: #dfe2e5; }
+.i1 .matches tbody tr:nth-child(even) td { background: none; }
+.i1 .matches tbody tr:hover td { background: rgb(255 255 255 / 45%); }
+
+/* --- 2. inset it: the drawer as a sheet ----------------------------------------------------
+   The gutter is the whole idea. A card is edge-to-edge by definition, so anything with a margin
+   is categorically not one — no colour required, and it survives at a glance from two metres.
+   Real change: :host gains the ground + padding, the existing .expansion div gains margin/border.
+   Note the two elements already exist; this needs no new markup. */
+.i2 .exphost {
+  background: var(--lms-surface);
+  padding: 8px 10px 10px;
+}
+
+.i2 .expansion { border: 1px solid var(--exp-sheet-edge); }
+
+/* The sheet closes itself, so the last band inside it must not draw a rule on top of the border. */
+.i2 .expansion > .actions { border-bottom: 0; }
+
+/* --- 3. a well, not a card -----------------------------------------------------------------
+   §5.4 spends shadow on hover, drag and dialogs; nothing on that screen is recessed. The card
+   opens INTO the page. Purely light: it declares no colour, so it composes with 1 and 2 for free.
+   Real change: one box-shadow on :host. */
+.i3 .expansion {
+  box-shadow: inset 0 3px 5px -1px rgb(0 0 0 / 16%), inset 0 -2px 4px -2px rgb(0 0 0 / 10%);
+}
+
+/* --- 4. fuse the parent row to its drawer --------------------------------------------------
+   Stop styling the drawer and style the CARD while it is open. Row and drawer share a ground, the
+   rule between them goes, and the spine continues down the full height as a 6px edge. The unit
+   becomes one L-shaped object rather than a row followed by more rows.
+   Real change: space-card.scss/.html need an `expanded` class on .card — the signal already
+   exists in the component (`expanded()`), it is simply not bound to the row today. */
+.i4 .cardwrap.expanded > .card {
+  background: #eef0f2;
+  border-bottom-color: transparent;
+}
+
+.i4 .exphost {
+  padding-left: 0;
+  border-left: var(--spine) solid var(--exp-sheet-edge);
+}
+
+/* --- 5. frame it ---------------------------------------------------------------------------
+   No card, band or column on that screen is framed, so a frame is unambiguous by scarcity alone.
+   The cheapest thing on this list and the most conservative: one declaration.
+   Real change: one border on :host. */
+.i5 .expansion {
+  border: 1px solid var(--lms-rule-strong);
+  border-bottom-width: 2px;
+}
+
+/* --- 6. quiet the neighbours ---------------------------------------------------------------
+   Solve it by contrast instead of decoration: the open card is the only fully-inked thing in the
+   column. The 55% is the one §10 already uses for the drag scrim, so it is not a new value.
+   Real change: a `has-open` class on the list + one opacity rule. Weakens with several cards
+   open — that is the argument against it, and this lab lets you open two and see it. */
+.i6.has-open .cardwrap:not(.expanded) { opacity: 0.5; }
+.i6.has-open .bhead { opacity: 0.5; }
+
+/* --- 7. break the rhythm -------------------------------------------------------------------
+   The drawer repeats the list's density, so it scans as more rows. Set it differently instead:
+   nothing here is a colour. Costs vertical space, which §8.3's density target has to be argued
+   against — count the cards you lose below the fold before agreeing to it. */
+.i7 .fields { padding: 14px 16px 12px; gap: 32px; }
+.i7 .sums { padding: 12px 16px; gap: 32px; }
+.i7 .sum { font-size: 18px; line-height: 22px; }
+.i7 .matches th { height: 30px; padding: 0 12px; }
+.i7 .matches td { height: 38px; padding: 0 12px; }
+.i7 .actions { padding: 14px 16px 12px; }
+
+/* --- 8. make the match table look like a table ---------------------------------------------
+   Vertical rules exist nowhere else on this screen. The moment they appear the block reads as
+   tabular data rather than as a continuation of the stack — and the header gains a ground, so the
+   table has a visible top edge of its own. */
+.i8 .matches tbody tr:nth-child(even) td { background: none; }
+.i8 .matches th { background: #eceff1; }
+.i8 .matches th + th, .i8 .matches td + td { border-left: 1px solid var(--lms-rule-soft); }
+.i8 .matches th + th { border-left-color: var(--exp-rule); }
+
+/* --- 9. promote the sums into a header strip -----------------------------------------------
+   An unlabelled continuation becomes a titled panel. The two sums say what the drawer is FOR, and
+   putting them at the top gives it an obvious opening edge. Four bands become three.
+   Real change: move the .sums block above .fields in card-expansion.html — no new markup. */
+.i9 .expansion { display: flex; flex-direction: column; }
+
+
+.i9 .sums {
+  order: -1;
+  align-items: baseline;
+  gap: 22px;
+  padding: 7px 10px;
+  background: var(--lms-expansion-head);
+  border-bottom: 1px solid #ccd2d7;
+}
+
+.i9 .sums .field { flex-direction: row; align-items: baseline; gap: 7px; }
+.i9 .sums .sum { font-size: 13px; }
+
+/* --- 10. cut the volume --------------------------------------------------------------------
+   Six regions for what is conceptually three. The sums ARE quantities and the field row already
+   right-aligns the quantities, so they belong in it. Fewer bands, fewer edges to misread as rows,
+   and the drawer gets shorter rather than taller.
+   Real change: this one is genuinely a template edit — the .sums block is deleted and its two
+   fields join the right-aligned run in .fields. */
+.i10 .sums { display: none; }
+.i10 .field.folded { display: flex; }
+
+/* --- 11. texture, not value ----------------------------------------------------------------
+   Value and hue are both nearly spent on this screen; pattern is not, and §3.1 already uses it for
+   status. A 4px hairline grid at 3% is below the threshold of "decoration" and above the threshold
+   of "different kind of surface". Shown here on its own so you can decide whether it survives
+   being combined with anything. */
+.i11 .expansion {
+  background-image: repeating-linear-gradient(0deg, rgb(0 0 0 / 3.5%) 0 1px, transparent 1px 4px);
+}
+
+/* --- 12. motion that says where it came from -----------------------------------------------
+   The current open is a whole-block fade + 2px rise, which is the same motion any element on any
+   page makes. Anchoring the scale to the parent row's edge says "this belongs to that card" in the
+   one moment the eye is already on it. Collapse and re-expand a card to replay.
+   Real change: one @keyframes + transform-origin in card-expansion.scss. §10's 120ms budget is
+   kept, and the reduced-motion guard that is already there still applies. */
+@keyframes apg-unfold { from { opacity: 0; transform: scaleY(0.9); } }
+.i12 .exphost { animation: apg-unfold 140ms ease-out; transform-origin: top center; }
+
+@media (prefers-reduced-motion: reduce) {
+  .exphost { animation: none !important; }
+}
+
+/* ============================================================================================
+   THE GUTTER — seven alternatives, and they replace idea 2's own values wherever one is chosen
+   (idea 2 IS the gutter; these are seven readings of it, including having none).
+
+   The complaint they answer: at #FAFAFA against a white card above and a white or #F5F5F5 card
+   below, the gutter is very nearly invisible — so it does not read as a ground the sheet sits on,
+   it reads as a gap where something is missing. A gutter only contains something if it is visibly
+   not that thing.
+   ============================================================================================ */
+
+/* B — the tray. Same metrics, filled with the caption bar's own grey, so the gap stops being a gap
+       and becomes the mount the sheet sits in. One value change; nothing moves. */
+.gB .exphost { padding: 8px 10px 10px; background: var(--lms-expansion-head); }
+
+/* C — no gutter. Idea 2 removed outright: the sheet spans the column, and the frame and the recess
+       carry the whole job on their own. */
+.gC .exphost { padding: 0; background: none; }
+
+/* D — hung from its card. No top gap at all, so the sheet's top edge meets the row it belongs to;
+       the grey remains at the sides and below. The gap then MEANS something — "the drawer ends
+       here, the next card starts there" — rather than merely being absent above and below. */
+.gD .exphost { padding: 0 10px 10px; background: var(--lms-expansion-head); }
+
+/* E — sides only. Flush top and bottom, inset 10px left and right. Being narrower than a card is
+       the whole signal; a card is edge-to-edge, so anything that is not is not a card. */
+.gE .exphost { padding: 0 10px; background: var(--lms-expansion-head); }
+
+/* F — hanging indent. No gutter except 28px on the left, transparent, so the drawer reads as
+       subordinate to its card the way a nested list reads as subordinate to its item. The frame
+       still closes it on the other three sides. */
+.gF .exphost { padding: 0 0 0 28px; background: none; }
+
+/* G — the card's own ground. The gutter takes the colour of the row it hangs off, so it reads as
+       that card continuing down behind the sheet rather than as a band of its own.
+       Real change: app-card-expansion would need the `zebra` flag the card already has. */
+.gG .exphost { padding: 8px 10px 10px; background: var(--lms-card); }
+.gG .cardwrap:has(.card.zebra) .exphost { background: var(--lms-card-zebra); }
+
+/* ============================================================================================
+   the notes panel
+   ============================================================================================ */
+
+.panel {
+  flex: 0 0 340px;
+  width: 340px;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  background: #fff;
+  border-left: 1px solid var(--lms-divider);
+}
+
+.panel.closed { flex-basis: 34px; width: 34px; overflow: hidden; }
+.panel.closed .pbody, .panel.closed .ptop h2 { display: none; }
+
+.ptop {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  height: var(--chead-h);
+  padding: 0 8px 0 10px;
+  background: var(--lms-petrol);
+  color: #fff;
+}
+
+.ptop h2 { margin: 0; font-size: 13px; font-weight: 600; }
+
+.ptop button {
+  margin-left: auto;
+  width: 22px;
+  height: 22px;
+  border: 0;
+  border-radius: 50%;
+  background: rgb(255 255 255 / 18%);
+  color: #fff;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.pbody { flex: 1 1 auto; min-height: 0; overflow-y: auto; padding: 8px; }
+
+.gtitle {
+  padding: 10px 8px 4px;
+  font-size: 10.5px;
+  font-weight: 600;
+  letter-spacing: 0.7px;
+  text-transform: uppercase;
+  color: var(--lms-text-muted);
+}
+
+.idea {
+  position: relative;
+  display: block;
+  padding: 8px 8px 9px 26px;
+  border-bottom: 1px solid var(--lms-rule-soft);
+  cursor: pointer;
+}
+
+.idea:hover { background: var(--lms-hover); }
+.idea input { position: absolute; left: 5px; top: 10px; margin: 0; }
+.idea .nm { font-size: 12.5px; font-weight: 600; }
+.idea .num { color: var(--lms-petrol); font-variant-numeric: tabular-nums; }
+.idea .desc { display: block; margin-top: 3px; font-size: 11.5px; line-height: 15px; color: #3d4144; }
+.idea .cost { display: block; margin-top: 4px; font-size: 11px; line-height: 15px; color: var(--lms-text-muted); }
+.idea .cost b { font-weight: 600; color: var(--lms-attention-ink); }
+
+.pnote {
+  padding: 8px 8px 12px;
+  font-size: 11.5px;
+  line-height: 16px;
+  color: #3d4144;
+}
+</style>
+</head>
+<body>
+
+<div class="lab">
+  <div class="intro">
+    <h1>Expanded card — twelve treatments, in context</h1>
+    <p>
+      An open card does not read as one object. The column is a run of white / <code>#F5F5F5</code>
+      striped 52px rows, and the drawer opens below one of them as four more bands of white /
+      <code>#FAFAFA</code> / white + <code>#F5F5F5</code> — its match table stripes with
+      <code>$lms-card-zebra</code>, the same value the card list stripes with. It is built out of the
+      list's own vocabulary, so it dissolves into it. Two cards are open below, one on a white row and
+      one on a zebra row, with striped cards above, between and beneath them. Click any chevron to open
+      or close another.
+    </p>
+    <p style="margin-top:6px">
+      <b>Shipped 2026-09-07: 2 + 3 + 5 + 8 + 9</b>, which is what this page opens on.
+      <b>Idea 1 was tried and pulled the same day</b> — a grey ground made the whole block read as
+      read only, which is exactly how everything else disabled on this screen recedes. The sheet is
+      white again and the separating is done by the gutter, the frame and the recess.
+    </p>
+    <p style="margin-top:6px">
+      <b>The gutter is settled too: option C, none at all.</b> Idea 2 was the right instinct and the
+      wrong value — <code>#FAFAFA</code> between a white card above and a white or
+      <code>#F5F5F5</code> card below is very nearly invisible, so it read as a gap where something was
+      missing. Six alternatives are still on the second row of controls, and what they showed is that
+      the sheet does not need one: the caption bar gives it a top edge, the frame gives it four, and
+      the gutter was the only device paying no rent. This page opens on what ships.
+    </p>
+  </div>
+
+  <div class="presets" id="presets">
+    <span class="plabel">Show</span>
+  </div>
+
+  <div class="presets" id="gpresets">
+    <span class="plabel">Gutter</span>
+  </div>
+
+  <div class="stage">
+    <div class="stack compare">
+      <span class="cap">Before</span>
+      <div class="board" id="boardA"></div>
+    </div>
+    <div class="stack">
+      <span class="cap" id="capB">Before</span>
+      <div class="board" id="boardB"></div>
+    </div>
+  </div>
+</div>
+
+<aside class="panel" id="panel">
+  <div class="ptop">
+    <h2>Twelve ideas</h2>
+    <button type="button" id="toggle" title="Collapse">&#8250;</button>
+  </div>
+  <div class="pbody">
+    <div id="gutters"></div>
+    <div id="ideas"></div>
+    <p class="pnote">
+      Ideas compose: each one touches as few properties as it can, and 1, 2 and 3 deliberately touch
+      none of the same ones. Nothing here has been written into the application — every change named
+      under <b>Real change</b> is what it would cost in
+      <code>card-expansion.scss</code> if it were.
+    </p>
+  </div>
+</aside>
+
+<script>
+(function () {
+  'use strict';
+
+  /* ------------------------------------------------------------------------------------------
+     glyphs — inline SVG, because the Material Symbols font would not load offline
+     ------------------------------------------------------------------------------------------ */
+  var SVG = {
+    down:  '<svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M7.4 8.6 12 13.2l4.6-4.6L18 10l-6 6-6-6z"/></svg>',
+    up:    '<svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M7.4 15.4 12 10.8l4.6 4.6L18 14l-6-6-6 6z"/></svg>',
+    booked:'<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/></svg>',
+    clock: '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 7v5.5l3.5 2"/></svg>',
+    check: '<svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20zm-1.9 15L5 11.9l1.4-1.4 3.7 3.7 7.5-7.5L19 8.1z"/></svg>',
+    block: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><circle cx="12" cy="12" r="9"/><path d="M5.6 5.6l12.8 12.8"/></svg>',
+    col:   '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="4" width="18" height="16"/><path d="M3 9h18M9 9v11"/></svg>',
+    caret: '<svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor"><path d="M7 10l5 5 5-5z"/></svg>'
+  };
+
+  function statusGlyph(s) { return s === 'Confirmed' ? SVG.check : s === 'Booked' ? SVG.booked : SVG.clock; }
+
+  /* ------------------------------------------------------------------------------------------
+     the records — the seed's own values, read off the running app so the widths are honest
+     ------------------------------------------------------------------------------------------ */
+  var BANDS = [
+    {
+      week: '23 Aug', tag: 'past', totals: '6 spaces · 607 head',
+      cards: [
+        { name: 'ANZCO', plant: 'Rangitikei · -', sclass: 'Nat Beef - Ultra', day: '26', month: 'Aug',
+          req: 51, incl: 12, excl: 12, unmatched: 39, state: 'q-under', status: 'Booked',
+          mcount: '1 match · confirmed' },
+
+        { name: 'ANZCO', plant: 'Canterbury · -', sclass: 'Cows', day: '27', month: 'Aug',
+          req: 104, incl: 104, excl: 0, unmatched: 0, state: 'q-exact', status: 'Booked',
+          mcount: '1 match · 1 draft', open: true,
+          notes: 'Prefer even lines, no stragglers.',
+          stateLabel: 'Filled',
+          blocked: 'Needs at least one confirmed match and no drafts.',
+          matches: [
+            { qty: 104, farmer: 'Gavin Ngata', loc: 'Birch Acres', sclass: 'Mutton', status: 'Drafted', price: '6.09', transport: '-' }
+          ] },
+
+        { name: 'ANZCO', plant: 'Rangitikei · Second shift', sclass: 'Cows', day: '28', month: 'Aug',
+          req: 77, incl: 59, excl: 20, unmatched: 18, state: 'q-under', status: 'Booked',
+          mcount: '3 matches · 2 drafts', open: true,
+          notes: '-',
+          stateLabel: 'Under-filled',
+          blocked: 'Needs at least one confirmed match and no drafts.',
+          matches: [
+            { qty: 20, farmer: 'Aroha Cardno', loc: 'Matai Bank Pastoral', sclass: 'Lamb', status: 'Confirmed', price: '5.84', transport: 'Central Freight' },
+            { qty: 24, farmer: 'Wiremu Ruawai', loc: 'Elm Ford Acres', sclass: 'Mutton', status: 'Drafted', price: null, transport: '-', orphan: true },
+            { qty: 15, farmer: 'Hinemoa Bishop', loc: 'Spur Ridge', sclass: 'Sire Bull', status: 'Drafted', price: '6.22', transport: 'Ngata Transport' }
+          ] },
+
+        { name: 'ANZCO', plant: 'Rangitikei · -', sclass: 'Bulls', day: '28', month: 'Aug',
+          req: 127, incl: 0, excl: 0, unmatched: 127, state: 'q-under', status: 'Booked',
+          mcount: 'no matches' },
+
+        { name: 'ANZCO', plant: 'Canterbury · Second shift', sclass: 'Bulls', day: '28', month: 'Aug',
+          req: 124, incl: 0, excl: 0, unmatched: 124, state: 'q-under', status: 'Booked',
+          mcount: 'no matches' },
+
+        { name: 'ANZCO', plant: 'Eltham · -', sclass: 'Prime', day: '28', month: 'Aug',
+          req: 124, incl: 0, excl: 0, unmatched: 124, state: 'q-under', status: 'Booked',
+          mcount: 'no matches' }
+      ]
+    },
+    {
+      week: '30 Aug', tag: 'current', totals: '6 spaces · 2,160 head',
+      cards: [
+        { name: 'ANZCO', plant: 'Kokiri · AM kill', sclass: 'Nat Beef - Pre…', day: '31', month: 'Aug',
+          req: 60, incl: 0, excl: 0, unmatched: 60, state: 'q-under', status: 'Booked',
+          mcount: 'no matches' },
+
+        { name: 'ANZCO', plant: 'Rakaia · -', sclass: 'Cows', day: '31', month: 'Aug',
+          req: 136, incl: 46, excl: 46, unmatched: 90, state: 'q-under', status: 'Booked',
+          mcount: '1 match · confirmed' },
+
+        { name: 'ANZCO', plant: 'Kokiri · -', sclass: 'Mutton', day: '2', month: 'Sep',
+          req: 560, incl: 0, excl: 0, unmatched: 560, state: 'q-under', status: 'Booked',
+          mcount: 'no matches' },
+
+        { name: 'ANZCO', plant: 'Canterbury · -', sclass: 'Lamb', day: '3', month: 'Sep',
+          req: 350, incl: 0, excl: 0, unmatched: 350, state: 'q-under', status: 'Booked',
+          mcount: 'no matches' },
+
+        { name: 'Alliance Group', plant: 'Smithfield · Before midday', sclass: 'Lamb', day: '4', month: 'Sep',
+          req: 930, incl: 29, excl: 29, unmatched: 901, state: 'q-under', status: 'Booked',
+          mcount: '1 match · confirmed' }
+      ]
+    }
+  ];
+
+  /* ------------------------------------------------------------------------------------------
+     markup — one builder, used for both boards, so the compare pair cannot drift
+     ------------------------------------------------------------------------------------------ */
+  function pct(part, whole) { return Math.max(0, Math.min(100, (part / whole) * 100)) + '%'; }
+
+  function meter(c) {
+    return '<span class="meter ' + c.state + '">' +
+             '<span class="track">' +
+               '<span class="seg incl" style="width:' + pct(c.incl, c.req) + '"></span>' +
+               '<span class="seg excl" style="width:' + pct(c.excl, c.req) + '"></span>' +
+             '</span>' +
+             '<span class="numeral">' + c.unmatched + '</span>' +
+           '</span>';
+  }
+
+  function row(c, zebra) {
+    var count = c.matches
+      ? '<button type="button" class="mcount" data-toggle="1">' + c.mcount + '</button>'
+      : '<span class="mcount">' + c.mcount + '</span>';
+
+    return '<div class="card' + (zebra ? ' zebra' : '') + '">' +
+             '<span class="spine sp-booked"></span>' +
+             '<div class="cbody">' +
+               '<span class="name">' + c.name + '</span>' +
+               '<span class="sclass">' + c.sclass + '</span>' +
+               '<span class="day">' + c.day + '</span>' +
+               '<span class="qty">' + c.req + '</span>' +
+               meter(c) +
+               '<span class="meta">' + c.plant + '</span>' +
+               '<span class="month">' + c.month + '</span>' +
+               '<span class="trail">' + count +
+                 '<span class="status">' + statusGlyph(c.status) + ' ' + c.status + '</span>' +
+               '</span>' +
+             '</div>' +
+             '<button type="button" class="chev" data-toggle="1">' + SVG.down + '</button>' +
+           '</div>';
+  }
+
+  function matchRow(m) {
+    var orphan = m.orphan
+      ? '<span class="orphan">' + SVG.block + ' record cancelled</span>' : '';
+    var price = m.price === null
+      ? '<span class="faint">no default price</span>' : '$' + m.price;
+
+    return '<tr>' +
+             '<td class="num">' + m.qty + '</td>' +
+             '<td>' + m.farmer + orphan + '<span class="sub">' + m.loc + '</span></td>' +
+             '<td class="muted">' + m.sclass + '</td>' +
+             '<td><span class="mstat">' + statusGlyph(m.status) + '</span> ' + m.status + '</td>' +
+             '<td class="num">' + price + '</td>' +
+             '<td>' + m.transport + '</td>' +
+           '</tr>';
+  }
+
+  /* The expansion, field for field as card-expansion.html builds it on the demand side. The two
+     `folded` fields are the sums, sitting in the field row where idea 10 puts them. */
+  function expansion(c) {
+    return '<div class="exphost"><div class="expansion">' +
+             '<div class="fields">' +
+               '<div class="field grow">' +
+                 '<span class="label">Notes</span>' +
+                 '<span class="value">' + c.notes + '</span>' +
+               '</div>' +
+               '<div class="field folded right">' +
+                 '<span class="label">Quantity Matched incl. Draft</span>' +
+                 '<span class="value num sum">' + c.incl + '</span>' +
+               '</div>' +
+               '<div class="field folded right">' +
+                 '<span class="label">Quantity Matched</span>' +
+                 '<span class="value num sum">' + c.excl + '</span>' +
+               '</div>' +
+               '<div class="field right">' +
+                 '<span class="label">Quantity required</span>' +
+                 '<span class="value num">' + c.req + '</span>' +
+               '</div>' +
+               '<div class="field right">' +
+                 '<span class="label">Quantity unmatched</span>' +
+                 '<span class="value num"><span class="ink ' + c.state + '">' + c.unmatched + '</span>' +
+                 '<span class="state">' + c.stateLabel + '</span></span>' +
+               '</div>' +
+             '</div>' +
+
+             '<div class="sums">' +
+               '<div class="field">' +
+                 '<span class="label">Quantity Matched incl. Draft</span>' +
+                 '<span class="value sum">' + c.incl + '</span>' +
+               '</div>' +
+               '<div class="field">' +
+                 '<span class="label">Quantity Matched</span>' +
+                 '<span class="value sum">' + c.excl + '</span>' +
+               '</div>' +
+             '</div>' +
+
+             '<div class="table-wrap"><table class="matches">' +
+               '<thead><tr>' +
+                 '<th class="num">Qty</th><th>Farmer &amp; location</th><th>Stock class</th>' +
+                 '<th>Match status</th><th class="num">$/kg</th><th>Transport</th>' +
+               '</tr></thead>' +
+               '<tbody>' + c.matches.map(matchRow).join('') + '</tbody>' +
+             '</table></div>' +
+
+             '<div class="actions">' +
+               '<button type="button" class="btn-outlined" disabled>Confirm space</button>' +
+               '<button type="button" class="btn-text">Edit</button>' +
+               '<button type="button" class="btn-text danger">Cancel</button>' +
+               '<span class="why">' + c.blocked + '</span>' +
+             '</div>' +
+           '</div></div>';
+  }
+
+  function column() {
+    var html =
+      '<div class="column">' +
+        '<header class="chead">' +
+          '<span class="glyph">' + SVG.col + '</span>' +
+          '<h2 class="ctitle">Processor Spaces</h2>' +
+          '<span class="showing">showing 34 of 40</span>' +
+          '<button type="button" class="add">&#43; Add space</button>' +
+        '</header>' +
+        '<div class="frow">' +
+          '<span class="chip set">Status: Booked ' + SVG.caret + '</span>' +
+          '<span class="chip">Stock class: All ' + SVG.caret + '</span>' +
+          '<span class="chip">Processor: All ' + SVG.caret + '</span>' +
+          '<span class="chip">More ' + SVG.caret + '</span>' +
+          '<span class="sortby">&#8595; Soonest</span>' +
+        '</div>' +
+        '<div class="list">' +
+          '<div class="strip">' +
+            '<span class="s-name">Processor</span>' +
+            '<span class="s-sclass">Stock class</span>' +
+            '<span class="s-date">Date</span>' +
+            '<span class="s-qty">Req</span>' +
+            '<span class="s-meter">Unmatched</span>' +
+            '<span class="s-chev"></span>' +
+          '</div>';
+
+    BANDS.forEach(function (b) {
+      html += '<section class="band ' + b.tag + '">' +
+                '<header class="bhead">' +
+                  '<span class="blabel">Week of <span class="dt">' + b.week + '</span></span>' +
+                  (b.tag === 'current'
+                    ? '<span class="tag now">This week</span>'
+                    : '<span class="tag gone">Past</span>') +
+                  '<span class="totals">' + b.totals + '</span>' +
+                '</header>';
+
+      b.cards.forEach(function (c, i) {
+        html += '<div class="cardwrap' + (c.open ? ' expanded' : '') + '">' +
+                  row(c, i % 2 === 1) +
+                  (c.matches ? expansion(c) : '') +
+                '</div>';
+      });
+
+      html += '</section>';
+    });
+
+    return html + '</div></div>';
+  }
+
+  var boardA = document.getElementById('boardA');
+  var boardB = document.getElementById('boardB');
+  boardA.innerHTML = column();
+  boardB.innerHTML = column();
+
+  /* ------------------------------------------------------------------------------------------
+     expand / collapse — real, so the motion ideas can be replayed and idea 6 can be pushed by
+     opening a second card
+     ------------------------------------------------------------------------------------------ */
+  function wire(board) {
+    board.addEventListener('click', function (e) {
+      var hit = e.target.closest ? e.target.closest('[data-toggle]') : null;
+      if (!hit) return;
+
+      var wrap = hit.closest('.cardwrap');
+      var open = wrap.classList.toggle('expanded');
+      var chev = wrap.querySelector('.chev');
+      if (chev) chev.innerHTML = open ? SVG.up : SVG.down;
+
+      /* Idea 6 needs to know whether anything is open at all — dimming a column with nothing
+         expanded would dim it for no reason. */
+      board.classList.toggle('has-open', !!wrap.parentNode.closest('.list').querySelector('.cardwrap.expanded'));
+
+      /* Re-trigger the open animation so idea 12 can be replayed. */
+      if (open) {
+        var exp = wrap.querySelector('.exphost');
+        exp.style.animation = 'none';
+        void exp.offsetWidth;
+        exp.style.animation = '';
+      }
+    });
+
+    board.querySelectorAll('.cardwrap.expanded .chev').forEach(function (c) { c.innerHTML = SVG.up; });
+    board.classList.toggle('has-open', !!board.querySelector('.cardwrap.expanded'));
+  }
+
+  wire(boardA);
+  wire(boardB);
+
+  /* ------------------------------------------------------------------------------------------
+     the twelve ideas — name, what it does, what it would cost in the real files
+     ------------------------------------------------------------------------------------------ */
+  var IDEAS = [
+    { n: 1, name: 'One surface, no internal stripes',
+      desc: 'The drawer stops being four bands and becomes one flat ground darker than anything in the list, and the match table\'s zebra goes entirely.',
+      cost: '<b>Cost: four declarations, three of them deletions.</b> The table\'s zebra IS $lms-card-zebra — the list\'s own stripe — which is the single strongest reason the drawer scans as more rows. Risk: white is already the top of the range (#FFF card, #F5F5F5 zebra, #F0F0F0 band), so the only free direction is down, and a grey ground can read as disabled. Judge it against the red cancelled-partner badge in the second open card.' },
+
+    { n: 2, name: 'Inset it — the drawer as a sheet',
+      desc: 'A 10px gutter on three sides with the page ground showing through, and a hairline around the sheet.',
+      cost: '<b>Cost: two rules, no new markup</b> — :host takes the ground and the padding, the .expansion div already inside it takes the border. A card is edge-to-edge by definition, so anything with a margin is categorically not one. Risk: 20px of width and 18px of height per open card, against §8.3\'s density target.' },
+
+    { n: 3, name: 'A well, not a card',
+      desc: 'An inset shadow at the top edge, so the card opens INTO the page rather than adding a layer to it.',
+      cost: '<b>Cost: one box-shadow.</b> §5.4 spends shadow on hover, drag and dialogs and recesses nothing, so this direction is unclaimed. It declares no colour at all, which is why it composes with 1 and 2 for free. Risk: none found; it is invisible on a projector, so do not let it carry the job alone.' },
+
+    { n: 4, name: 'Fuse the parent row to its drawer',
+      desc: 'Style the CARD while it is open: shared ground, no rule between them, and the spine continuing down the drawer as a 6px edge. One L-shaped object, not a row followed by rows.',
+      cost: '<b>Cost: one class binding that does not exist yet.</b> The component already knows (`expanded()`); the row is simply not told. Risk: the open row stops striping, so a run of open cards breaks the list\'s rhythm — which is the point, and also the thing to check with three open at once.' },
+
+    { n: 5, name: 'Frame it',
+      desc: 'A 1px #BDBDBD box around the whole block, closing on a 2px bottom rule.',
+      cost: '<b>Cost: one border.</b> The cheapest thing on this list. Nothing else on the screen is framed, so it is unambiguous by scarcity alone. Risk: it adds a fifth horizontal line to a block that already has four, and it does nothing about the internal stripes — pair it with 1.' },
+
+    { n: 6, name: 'Quiet the neighbours',
+      desc: 'While a card is open, the rest of the column recedes to 55%. Contrast instead of decoration.',
+      cost: '<b>Cost: a has-open class and one opacity rule</b>, and 55% is the value §10 already uses for the drag scrim. Risk: it weakens the moment two cards are open, and this lab starts with two — open a third and watch it stop meaning anything. It also fights Cancelled\'s own desaturation.' },
+
+    { n: 7, name: 'Break the rhythm',
+      desc: 'Loosen the drawer\'s density — bigger padding, wider gaps, the sums set large. No colour involved at all.',
+      cost: '<b>Cost: six padding changes.</b> Risk: <b>height.</b> It adds roughly 40px per open card, straight off §8.3\'s density target. Count the cards you lose below the fold before agreeing to it.' },
+
+    { n: 8, name: 'Make the match table look like a table',
+      desc: 'Kill the row zebra, fill the header row, and add vertical hairlines between columns.',
+      cost: '<b>Cost: four declarations.</b> Vertical rules appear nowhere else on this screen, so the block reads as tabular data the moment they arrive. Risk: verticals are a new structural device in a design that has deliberately used only horizontals — check it does not read as a second application.' },
+
+    { n: 9, name: 'Promote the sums into a header strip',
+      desc: 'The two sums move to the top as a filled caption bar, so the drawer opens on a titled edge instead of an unlabelled continuation.',
+      cost: '<b>Cost: move one block in the template.</b> Four bands become three and the drawer gets no taller. Risk: the sums are the answer, and answers usually go after the question — watch whether reading order suffers.' },
+
+    { n: 10, name: 'Cut the volume',
+      desc: 'Fold the two sums into the field row\'s right-aligned run and delete the sums band. Six regions become five.',
+      cost: '<b>Cost: a genuine template edit</b> — the .sums block is deleted and its fields join .fields. Risk: four right-aligned quantities in one row is a lot to tell apart, and "Quantity Matched incl. Draft" is a long label in a 10.5px micro-cap. It buys ~29px per open card.' },
+
+    { n: 11, name: 'Texture, not value',
+      desc: 'A 4px hairline grid at 3.5% on the drawer ground. Pattern is the one channel this screen has not spent.',
+      cost: '<b>Cost: one background-image.</b> §3.1 already uses pattern for status, so it is in the vocabulary. Risk: it is nearly invisible at 100% and moirés on a projector; and combined with 1 it can muddy the ground rather than mark it. Try it alone first.' },
+
+    { n: 12, name: 'Motion that says where it came from',
+      desc: 'Anchor the open to the parent row\'s bottom edge — a 140ms scale from the top rather than a whole-block fade and rise.',
+      cost: '<b>Cost: one @keyframes and a transform-origin.</b> §10\'s budget is kept and the reduced-motion guard already in the file still applies. Risk: it is the only idea here that says nothing once the animation ends, so it can only ever be a companion to one of the others.' }
+  ];
+
+  var restoring = false;
+  /* ------------------------------------------------------------------------------------------
+     the gutter — seven readings of idea 2, one of which is "none"
+     ------------------------------------------------------------------------------------------ */
+  var GUTTERS = [
+    { k: 'A', name: 'The original gutter', short: 'Original',
+      desc: '8px above, 10px at the sides and below, in $lms-surface #FAFAFA. Shipped for one day.',
+      cost: '<b>The one that was complained about.</b> At #FAFAFA against a white card above and a white or #F5F5F5 card below, the gutter is very nearly invisible — so it did not read as a ground the sheet sits on. It read as a gap where something was missing.' },
+
+    { k: 'B', name: 'Tray', short: 'Tray',
+      desc: 'The same metrics, filled with the caption bar\'s own grey #DFE4E8, so the gap becomes the mount the sheet sits in.',
+      cost: '<b>Cost: one value.</b> Nothing moves and no geometry changes — the colour is already in the drawer (it is the caption bar\'s), so it introduces nothing new. The grey is around the white sheet rather than under the content, so it cannot make the block read as read-only the way a grey ground did. <b>My pick.</b>' },
+
+    { k: 'C', name: 'None — SHIPPED', short: 'None \u2713',
+      desc: 'Idea 2 removed outright. The sheet spans the column and the frame and the recess do the whole job.',
+      cost: '<b>Chosen 2026-09-07. Cost: two deletions</b> — and it is the option that gives the drawer back the width and the height the gutter was spending. The predicted risk did not materialise: the caption bar gives the block a top edge of its own, so the frame is not the only thing separating the drawer from the row above it, and three near-adjacent horizontal rules never appear. What it proves is that the gutter was the one device paying no rent — the frame, the recess and the caption bar were already doing the whole job between them.' },
+
+    { k: 'D', name: 'Hung from its card', short: 'Hung',
+      desc: 'No top gap at all — the sheet meets the row it belongs to — with grey at the sides and below.',
+      cost: '<b>Cost: one padding value.</b> The remaining gap then MEANS something: "this drawer ends here and the next card starts there", rather than being absent above and below in equal measure. It is also the only option that says which card the drawer belongs to.' },
+
+    { k: 'E', name: 'Sides only', short: 'Sides only',
+      desc: 'Flush top and bottom, inset 10px left and right.',
+      cost: '<b>Cost: one padding value.</b> Being narrower than a card is the whole signal, and it costs no vertical space at all — the cheapest option for §8.3\'s density target. Risk: without a top or bottom gap the frame does all the separating again.' },
+
+    { k: 'F', name: 'Hanging indent', short: 'Indent',
+      desc: 'No gutter except 28px on the left, transparent, so the drawer is subordinate to its card the way a nested list is subordinate to its item.',
+      cost: '<b>Cost: one padding value.</b> Indentation is the oldest hierarchy signal there is and it needs no colour. Risk: it breaks the alignment of the drawer\'s own right edge with the card\'s, and the left edge no longer lines up with anything in the column.' },
+
+    { k: 'G', name: "The card's own ground", short: 'Card ground',
+      desc: 'The gutter takes the colour of the row it hangs off — white or #F5F5F5 — so it reads as that card continuing down behind the sheet.',
+      cost: '<b>Cost: a binding that does not exist yet</b> — app-card-expansion would need the `zebra` flag its card already has. Risk: on a white card it is the invisible gutter again; it only pays off on the striped rows, which is half of them.' }
+  ];
+
+  var gutter = 'A';
+  var gutterInputs = {};
+  var ghost = document.getElementById('gutters');
+
+  var gtitle = document.createElement('div');
+  gtitle.className = 'gtitle';
+  gtitle.textContent = 'The gutter — pick one';
+  ghost.appendChild(gtitle);
+
+  GUTTERS.forEach(function (g) {
+    var label = document.createElement('label');
+    label.className = 'idea';
+    label.innerHTML =
+      '<input type="radio" name="gutter" value="' + g.k + '">' +
+      '<span class="nm"><span class="num">' + g.k + '.</span> ' + g.name + '</span>' +
+      '<span class="desc">' + g.desc + '</span>' +
+      '<span class="cost">' + g.cost + '</span>';
+    ghost.appendChild(label);
+    gutterInputs[g.k] = label.querySelector('input');
+    gutterInputs[g.k].addEventListener('change', function () { gutter = g.k; apply(); });
+  });
+
+  var gpresetHost = document.getElementById('gpresets');
+  GUTTERS.forEach(function (g) {
+    var b = document.createElement('button');
+    b.type = 'button';
+    b.dataset.g = g.k;
+    b.textContent = g.k + '. ' + g.short;
+    b.addEventListener('click', function () { gutter = g.k; gutterInputs[g.k].checked = true; apply(); });
+    gpresetHost.appendChild(b);
+  });
+
+  var boxes = {};
+  var host = document.getElementById('ideas');
+
+  IDEAS.forEach(function (idea) {
+    var label = document.createElement('label');
+    label.className = 'idea';
+    label.innerHTML =
+      '<input type="checkbox" data-n="' + idea.n + '">' +
+      '<span class="nm"><span class="num">' + idea.n + '.</span> ' + idea.name + '</span>' +
+      '<span class="desc">' + idea.desc + '</span>' +
+      '<span class="cost">' + idea.cost + '</span>';
+    host.appendChild(label);
+    boxes[idea.n] = label.querySelector('input');
+    boxes[idea.n].addEventListener('change', apply);
+  });
+
+  /* ------------------------------------------------------------------------------------------
+     presets — the row you actually click. Each is nothing but a set of those checkboxes.
+     ------------------------------------------------------------------------------------------ */
+  var PRESETS = [
+    { label: 'Before', on: [] },
+    { label: '1', on: [1] },
+    { label: '2', on: [2] },
+    { label: '3', on: [3] },
+    { label: '1 + 2 + 3', on: [1, 2, 3] },
+    { label: '4', on: [4] },
+    { label: '5', on: [5] },
+    { label: '6', on: [6] },
+    { label: '7', on: [7] },
+    { label: '8', on: [8] },
+    { label: '9', on: [9] },
+    { label: '10', on: [10] },
+    { label: '11', on: [11] },
+    { label: '12', on: [12] },
+    { label: 'SHIPPED: 2 + 3 + 5 + 8 + 9', on: [2, 3, 5, 8, 9] },
+    { label: 'Rejected: with 1', on: [1, 2, 3, 5, 8, 9] },
+    { label: 'Everything at once', on: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12] }
+  ];
+
+  var presetHost = document.getElementById('presets');
+
+  PRESETS.forEach(function (p, i) {
+    if (i === 1 || i === 15) {
+      var sep = document.createElement('span');
+      sep.className = 'sep';
+      presetHost.appendChild(sep);
+    }
+    var b = document.createElement('button');
+    b.type = 'button';
+    b.textContent = p.label;
+    b.addEventListener('click', function () {
+      IDEAS.forEach(function (idea) { boxes[idea.n].checked = p.on.indexOf(idea.n) !== -1; });
+      apply();
+    });
+    presetHost.appendChild(b);
+  });
+
+  var sep2 = document.createElement('span');
+  sep2.className = 'sep';
+  presetHost.appendChild(sep2);
+
+  var cmp = document.createElement('label');
+  cmp.innerHTML = '<input type="checkbox" id="cmp"> Side by side with the version before this change';
+  presetHost.appendChild(cmp);
+
+  document.getElementById('cmp').addEventListener('change', function () {
+    document.body.classList.toggle('comparing', this.checked);
+  });
+
+  /* ------------------------------------------------------------------------------------------
+     apply — the whole mechanism: N classes on ONE board. The left board never gets any, which is
+     what makes the comparison honest.
+     ------------------------------------------------------------------------------------------ */
+  var capB = document.getElementById('capB');
+
+  function apply() {
+    var on = [];
+    IDEAS.forEach(function (idea) {
+      var checked = boxes[idea.n].checked;
+      boardB.classList.toggle('i' + idea.n, checked);
+      if (checked) on.push(idea.n);
+    });
+
+    GUTTERS.forEach(function (g) { boardB.classList.toggle('g' + g.k, gutter === g.k); });
+    gutterInputs[gutter].checked = true;
+    gpresetHost.querySelectorAll('button').forEach(function (b) {
+      b.classList.toggle('on', b.dataset.g === gutter);
+    });
+
+    var gname = GUTTERS.filter(function (g) { return g.k === gutter; })[0].short;
+    capB.textContent = (on.length ? 'Idea ' + on.join(' + ') : 'Before') + ' · gutter ' + gname;
+
+    /* The selection lives in the URL, so a particular combination can be sent to someone as a link:
+       expansion-lab.html#1,2,3 */
+    if (!restoring) {
+      var h = on.concat(['g' + gutter]).join(',');
+      if (h !== location.hash.replace('#', '')) {
+        history.replaceState(null, '', h ? '#' + h : location.pathname);
+      }
+    }
+
+    var labels = {};
+    PRESETS.forEach(function (p) { labels[p.on.join(',')] = p.label; });
+    var key = on.join(',');
+    presetHost.querySelectorAll('button').forEach(function (b) {
+      b.classList.toggle('on', labels[key] === b.textContent);
+    });
+  }
+
+  /* Restore a selection from the URL before the first paint, so a shared link opens on its own
+     combination rather than on Today. */
+  restoring = true;
+  var opening = location.hash.replace('#', '').split(',').filter(Boolean);
+
+  /* No hash means "what the application looks like right now", not "what it looked like before":
+     a version of this has shipped, and the open question is the gutter. */
+  if (!opening.length) opening = ['2', '3', '5', '8', '9', 'gC'];
+
+  opening.forEach(function (t) {
+    if (boxes[t]) boxes[t].checked = true;
+    if (t.charAt(0) === 'g' && gutterInputs[t.charAt(1)]) gutter = t.charAt(1);
+  });
+  apply();
+  restoring = false;
+
+  window.addEventListener('hashchange', function () {
+    restoring = true;
+    var want = location.hash.replace('#', '').split(',');
+    IDEAS.forEach(function (idea) { boxes[idea.n].checked = want.indexOf(String(idea.n)) !== -1; });
+    want.forEach(function (t) {
+      if (t.charAt(0) === 'g' && gutterInputs[t.charAt(1)]) gutter = t.charAt(1);
+    });
+    apply();
+    restoring = false;
+  });
+
+  /* --- the panel's collapse --- */
+  var panel = document.getElementById('panel');
+  document.getElementById('toggle').addEventListener('click', function () {
+    panel.classList.toggle('closed');
+    this.innerHTML = panel.classList.contains('closed') ? '&#8249;' : '&#8250;';
+  });
+})();
+</script>
+
+</body>
+</html>

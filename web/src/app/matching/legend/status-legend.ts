@@ -79,7 +79,7 @@ export class StatusLegend {
       filled: false,
       label: 'Pending',
       what:
-        'Matching is under way — the record has live matches but is not finished. The diagonal hatch ' +
+        'Matching is under way: the record has live matches but is not finished. The diagonal hatch ' +
         'is ordinary, not a warning: on a working board this is the commonest edge in the ' +
         'Livestock Availability column.',
     },
@@ -90,7 +90,7 @@ export class StatusLegend {
       label: 'Confirmed',
       what:
         'Nothing left unmatched and every match confirmed. The solid petrol edge is the brand blue ' +
-        'reading as "locked" — it is not a member of the quantity ramp below.',
+        'reading as "locked". It is not a member of the quantity ramp below.',
     },
     {
       spine: 'sp-cancelled',
@@ -119,7 +119,7 @@ export class StatusLegend {
       matchedExclDraft: 30,
       unmatched: 75,
       what:
-        'Orange — still short. The solid bar is quantity matched; the paler extension is what drafts ' +
+        'Orange: still short. The solid bar is quantity matched; the paler extension is what drafts ' +
         'have already spoken for. The figure beside it is what is left.',
     },
     {
@@ -130,7 +130,7 @@ export class StatusLegend {
       matchedInclDraft: 120,
       matchedExclDraft: 120,
       unmatched: 0,
-      what: 'Green — exactly filled, nothing over and nothing left. This is what you are aiming at.',
+      what: 'Green: exactly filled, nothing over and nothing left. This is what you are aiming at.',
     },
     {
       side: 'demand',
@@ -141,7 +141,7 @@ export class StatusLegend {
       matchedExclDraft: 148,
       unmatched: -28,
       what:
-        'Blue, and only on a Processor Space. More head matched than the space asked for — permitted ' +
+        'Blue, and only on a Processor Space. More head matched than the space asked for, permitted ' +
         'and expected. The bar cannot grow past its track, so it takes an outline and a cap ticking ' +
         'past the right-hand end instead.',
     },

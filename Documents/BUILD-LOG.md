@@ -3603,3 +3603,413 @@ leading_zero` is the test that caught it, and the percent is now commented in `N
 
 Verified in headless Chrome at 1366 and 1920: `DATE` and `FROM` both render in full, no card truncates
 its match count at either width, and the day/month pair aligns to its heading on both columns.
+
+---
+
+## Post-pass-1 tweak — the two match dialogs, 2026-09-07
+
+Mark, looking at the drop prompt and the match modal side by side: the prompt reads well — supply on
+top, an arrow, demand beneath, so the block shows the animals travelling — and the modal, which is the
+next thing the same operator opens, threw that away for a left/right pair. Three changes, all in
+`web/src/app/matching/match/`.
+
+**The modal now stacks its parents the way the prompt does.** `.pair`'s `display: flex` and the `.rec`
+`flex: 1 1 0` are gone; the availability block, the `.flow` arrow and the space block are siblings in
+that order, full width, the arrow's 4px margins holding them apart. The arrow markup and its rule are
+the prompt's, copied verbatim rather than shared — two dialogs, twenty lines, and factoring them into a
+component would put a layout decision behind an indirection for no gain. `.fields` went `margin-top:
+4px` → `12px`, which is the prompt's figure: the 4px was sized against the side-by-side pair.
+
+Worth recording *why* it was side by side in the first place: design-system.md 11.4.1 argued neither
+parent is the subject of the dialog, the match between them is, so neither should sit above the other.
+The argument is sound and the layout still lost — 300px a side could not hold a record's identity, its
+sub-line and two fact pairs, and in the screenshots most of them truncated. The arrow is what makes the
+stack more than a narrower layout: it states a direction the left/right pair only implied.
+
+**The stock-class commentary is gone.** `stockClassesDiffer`, `stockClassNote`, the `@if` block and
+`.note`'s rule all deleted. It was §11.4.2, and its case was real — the two vocabularies genuinely do
+not map, and `Cows` against `Cow` reads as a typo. But it fires on almost every match (the classes
+agree only by coincidence), it says the same thing every time, and the operator made exactly that
+judgement seconds earlier at the prompt, which no longer carries the note either. Both classes are
+still on screen in each block's tile and sub-line. The spec's two tests for it were replaced by one
+asserting the classes are shown *and* the paragraph is not.
+
+**Both dialogs now name the act, not just the record.** `Match 132 head` → **`Draft match: 132 head`**
+on the prompt, since `Create match` produces a `Drafted` match rather than a commitment; `Match #26` →
+**`Confirm match #26`** on the modal while the match is `Drafted`, and **`Edit match #26`** past it,
+where there is nothing left to confirm and the dialog is an editor. The modal's title is therefore a
+field (`MatchModal.title`) rather than an interpolation in the template. A static `Confirm match` would
+have been a lie on a Confirmed match, whose footer offers `Save changes` and `Cancel match…`.
+
+**State at close.** Angular **288 tests across 29 files** (net +1: two note tests out, three in — the
+stacking order, the classes-without-commentary check, and the two titles). `npm run build` clean, no
+warnings. Two spec expectations moved with the layout rather than against it: the modal's kicker and
+record-id order is now supply-then-demand.
+
+`Documents/design-system.md` §11.1 and §11.4 are updated, both with the superseded wording kept beside
+the change. **§11.1 was also stale in a way this uncovered** — it still specified the space above the
+availability record and still specified the stock-class note, neither of which the prompt has done for
+some time.
+
+### Same day, second pass: the badges and the titles
+
+Mark, from the screenshots: the monogram badge is still beside each name in both dialogs, and the
+titles' numbers are not worth the space.
+
+**The tile is out of both dialogs.** §16.10 took it off the card rows and the header strip as match
+noise; the two dialogs and the drag chip were the only survivors, and a badge beside a name in a
+dialog that also spells the class out in words was the last place it read as meaningful. Both blocks
+still name their class — the prompt in the `.cls` cell beside the name, the modal in its sub-line.
+`StockClassTile` is no longer imported by either component.
+
+**The drag chip keeps its tile, deliberately.** It has three fields in 200px — species, whose, how
+many — and no room to spell a stock class out, so the monogram is the only thing in it that says what
+is in hand. That asymmetry is now written down in §11.1 and in the checklist, because it is exactly
+the kind of thing a later tidy-up would "fix".
+
+**Both titles now name the processor and plant instead of a number.**
+
+| Was | Is |
+| --- | --- |
+| `Draft match: 132 head` | `Draft match: ANZCO Kokiri` |
+| `Confirm match #3` | `Confirm match: ANZCO Rangitikei` |
+| `Edit match #2` | `Edit match: ANZCO Rangitikei` |
+
+The head count followed the quantity field as it was edited — a figure restated 200px above the field
+it came from. The match id named a row in the `Matches` table, which no operator sees and no other
+screen shows. What an operator cannot recover once the dialog covers the board is *which* of a dozen
+near-identical ANZCO slots this is, and that is what the title now says. Both parent blocks still carry
+their own record ids, so the modal has not lost an identifier.
+
+`spaceName()` lives in `card/card-chrome.ts` beside the other presentation mappings, not interpolated
+in two templates: `plant` is a non-nullable string on the DTO but can be blank on a hand-built record,
+and `ANZCO ` with a trailing space in a dialog title is the kind of thing nobody notices until a demo.
+Each dialog holds it in one field that the title *and* the space block's name line both read, so the
+two cannot disagree.
+
+**State at close.** Angular **291 tests across 29 files** (+3: the prompt's title and badge, the
+modal's badge; the modal's title test absorbed the id assertion as a negative). `npm run build` clean,
+991.57 kB. Re-verified in headless Chrome by the same three paths — a real drag for the prompt, a
+match-table row click for each modal state — and the checklist table above records the second run.
+
+### And a third, one word long: `Delete draft` → `Undo match`
+
+Mark's call, same day. What the operator is taking back is the drag they made a moment ago, and a
+draft has been communicated to nobody — so `Undo` names the act as they experience it where `Delete`
+named the mechanism. **The `#BA1A1A` destructive treatment stays**: the row is gone for good, and
+there is no undoing the undo. That the two now pull slightly against each other is the honest
+reading of an act that feels reversible and is not.
+
+The snack moved with it, `Draft deleted` → **`Match undone`**. A confirmation that reports a
+different verb from the one just pressed makes an operator wonder whether something else happened,
+and `MatchActions.deleteDraft` is the only place that string exists. The method keeps its name — it
+still calls `DELETE /api/matches/{id}`, and resolved question 3 still governs *when* it is offered
+(`Drafted` only, never beside `Cancel match…`). Nothing about the write changed.
+
+---
+
+## Post-pass-1 tweak — the expanded card as an inset sheet, 2026-09-07
+
+**The complaint.** An expanded card did not read as one object. The column is a run of white /
+`#F5F5F5` striped 52px rows; the drawer opened below one of them as four more bands of white /
+`#FAFAFA` / white + `#F5F5F5`, at a 30px row rhythm, with no boundary of its own — and its match table
+striped with `$lms-card-zebra`, **the same `#F5F5F5` the card list stripes with**. The drawer was built
+out of the list's own vocabulary, so it dissolved into it. That last fact is the diagnosis: this was
+never a matter of the treatment being too weak, it was the treatment being made of the wrong material.
+
+**The lab.** `Documents/expansion-lab.html`, the same throwaway single-file pattern as
+`drag-lab.html`: the real column reproduced from `_lms-tokens.scss` and `_card-geometry.scss`, two
+cards open (one on a white row, one on a zebra row) with striped cards above, between and below, and
+twelve alternatives each expressed as **one class on the board** so they compose. Presets across the
+top, a side-by-side against the unmodified column, and the selection in the URL hash
+(`expansion-lab.html#1,2,3`) so a particular combination can be sent to someone as a link. Each idea
+carries what it would cost in the real files and what its risk is; the file stays as the record of the
+nine that were not taken.
+
+Mark chose **1 + 2 + 3 + 5 + 8 + 9**.
+
+**What shipped.** Four devices, and **not one of them is a hue** — see design-system.md §6.2, which was
+rewritten around them:
+
+| | Device | Where |
+| --- | --- | --- |
+| 2 | a 10px gutter, the host on `$lms-surface` | `:host { padding: $expansion-inset }` |
+| 1 | a ground darker than anything in the list, `#E8EAED`, and **the table's zebra deleted** | `.expansion`, `.matches` |
+| 5 | a 1px `$lms-rule-strong` frame closing on a 2px bottom edge | `.expansion` |
+| 3 | an inset shadow — the one recess on the screen | `.expansion` |
+| 9 | the two sums promoted to a caption bar at the **top** | the template, not CSS |
+| 8 | vertical column rules and a lifted `th` ground in the match table | `.matches` |
+
+Three things are worth knowing beyond the list:
+
+- **The host and the `.expansion` div now do different jobs** — gutter and sheet. Both elements
+  already existed in `card-expansion.html`; nothing was added to the DOM. It is also what lets the
+  ground and the gutter be two different colours without one silently winning on specificity, which
+  is the bug the lab surfaced when the two were one element.
+- **The sums moved in the template, not with `order`.** Reading order and paint order agree, and the
+  block that gives the drawer its top edge is the block a screen reader reaches first.
+- **Row hover is `rgba(255,255,255,.45)`, not `$lms-hover`.** `$lms-hover` is *lighter* than the
+  drawer's new ground, so the old fill would have lit a row brighter than the sheet holding it. The
+  gesture is unchanged — the row lifts towards the surface above it — on the surface this block
+  actually has.
+
+`$leading-offset`'s 6px indent on the drawer went with the gutter: content inside a framed sheet does
+not want to line up with content outside one. `$expansion-actions-padding` went `10px 10px 0` →
+`10px 10px 8px`, because 0 put the buttons on the frame.
+
+**Six new tokens**, one ladder, in `_lms-tokens.scss` and mirrored in `:root`: `$lms-expansion`
+`#E8EAED`, `$lms-expansion-head` `#DFE4E8`, `$lms-expansion-th` `#ECEFF1`, `$lms-expansion-rule`
+`#D5D9DD`, `$lms-expansion-rule-soft` `#DFE2E5`, `$lms-expansion-head-rule` `#CCD2D7`. They are cool
+greys rather than a petrol tint on purpose: `$lms-petrol-tint` is the current-week band's and
+`$lms-drop-target` sits just below it, and a third petrol value in the same column would have said
+"this week" or "droppable" before it said "open". White is already the top of the range, so the only
+free direction was down.
+
+**State at close.** Angular **291 tests across 29 files**, unchanged — no spec asserted on the
+drawer's surfaces or on the order of its blocks, which is worth noting as a gap rather than a
+comfort. `npm run build` clean, 985.29 kB. Verified in headless Chrome against the running app
+(`/matching`, two spaces expanded via CDP), not only in the lab.
+
+### Same day — idea 1 pulled, and the gutter reopened
+
+**Idea 1 lasted a day.** Mark's colleague looked at the grey-grounded drawer and said the whole thing
+looked **read only**, which is the one reading nobody in the lab had tested for and is obviously right
+once said: on this screen everything disabled recedes exactly that way — a greyed `Confirm space`, a
+past week's label, a cancelled card's desaturation. The drawer is the most interactive region on the
+card. It holds the only route to a match and the record's own Edit and Cancel, and it had been painted
+the colour of things you cannot touch.
+
+So `$lms-expansion` `#E8EAED` is gone and the sheet is `$lms-card` white again. What came back with it:
+`.fields` and `td` bottom rules to `$lms-rule-soft`, `th` to `$lms-divider`, and the match table's row
+hover to `$lms-hover` from the `rgba(255,255,255,.45)` that only made sense over a grey ground. What
+did **not** come back is the **zebra** — that deletion belonged to idea 8, not idea 1, and the vertical
+column rules do the separating now (design-system.md §3.2). Two tokens went with the ground:
+`$lms-expansion` and `$lms-expansion-rule-soft`. The other four are the caption bar and the table
+header, and they stay.
+
+The general lesson is worth keeping: **the separation problem and the value problem are different
+problems.** Every option in the lab that solved it with a ground was solving the first by breaking the
+second, and nothing in the twelve descriptions said so, because "does this look editable" was not one
+of the questions being asked. It is now.
+
+**What shipped is 2 + 3 + 5 + 8 + 9** — gutter, recess, frame, table treatment, caption bar. 291 tests
+unchanged, `npm run build` clean, verified against the running app.
+
+**The gutter is now the open question.** With the sheet white, idea 2's 10px of `$lms-surface`
+`#FAFAFA` sits between a white card above and a white or `#F5F5F5` card below, and at that value it is
+very nearly invisible: it does not read as a ground the sheet sits on, it reads as a gap where
+something is missing. A gutter only contains something if it is visibly not that thing.
+`expansion-lab.html` gained a **second control row and a radio group** — seven readings of idea 2,
+`#...,gA` through `gG` in the hash:
+
+| | Option | What it is |
+| --- | --- | --- |
+| A | As shipped | 8/10/10 of `#FAFAFA` — the one being complained about |
+| B | Tray | the same metrics filled with `$lms-expansion-head` `#DFE4E8`, the caption bar's own grey |
+| C | None | idea 2 deleted; the frame and the recess carry it alone |
+| D | Hung from its card | no top gap at all, grey at the sides and below |
+| E | Sides only | flush top and bottom, inset 10px left and right |
+| F | Hanging indent | 28px on the left only, transparent |
+| G | The card's own ground | the gutter takes the colour of the row it hangs off |
+
+The page now opens on the shipped set rather than on the original, and the compare board is relabelled
+`Before` — a version has shipped, so "Today" was about to start meaning the wrong thing.
+
+### Gutter settled — option C, none at all
+
+Mark took **C** from the seven. The 10px gutter is gone: `.expansion` is full-bleed and the component
+host is a bare wrapper carrying the open animation and the 1px `$lms-divider` rule that closes the
+block. `$expansion-inset` went with it, and so did the last trace of the 6px `$leading-offset` indent.
+
+The predicted risk — the frame landing 1px from the rule under the card above and the card below,
+three horizontal lines inside 2px — **did not materialise**, and it is worth recording why: the sums
+caption bar gives the drawer a top edge of its own, so the frame was never the only thing separating
+it from the row above. Drawing the six alternatives is what made that visible. The real finding is
+that **the gutter was the only device paying no rent**: the frame, the recess and the caption bar were
+already doing the whole job between them, and the gutter was spending 20px of width and 18px of height
+to repeat what they said.
+
+Two of the six shipped devices are therefore gone within two days of the original change — the grey
+ground and the gutter — and design-system.md §6.2 now carries both post-mortems above the spec, with
+the constraint any future attempt has to meet: **the drawer must stay on a live-content surface, and
+must not spend width or height saying it is separate.**
+
+One thing left deliberately alone: the drawer's bottom edge is now the sheet's 2px `$lms-rule-strong`
+border *plus* the host's 1px `$lms-divider`, a 3px stack. It reads as a closing edge and it is what
+was approved on screen, so it stands — but it is redundant, and if anyone tightens it, the host's rule
+is the one to drop.
+
+**State at close.** Angular **291 tests across 29 files**, unchanged throughout. `npm run build`
+clean. Verified against the running app, two spaces expanded via CDP; `expansion-lab.html` opens on
+what ships (`#2,3,5,8,9,gC`) and keeps all six rejected gutters and all six rejected ideas as the
+record.
+
+---
+
+## Post-pass-1 tweak — the grip, and the body that expands, 2026-09-07
+
+**The complaint, in Mark's words.** *"If you hover over any card, your hand changes to a little hand
+[grab cursor]. And if you want to expand the card, you have to click the arrow in the right hand
+corner of it. I believe that this is probably not the right configuration."* The ask: a large,
+grid-like touch target on the **left** of every card for the drag, and the rest of the card simply
+clickable to expand.
+
+**Why the old arrangement was backwards.** Phase 5 made the whole `.cbody` the `cdkDragHandle` and
+Phase 8 gave it design-system.md §10's six-dot glyph, positioned in the body's 8px right gutter and
+revealed on hover. So the card advertised *one* gesture across all 508px of its width — the rarer of
+the two — while the commoner one, expanding, was a 24px chevron at the far end of the row. The glyph
+was in the right gutter for a good reason (§16.10: a real cell there would push the trailing edge
+from 32px to 42px and unpick the Unmatched column's alignment), but "don't grow the trailing edge"
+was never an argument for the *leading* edge, which is where the eye starts and where nothing was.
+
+**What shipped.**
+
+- **A grip cell**, 30 × 51px, first in the row, Material's `drag_indicator`, `cursor: grab`, a 1px
+  `$lms-divider` rule on its trailing edge so 30px of space reads as a rail rather than as padding.
+  Always visible, not summoned by hover: a handle you have to hover to find is a handle an operator
+  does not know is there, and it is now the only route to a match.
+- **It is the only `cdkDragHandle` on the card.** `.cbody` lost the attribute and gained
+  `(click)="toggle()"` and `cursor: pointer`.
+- **The six-dot `.grab` glyph is gone**, and `cursor: grab` off the card as a whole.
+- **The chevron stays**, unchanged, because it is the focusable control carrying `aria-expanded`. The
+  body gets no `role` and no `tabindex` — a second tab stop on the same 52px row saying the same
+  thing is one more thing to tab past — and the grip is `aria-hidden`, there being no keyboard drag
+  path (resolved question 14).
+
+**The 3px zig-zag, which is the part worth remembering.** The grip's first cut sat *after* the spine
+in flow, and Mark caught it on screen within the minute: *"cards that have a status line on the left
+are causing the grab target to bump to the right."* Booked's spine is 3px and every other status's is
+6px (§3.1), so the run of glyphs stepped in and out by 3px down the list — the exact class of
+misalignment `_card-geometry.scss` exists to prevent, arrived at by putting a fixed cell behind a
+variable one. His own diagnosis was the fix: make the grip wider and let the status run over the top
+of it.
+
+So **`.card > .spine` is now `position: absolute; left: 0; top: 0; bottom: 0`** and the grip reserves
+`$spine-width` of left padding for it. The spine costs the row no width at all, the grip's box no
+longer depends on the card's status, and the glyph sits at one x on every row. Two details:
+
+- `bottom: 0` resolves against the padding box, so the spine is still 51px tall inside the 52px
+  border-box card — the same height `align-self: stretch` gave it, still above the bottom rule.
+- The override is **scoped to `.card >` deliberately.** `legend/status-legend.scss` includes the bare
+  `spines` mixin to draw its four sample spines in a 92px scrap that is not a positioned ancestor;
+  absolute positioning in the mixin itself would have flung them into the dialog's corner. The legend
+  drawing itself from the real mixin is what made that a trap worth stating rather than a bug.
+
+**One number moved and one retired.** The strip's leading pad is `$col-grip + 8px`, and it happens to
+be **the same 38px** it was as `$leading-offset + 6px + …`: the grip's 30px absorbs the spine's 6px
+plus a 24px glyph area, which is why the columns did not have to be re-measured. `$leading-offset` is
+gone — the strip was its only reader and re-adding it would double-count the spine. The trailing edge
+is untouched at 32px.
+
+**One regression the change invites, and its guard.** The match-count button on line 2 sits *inside*
+the body, and the body now toggles: without a `stopPropagation` the button's toggle and the body's
+toggle cancel out and the card looks like it ignored the click. It used to stop `pointerdown`
+instead, for the opposite reason — the body was the drag handle and a click that drifted a pixel
+lifted the card. Both hazards are one line, in the same place, for opposite reasons.
+
+`card/card-grip.spec.ts` (8 tests, both cards in one loop) holds all of it: the grip is the *only*
+`.cdk-drag-handle` on the row, the body expands and collapses, the chevron still works, and the match
+count opens the card **once**. That last one was verified the way Phase 8 verified its `-` fallbacks —
+by removing the `stopPropagation` and watching it fail.
+
+**State at close.** Angular **299 tests across 30 files** (291 + the new spec's 8), `npm run build`
+clean with no warnings. Verified in headless Chrome at 1600×1100 against the running app: the grips
+are one straight column across Booked and Pending rows in both columns, the hatch runs over the
+grip's leading edge, and every line-1 heading still sits over its own values.
+
+---
+
+## Post-pass-1 tweak — the expanded card, round two, 2026-09-07
+
+**The complaint.** The inset-sheet change earlier the same day fixed the drawer *dissolving* into the
+list, and left a different problem behind: *"when you've got multiple open at the same time, it's
+still visually to my eye all blurs together in terms of greys, mild blues and whites."* Mark asked
+for ten ways to make the expanded card read better, and for a lab to judge them in.
+
+**The diagnosis, which is the part that decided everything after it.** Three separate faults, and
+only the first is about colour:
+
+1. **The value range was exhausted, not misused.** Eight named greys lived inside about ten L\* points
+   — `#FFF` card, `#F5F5F5` zebra, `#FAFAFA` surface, `#F0F0F0` band, `#EFEFEF` rule-soft, `#ECEFF1`
+   table head, `#E0E0E0` divider, `#DFE4E8` caption bar. **A ninth step could not separate anything.**
+   Every remaining fix was either the *removal* of a grey or a device that is not a value at all.
+   This is why the first lab's answer — add a ground, add a frame, add a recess — could not be
+   extended a second time.
+2. **Band count, not band colour.** One open card printed five horizontal grounds: sums, fields,
+   table head, table body, actions. Three open cards printed fifteen.
+3. **Nothing said which card owned which drawer.** Only adjacency did, which is exactly the signal
+   that fails when adjacency repeats. And nothing inside the drawer lined up with the row above it:
+   the card's text began at x=38 (30px grip + 8px padding), the drawer's at x=10.
+
+**`Documents/expansion-lab-2.html`** — a second lab, because the first one's baseline no longer
+existed and it could therefore no longer be used to judge anything. Ten new ideas (none a repeat of
+the earlier twelve), each one class on a `.board`, so they compose; the left board is what shipped and
+never changes; presets across the top; **a `cards open: 1 / 2 / 3` control**, the count being the
+variable the complaint is actually a function of; and the URL hash carries the set, so a combination
+worth keeping can be pasted back into a chat.
+
+**Chosen: 3, 5, 6, 8 and 0.** What shipped:
+
+- **3 · The sums anchor the drawer by size.** The `#DFE4E8` caption bar is gone and the two figures
+  sit on white at **20px/600**, label beneath. The type scale was the one axis never spent — nothing
+  in the drawer was outside 10.5–13px, so the block had no focal point and the eye drifted across
+  grounds looking for one. `$lms-expansion-head` and `$lms-expansion-head-rule` are **deleted**: two
+  of the eight greys, gone.
+- **5 · A rail, aligned to the card body.** The grip's own hairline continues down the sheet's leading
+  edge and the content indents past it, so the drawer's first label, the sums and the table's `Qty`
+  column all start at x=38 — under the card's own name.
+- **6 · A notch under the chevron.** An 11px square rotated 45° on the top edge, centred on the
+  control that opened the drawer. Ownership stated instead of inferred.
+- **8 · One shadow direction.** The recess is gone and the sheet **rises** — `0 3px 8px -3px
+  rgba(0,0,0,.30)`, the only shadow left on the screen. Hover is colour only, and the host's closing
+  rule went with it. Three shadow directions inside 200px, all in the same soft grey, had cancelled.
+- **0 · One drawer per column.** `board/card-state.ts`. The one part of this work that treats the
+  problem as arithmetic rather than as styling, and by far the cheapest. **Per column, not per
+  screen** — comparing a space against an availability record is the screen's central task, so a
+  supply drawer must never close a demand one. `board/card-state.spec.ts` (6 tests) guards the
+  per-column half specifically, because clearing the whole set on open is *shorter* code and would
+  pass any test that only ever opens one column.
+
+**Two pixel arguments, and both were settled by measuring rather than by reasoning.**
+
+- **The rail is 29px, not `$col-grip`'s 30.** The card is edge-to-edge, so its grip paints a
+  `border-right` *inside* its own 30px box — the rule is the pixel at x=29 — while the sheet's rail is
+  positioned inside the sheet's 1px frame. At 30 the rail landed on x=31: two pixels right of the line
+  it was meant to continue, which is exactly what Mark saw and sent back. The lab's own arithmetic
+  said it should have been fine, so the number was found by scanning pixels and the comment in
+  `_card-geometry.scss` says so. **Do not adjust it by eye.**
+- **The notch is `calc($card-edge + $col-chevron / 2 - 1px)` from the sheet's right edge**, the -1px
+  being the frame, because the notch is placed from the sheet's padding box and the chevron from the
+  card's outer edge. One expression, so it cannot drift off the control it points at.
+
+**And the bug the second of those turned up, which outlives everything else in this entry.** Mark
+asked for the chevron to move left so the notch could sit under it, and gave the card a trailing
+gutter to do it — `padding-right: $card-edge`. That fixed a misalignment that had been on screen since
+**Phase 3**: §16.10 item 10 asserted that the card and the header strip both spend 32px at their
+trailing edge, and forgot that `.strip` is a flex row with `gap: $col-gap`. The strip has always spent
+**40** — 8px padding + 8px gap + 24px cell — against the card's 32, so **`Unmatched` sat 8px left of
+the numerals beneath it**, in both columns, for five phases. With the gutter both ends are 40.
+Measured in the running app after the fix: the card's `app-fill-meter` and the strip's `.s-meter` both
+end on x=781.
+
+It is worth being blunt about why it survived. §16.10 item 9 warns that this class of error is
+*"invisible in code review and glaring on screen"*, and item 10 is the one that was wrong — so every
+review that checked the code against the document found agreement, because the document was carrying
+the same missing term. Only a browser could break the tie, and `browser-checklist.md`'s trailing-edge
+item had never been run.
+
+**State at close.** Angular **305 tests across 31 files** (299 + the new spec's 6), `npm run build`
+clean with no warnings, bundle 982.95 kB against the 1 MB warn budget.
+
+**Verified against the running app** (`dotnet run` + `npm start`, headless Chromium over CDP, element
+rects and pixel scans — recorded as section M of `browser-checklist.md`): the drawer's content and the
+card's name both on x=241; the rail and the grip's rule both on x=232; the notch's centre and the
+chevron's both on x=801; the meter block and its heading both ending on x=781; one drawer per column
+with two cards clicked in turn, and a demand and a supply drawer open together without either closing
+the other.
+
+**One thing left on the record, found in that pass and deliberately not fixed.** On a record with no
+matches the two sums are `0` and `0`, and at 20px they are now the loudest thing in the drawer —
+idea 3's anchor, anchoring nothing, above a sentence explaining there is nothing to total. It is
+honest rather than wrong. `browser-checklist.md` section M carries the two cheapest remedies if it
+grates in the demo.

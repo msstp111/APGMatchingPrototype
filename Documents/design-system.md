@@ -143,6 +143,15 @@ $lms-petrol-tint:     #E8F1F6;  // current-week band, valid drop target, info pa
 $lms-hover:           #F5F9FB;  // card hover
 $lms-column-wash:    #F6FAFC;  // the opposite column during a drag
 
+// --- the expanded card's drawer (§6.2) — ONE strip of chrome inside a WHITE sheet ---
+// A grey ground (#E8EAED) was shipped and pulled the same day: on this screen a greyed-out block
+// reads as READ ONLY, and the drawer is the most interactive region on the card. See §6.2.
+// $lms-expansion-head #DFE4E8 and $lms-expansion-head-rule #CCD2D7 grounded the sums caption bar
+// and are DELETED (2026-09-07): the sums are type on white now. Eight named greys lived inside ten
+// L* points on this screen, so the fix could only be a removal, never a ninth step.
+$lms-expansion-th:        #ECEFF1;  // the match table's header row
+$lms-expansion-rule:      #D5D9DD;  // the vertical rules between that header's cells
+
 // --- lines and text -------------------------------------------------------
 $lms-rule-strong:     #BDBDBD;  // form-field underline, Pending hatch stroke
 $lms-rule-soft:       #EFEFEF;  // rules inside an expanded card
@@ -174,6 +183,10 @@ has, so a component can reach them without importing the partial:
   --lms-card: #{$lms-card};                --lms-card-zebra: #{$lms-card-zebra};
   --lms-band: #{$lms-band};                --lms-petrol-tint: #{$lms-petrol-tint};
   --lms-hover: #{$lms-hover};              --lms-column-wash: #{$lms-column-wash};
+  --lms-expansion-head: #{$lms-expansion-head};
+  --lms-expansion-th: #{$lms-expansion-th};
+  --lms-expansion-rule: #{$lms-expansion-rule};
+  --lms-expansion-head-rule: #{$lms-expansion-head-rule};
   --lms-rule-strong: #{$lms-rule-strong};  --lms-rule-soft: #{$lms-rule-soft};
   --lms-faint: #{$lms-faint};              --lms-tile-ink: #{$lms-tile-ink};
   --lms-supply-ink: #{$lms-supply-ink};
@@ -273,6 +286,12 @@ resemblance and stays clear of the `#EEEEEE` used for blocked drop targets and d
 
 Striping is by **position in the rendered list within a band**, not by record id — every card in a
 band takes part, because every card in a band is one of that band's own records.
+
+**The stripe belongs to the list and to nothing else.** The expanded card's match table used to take
+`$lms-card-zebra` for its own even rows, which meant the drawer printed the list's stripe inside
+itself and dissolved into the run of cards around it. It does not any more (§6.2): rows there are
+separated by rules and by vertical column rules, and `$lms-card-zebra` appears on 52px card rows
+alone.
 
 ---
 
@@ -401,10 +420,18 @@ Square corners are most of why this reads as LMS. Resist rounding cards.
 | State | Shadow |
 | --- | --- |
 | Card at rest | **none** — 1px `#E0E0E0` bottom rule instead |
-| Card hover | `0 1px 2px rgba(0,0,0,.10)` |
+| Expanded card's drawer | `0 3px 8px -3px rgba(0,0,0,.30)` — **the only shadow on the matching screen** (§6.2) |
+| Card hover | **none** — colour only (`$lms-hover`) |
 | Card dragging (CDK preview) | `0 8px 16px rgba(0,0,0,.24)` + `2px solid #00567E` outline |
 | Dialog / modal | `0 11px 15px rgba(0,0,0,.20), 0 9px 46px rgba(0,0,0,.12)` |
 | Snack bar | `0 3px 5px rgba(0,0,0,.20)` |
+
+**One direction, one user (2026-09-07).** The drawer used to *sink* — two inset shadows, the screen's
+one recess — while a hovered card *rose* 1px and band headers did neither. Three shadow directions
+inside 200px of screen, all in the same soft grey, and they cancelled: nothing read as raised or
+sunk, only as slightly smudged. The list is flat now, hover is a colour change, and the shadow is
+spent on the one thing that has something to say with it — an open drawer standing out of the run of
+52px rows. If a second user for shadow is ever proposed on this screen, it has to displace this one.
 
 ---
 
@@ -503,26 +530,118 @@ the table naming the match.
 The collapsed row **stays exactly where it is** and the expansion opens below it, so nothing above the
 pointer moves (Phase 3, 5.2). The chevron flips to `expand_less`.
 
-The expansion block is indented `54px` on the left (rail + spine) so it aligns with the card body, and
-has three parts in this order:
+**The drawer is a framed sheet, not another band of the list.** That is the whole of its treatment,
+and it exists because an open card did not read as one object: the column is a run of white /
+`#F5F5F5` striped 52px rows, and the drawer opened below one of them as four more bands of white /
+`#FAFAFA` / white + `#F5F5F5`, at a 30px rhythm, with no boundary of its own. Its match table striped
+with `$lms-card-zebra` — the list's own stripe. It was built out of the list's vocabulary, so it
+dissolved into it.
 
-1. **Field row** — `padding: 8px 10px 6px`, 1px `#EFEFEF` bottom rule, `gap: 24px`. Each field is a
-   micro-cap label over a 12.5px value. Empty values render `-`.
-   - *Demand:* `Notes`, then right-aligned `Quantity required`, `Quantity unmatched`.
-   - *Supply:* `Availability details`, `Transaction type`, `Notes`, then right-aligned
-     `Quantity available`, `Quantity unmatched`.
-   - The `Quantity unmatched` value is in `*-ink` at weight 500, followed by the DTO's
-     `quantityStateLabel` at weight 400.
-2. **Sums row** — `padding: 8px 10px`, background `#FAFAFA`, 1px `#E0E0E0` bottom rule, two fields at
-   `gap: 24px`, values 14px/500 tabular:
+**Four** devices say "different kind of thing", and **not one of them is a hue or a ground**:
+
+- **A frame.** 1px `$lms-rule-strong` `#BDBDBD` on all four sides. Nothing else on this screen is
+  framed, so a frame is unambiguous by scarcity alone — and `$lms-divider` would not do, as it is the
+  same weight as the rule under every card.
+- **A rail.** The drag grip's own 1px `$lms-divider` hairline, continued down the sheet's leading
+  edge, with the sheet's content indented past it — so the drawer's first label, the sums, and the
+  match table's `Qty` column all begin at **x=38**, where the card's own name begins (30px grip +
+  8px `$card-edge`). Nothing inside the drawer used to line up with the row that owns it. The rail is
+  `$expansion-rail` = **29px, not 30**: the card's grip paints its border *inside* its own 30px box,
+  so the rule is the pixel at x=29, and the sheet's rail is positioned inside a 1px frame. Verified
+  by pixel scan against the grip, in the running app — `gripRuleX` and the rail both on x=232,
+  `cardNameX` and the sheet's first label both on x=241.
+- **A notch.** An 11px square rotated 45°, on the top edge, **centred on the chevron that opened the
+  drawer** — `right: calc($card-edge + $col-chevron / 2 - 1px)`, the -1px being the frame, because
+  the notch is placed from the sheet's padding box and the chevron from the card's outer edge. It
+  says *which card this belongs to*, which until now was inferred from adjacency alone — the one
+  signal that fails when two drawers are open in a column of near-identical bands. Verified live:
+  chevron centre and notch centre both on x=801.
+- **A shadow.** `0 3px 8px -3px rgba(0,0,0,.30)`, and after §5.4's revision it is the only shadow on
+  the screen. The sheet rises out of a flat list.
+
+**And a fifth thing that is not a treatment at all: only one drawer is open per column** (see below).
+
+The `.expansion` div is the sheet and it is **full-bleed**: the component host is a bare wrapper
+carrying nothing but the open animation. Its 1px `$lms-divider` bottom rule is gone with the shadow
+change — a sheet that stands proud of the list closes itself, and a rule beneath it read as one more
+of the rules between cards. There is no `$expansion-inset` and no `$leading-offset` indent.
+
+**Two further devices were tried and pulled, both within a day of shipping. Read this before adding a
+third.**
+
+- **A grey ground** (`#E8EAED`). Certainly separate from the white / `#F5F5F5` rows around it, and it
+  read as **read only** — precisely how everything disabled on this screen recedes, from a greyed
+  `Confirm space` to a past week's label. The drawer is the most interactive region on the card: it
+  holds the only route to a match, and the record's own Edit and Cancel. It sits on `$lms-card`, the
+  surface an operator associates with live content.
+- **A gutter** — 10px of `$lms-surface` around the sheet. The right instinct and the wrong value:
+  `#FAFAFA` between a white card above and a white or `#F5F5F5` card below is very nearly invisible,
+  so it read as a gap where something was missing rather than as a ground the sheet sat on. Six
+  alternatives were drawn (`Documents/expansion-lab.html`, gutter A–G: a grey tray, a top-flush
+  version, sides only, a hanging indent, the card's own ground) and the conclusion was that the sheet
+  needs none of them. The caption bar gives the block a top edge, the frame gives it four, and the
+  gutter was the only device paying no rent.
+
+- **A recess**, `inset 0 3px 5px -1px rgba(0,0,0,.16)` + `inset 0 -2px 4px -2px rgba(0,0,0,.10)`.
+  Replaced by the outer shadow above, for the reason §5.4 now records: it was one of three shadow
+  directions inside 200px and the three cancelled.
+- **A sums caption bar**, `$lms-expansion-head` `#DFE4E8` over `$lms-expansion-head-rule` `#CCD2D7`.
+  It separated the block by **value**, and value is the axis this screen has spent: eight named greys
+  inside ten L\* points (`#FFF` card, `#F5F5F5` zebra, `#FAFAFA` surface, `#F0F0F0` band, `#EFEFEF`
+  rule-soft, `#ECEFF1` th, `#E0E0E0` divider, `#DFE4E8` caption). With two or three drawers open the
+  column read as one undifferentiated field of white, near-white and cool grey — which is the
+  complaint the second lab was drawn to answer. The two tokens are deleted.
+
+Separation is the four devices above, and **not one of them touches the ink**. That is the constraint
+any future attempt has to meet: the drawer must stay on a live-content surface and must not spend
+width or height saying so. **And it may not spend another grey** — there is none left to spend.
+
+**`Documents/expansion-lab-2.html`** is the second lab: ten alternatives, live, side by side with what
+shipped before them, with presets and a `cards open: 1 / 2 / 3` control (the count being the variable
+that matters). Ideas 3, 5, 6, 8 and 0 were chosen from it on 2026-09-07 and are what §6.2 now
+describes. The six that were not are still in the file with their costs and risks; read them before
+proposing a fifth device.
+
+**Only one drawer is open per column, and opening a card closes the other one on its side**
+(`board/card-state.ts`). Every other part of this treatment is styling; this is the one part that
+treats the problem as arithmetic. A column of 52px rows interrupted by two or three ~200px drawers
+is a run of near-identical bands whatever the drawer is made of, and the count is the only variable
+that removes the problem instead of decorating around it. **Per column, not per screen** — comparing
+a Processor Space against an Availability record is the screen's central task, so a supply drawer
+opening must never close a demand one. Comparing two records on the *same* side is a scroll either
+way. Guarded by `board/card-state.spec.ts`, whose real subject is the per-column half: clearing the
+whole set on open is shorter code and would pass any test that only ever opens one column.
+
+It has three parts in this order — **the sums come first**, which is a change from the original
+layout and is the reason the block reads top-down as answer-then-detail:
+
+1. **The sums, as the drawer's anchor** — `padding: 8px 10px 6px 8px`, **no ground**, 1px
+   `$lms-rule-soft` bottom rule, `gap: 26px`. **Figure over label** (`column-reverse`): the value at
+   **20px/600 tabular**, the micro-cap label beneath it. This is the one place on the screen where a
+   quantity is set larger than a card's own figures, and it is deliberate — these two sums are the
+   answer the drawer was opened for, and until they were set at a size that says so the block had no
+   focal point at all: everything in it sat between 10.5 and 13px, so the eye drifted across grounds
+   looking for one. The type scale was the axis that had never been spent (§5.1 has no step above
+   15px on this screen); value was the axis that had been spent eight times over.
    - `Quantity Matched incl. Draft` → `matchedInclDraft`
    - `Quantity Matched` → `matchedExclDraft`
 
    **Those are the labels.** APG-facing wording, never the DTO field names, and the excl-draft sum is
    labelled simply "Quantity Matched" because that is what a processor or farmer would see.
-3. **Match table** — an LMS table. `th`: 26px, micro-caps, 1px `#E0E0E0` bottom rule. `td`: 30px,
-   12.5px, 1px `#EFEFEF` bottom rule, `tr:nth-child(even) td { background: #F5F5F5 }`. Numerics and
-   dates right-aligned with tabular numerals.
+2. **Field row** — `padding: 8px 10px 6px`, 1px `$lms-rule-soft` bottom rule, `gap: 24px`. Each field is a micro-cap label over a 12.5px value. Empty values render `-`.
+   - *Demand:* `Notes`, then right-aligned `Quantity required`, `Quantity unmatched`.
+   - *Supply:* `Availability details`, `Transaction type`, `Notes`, then right-aligned
+     `Quantity available`, `Quantity unmatched`.
+   - The `Quantity unmatched` value is in `*-ink` at weight 500, followed by the DTO's
+     `quantityStateLabel` at weight 400.
+3. **Match table** — an LMS table, and it must read as a table rather than as more rows.
+   `th`: 26px, micro-caps, ground `$lms-expansion-th` `#ECEFF1` (lighter than the caption bar above
+   it, so the table has a top of its own without competing with it), 1px `$lms-divider` bottom rule.
+   `td`: 30px, 12.5px, 1px `$lms-rule-soft` bottom rule, hover `$lms-hover`. **No row zebra** — see
+   §3.2. Columns are separated by **vertical rules** instead (`th + th` in `$lms-expansion-rule`,
+   `td + td` in `$lms-rule-soft`): every other structure on this screen is horizontal, which is
+   exactly why a vertical reads instantly as "table". Numerics and dates right-aligned with tabular
+   numerals.
 
    | Side | Columns |
    | --- | --- |
@@ -545,7 +664,9 @@ has three parts in this order:
    With no matches: one full-width row, `#9E9E9E`, 12px — *"No matches yet — drag a livestock
    availability record onto this space."* / *"…drag this record onto a processor space."* Deliberately
    empty, not broken.
-4. **Actions** (Phase 6 onwards) — `padding: 10px 10px 0`. On a Processor Space, a
+4. **Actions** (Phase 6 onwards) — `padding: 10px 10px 8px` (`$expansion-actions-padding`; the
+   bottom was 0 while the drawer had no edge of its own, and 0 puts the buttons on the frame). On a
+   Processor Space, a
    `Confirm space` button, enabled from the DTO's `canConfirm`. **When disabled it says why**, beside
    it, in card-meta type: *"Needs at least one confirmed match and no drafts."* A control that greys
    out for unstated reasons is exactly what makes non-technical users think the app is broken.
@@ -554,7 +675,7 @@ has three parts in this order:
    them — it had none before. They are text buttons rather than stroked ones, muted and `$lms-error`
    respectively, so the debug scaffolding never outranks the real action beside it. They are here and
    not on the 52px row for the reason the per-match affordance is: the row has no width to give, and
-   §16.10 pins its trailing edge at 32px.
+   §16.10 pins its trailing edge — at 40px since 2026-09-07.
 
    **In the match table, a counterparty cell whose record has been cancelled carries a `block` glyph
    and the word `cancelled` in a solid `$lms-error` box**, white on red. Same reason as the chevron
@@ -870,7 +991,7 @@ that rule is the backlog.
 
 | State | Treatment |
 | --- | --- |
-| **Card hover** | background `#F5F9FB`, `cursor: grab`, a six-dot grab glyph appears left of the chevron. **Nothing resizes** — a growing row makes a list of ten cards jitter under the pointer. **As built (Phase 8):** the glyph is *absolutely positioned in the card body's own 8px right gutter*, 6 × 10px, and only its opacity changes. A real cell between the body and the chevron would push the card's trailing edge from 32px to 42px while the header strip stayed at 32px, and the Unmatched column would stop lining up with its heading — the failure §16.10 warns is invisible in code review and glaring on screen. Phase 5 recorded the glyph as not built; this is it. |
+| **Card hover** | background `#F5F9FB`, **`cursor: pointer` over the body and `cursor: grab` over the grip**. **Nothing resizes** — a growing row makes a list of ten cards jitter under the pointer. **Superseded 2026-09-07 (§16.12):** the hover-only six-dot glyph in the right gutter, and the whole-body drag handle it hinted at, are both gone. The card now has *two* pointer paths and each states which it is: a permanent 30 × 51px grip first in the row drags (with the status spine painted over its leading 6px, so the glyphs line up whatever the status), and the rest of the row expands. |
 | **Card active / pressed** | background `#EEEEEE`, no movement |
 | **Dragging (CDK preview)** | **1:1 scale** — no tilt, no shrink; the operator is aiming at a 52px row and a transformed preview lies about where the pointer is. `0 8px 16px rgba(0,0,0,.24)` + `2px solid #00567E` outline, `cursor: grabbing`. Escape cancels. |
 | **Drag placeholder** (the gap left behind) | a flat `#EEEEEE` silhouette at the **same 52px height**, carrying the record name at 55% opacity. Same height matters: the list must not reflow mid-drag. **Not a dashed outline** — dashed already means Cancelled. |
@@ -895,26 +1016,47 @@ Quick, and never blocking the next action.
 
 ### 11.1 Quantity prompt (on drop)
 
-`MatDialog`, **560px**, 4px radius. Title states the quantity — `Match 132 head` — so the primary
-number is legible before any field is read.
+`MatDialog`, **560px**, 4px radius. Title names the act and the slot —
+**`Draft match: ANZCO Kokiri`**. **`Draft`, not just `Match`**: pressing `Create match` produces a
+`Drafted` match, and the dialog that comes next (§11.4) says `Confirm match: …`. The two said only
+`Match` until 2026-09-07 and left the operator to work out which of the two acts they were being
+asked for.
+
+**The head count is not in the title** (changed 2026-09-07, Mark's call, same pass that added the
+processor). It read `Draft match: 132 head` and followed the quantity field as it was edited — a
+figure restated 200px above the field it came from. The processor and plant are the thing the operator
+*cannot* recover once the dialog covers the board, on a screen where a dozen ANZCO spaces differ only
+by plant and date.
 
 **Body, in order:**
 
-1. **Processor Space summary block** and **Livestock Availability summary block**, stacked, 8px apart.
-   Each: `#FAFAFA` fill, 1px `#E0E0E0` border, **its own status spine on the left**, then
+1. **Livestock Availability summary block**, an arrow, then the **Processor Space summary block** —
+   stacked in that order, because that is the way the stock moves: supply into demand. The arrow is
+   muted `#757575`, 20px, and `aria-hidden` (the DOM order already reads top to bottom).
+   Each block: `#FAFAFA` fill, 1px `#E0E0E0` border, **its own status spine on the left**, then
    - micro-cap kicker (`Processor Space` in petrol / `Livestock Availability` in `#37393C`) with the
      status in micro-caps at the right;
-   - the stock-class tile, the record's name at 13.5/500, the stock class in `#757575`;
+   - the record's name at 13.5/500, then the stock class in `#757575`. **No stock-class tile** —
+     see below;
    - a row of micro-cap fact pairs: demand `Delivery · Time · Required · Unmatched`; supply
      `Available from · Transaction type · Available · Unmatched`. Unmatched in `*-ink` weight 500.
-2. **The stock-class note** — a bordered info row: *"Cattle and Bull come from different stock-class
-   lists. There is no mapping between them — the judgement is yours."* Both classes named. This is
-   information, not a warning: no amber, no warning icon.
-3. **Three fields in a row**, all `appearance="fill"`:
+2. **Three fields in a row**, all `appearance="fill"`:
    - `Quantity matched` — 148px, suffix `head`, hint `Default 132 · max 142`
    - `Price per kg` — 148px, prefix `$`, suffix `/kg`, hint
      `Default for Alliance Group · Cattle · w/c 23-08-26`
    - `Transport company (optional)` — flexes, `mat-autocomplete`, hint `Can be added later`
+
+**There is no stock-class note.** This section used to specify a bordered info row naming both classes
+and saying the two lists do not map; it is gone from both dialogs (2026-09-07, Mark's call). The
+classes are still on screen beside each record's name, and the judgement is the operator's whether or
+not a paragraph says so.
+
+**And no monogram tile either** (same day, same call). §16.10 took the tile off the card rows and the
+header strip as match noise; these two dialogs and the drag chip were the only places it survived, and
+a badge beside each name in a dialog that also spells the class out in words was the last place it
+read as meaningful. **The drag chip keeps its tile**, and that is not an oversight: the chip has three
+fields in 200px and no room to spell a stock class out, so the monogram is the only thing in it that
+says what species is in hand.
 
 **Actions:** `Cancel` (`mat-button`) · `Create match` (`mat-flat-button`, petrol).
 
@@ -952,20 +1094,32 @@ tracking, 4px radius.
 
 ### 11.4 Match management modal
 
-`MatDialog`, **640px**.
+`MatDialog`, **640px**. Title names the act and the slot: **`Confirm match: ANZCO Rangitikei`** while
+the match is `Drafted`, because confirming it is what the operator opened it to do and what the filled
+button offers; **`Edit match: ANZCO Rangitikei`** past `Drafted`, where there is nothing left to
+confirm and the dialog is an editor. Read with §11.1's `Draft match: ANZCO Kokiri`, the pair of
+titles says which of the two acts each dialog is asking for.
 
-1. **Both parent records, read-only, side by side**, each `flex: 1 1 0`, 10px apart: the same block as
-   §11.1 plus the side glyph, the record id in the kicker (`Processor Space #3`), a sub-line
-   (`Lamb · delivery 01-09-26 · no time set`), and the fact pairs
+**The match id is no longer in the title** (changed 2026-09-07, Mark's call). `Confirm match #3` named
+a row in the `Matches` table, which no operator sees and no other screen shows; the processor and plant
+name the slot in front of them. Both parent blocks still carry their own record ids in their kickers,
+so nothing identifying has left the dialog. `spaceName()` in `card/card-chrome.ts` composes the two
+words for both dialogs, and drops the trailing space when a record has no plant.
+
+1. **Both parent records, read-only, stacked exactly as §11.1 stacks them** — Livestock Availability,
+   the arrow, then Processor Space — full width, with the arrow's 4px margins holding them apart. Each
+   block is §11.1's plus the side glyph, the record id in the kicker (`Processor Space #3`), a sub-line
+   carrying the stock class (`Lamb · delivery 01-09-26 · no time set`), and the fact pairs
    `Originally required`/`Originally available` and `Quantity unmatched` with its state label.
-2. **The stock-class note**, as §11.1 — and note that `Cows` on a space against `Cow` on an
-   availability record looks like a typo and is not. Neither side is validated against the other.
-   (This example used to be SFF's `Lambs` against supply's `Lamb`; APG confirmed SFF spells it
-   `Lamb` too, so the seed was corrected and the example moved. The vocabularies still do not
-   align — `Cattle` against `Mixed Cattle`, `Nat Beef - Ultra` against `GFNB ultra`.)
-3. **Three editable fields**: `Quantity matched` (150px, min 1), `Price per kg` (150px),
+
+   **This supersedes "side by side, each `flex: 1 1 0`, 10px apart"** (changed 2026-09-07, Mark's
+   call). The two halves had 300px each to hold a record's identity, its sub-line and two fact pairs,
+   and most of them truncated; and a match confirmed should read the way the same match was drafted a
+   moment earlier. The arrow is the reason the stack is not merely a narrower layout — it says which
+   way the animals travel, which a left/right pair only implied.
+2. **Three editable fields**: `Quantity matched` (150px, min 1), `Price per kg` (150px),
    `Transport company` (flexes, autocomplete).
-4. **The ceiling is spelled out in the quantity field's own hint** —
+3. **The ceiling is spelled out in the quantity field's own hint** —
    *"Ceiling 472 = the availability's 177 unmatched **plus this match's own 295**."* — and becomes that
    field's `mat-error` when the entry goes past it.
 
@@ -981,15 +1135,30 @@ tracking, 4px radius.
    alone sizes to nothing and the wrapped text paints over whatever follows. Wrapping margins are 8px
    a side, against Material's default 16px.
 
+**No stock-class note here either.** This section used to carry §11.1's bordered paragraph, with the
+warning that `Cows` on a space against `Cow` on an availability record looks like a typo and is not.
+The vocabularies still do not align — `Cattle` against `Mixed Cattle`, `Nat Beef - Ultra` against
+`GFNB ultra`, and neither side is validated against the other — but by the time a match exists the
+operator has already made that judgement at the prompt, and the paragraph only crowded the dialog.
+Both classes are still on screen, in each block's sub-line — which is now the only place they are,
+the monogram tile having come out the same day (see §11.1).
+
 **Footer — destructive left, constructive right:**
 
 | Match status | Left | Right |
 | --- | --- | --- |
-| `Drafted` | `Delete draft` (`mat-button`, `#BA1A1A`) | `Close` · `Save changes` · `Confirm match` (flat petrol) |
+| `Drafted` | `Undo match` (`mat-button`, `#BA1A1A`) | `Close` · `Save changes` · `Confirm match` (flat petrol) |
 | `Confirmed` | `Cancel match…` (`mat-button`, `#BA1A1A`) | `Close` · `Save changes` |
 
 Delete is offered **only** at `Drafted`, needs no reason, and is not a cancellation (resolved
 question 3). Cancel-with-reason is offered only past `Drafted`.
+
+**The button reads `Undo match`, not `Delete draft`** (changed 2026-09-07, Mark's call). What the
+operator is taking back is the drag they just made, and a draft has been communicated to nobody — so
+`Undo` describes the act as they experience it, where `Delete` announced the mechanism. It keeps the
+`#BA1A1A` destructive treatment all the same: the row is gone for good, and there is no undoing the
+undo. The snack says `Match undone` for the same reason — a confirmation that reports a different verb
+from the one pressed makes an operator wonder whether something else happened.
 
 ### 11.5 Editing a Confirmed match — prompt first
 
@@ -1245,13 +1414,51 @@ own: "Quantity Matched", never `matchedExclDraft`.
    outside a band. Getting this wrong is invisible in code review and glaring on screen — it was in
    fact wrong in the first cut of the canvas, in exactly the artboards meant to demonstrate the
    alignment.
-10. **The trailing edge matches too, at 32px.** The card spends 8px of body padding then a 24px
-    chevron; the strip spends a 24px spacer cell then 8px of cell padding. If either grows, the
-    Unmatched column stops lining up with its own header.
+10. **The trailing edge matches too, at 40px — and this item was WRONG until 2026-09-07.** It read:
+    *"at 32px. The card spends 8px of body padding then a 24px chevron; the strip spends a 24px
+    spacer cell then 8px of cell padding."* Both halves are arithmetic over the same two numbers, so
+    they looked like they agreed. They did not: `.strip` is a flex row with `gap: $col-gap`, and the
+    gap before `.s-chev` is real, so the strip has always spent **40px** — 8px padding + 8px gap +
+    24px cell — against the card's 32. `Unmatched` therefore sat **8px left of the numerals beneath
+    it**, from Phase 3 until the card was given a `padding-right: $card-edge` and the two became 40
+    each. Measured live in the running app after the fix: the card's meter block and the strip's
+    `.s-meter` both end on x=781.
+
+    Two things are worth taking from it. The first is that this is exactly the failure item 9 warns
+    about — *invisible in code review and glaring on screen* — and it survived four phases of review
+    precisely because the doc's own arithmetic was the thing being checked against. The second is
+    that it was found while implementing something unrelated (§6.2's notch needed the chevron off the
+    card's edge), and it was found by **measuring pixels in a browser**, which is the one pass no
+    test in this repo can do. `Documents/browser-checklist.md` exists for this reason.
 11. **The stock-class tile is not in the 17px line-1 height.** The tile is 20px and the line is 17px,
     so the tile overflows the line box by 1.5px top and bottom. That is harmless — the row is
     `align-items: center` inside a 51px content box with 8.5px of slack above and below — but it is
     why the card height is set explicitly rather than summed from its parts (§6.1).
+12. **The grip is a real cell, and the leading offset now says so (2026-09-07).** §10 originally gave
+    the drag affordance as a six-dot glyph appearing on hover in the body's right gutter, with the
+    *whole card body* as the `cdkDragHandle`, and item 10 above was the reason it was positioned
+    rather than laid out. On screen that read backwards: every card offered a grab cursor across all
+    508px of a row whose commonest action is expanding it, and expanding it meant finding the 24px
+    chevron at the far end. Mark asked for the two gestures to be separated and for the drag target to
+    be a large one, so the glyph became **a full-height 30px cell, the first in the row**, carrying
+    Material's `drag_indicator`, always visible, with a 1px rule on its trailing edge. The body below
+    it is now the expand target, `cursor: pointer`, and the chevron stays as the focusable control with
+    the `aria-expanded` state.
+
+    **The spine is painted over the grip's leading 6px rather than laid out beside it**, and that is
+    the load-bearing half. The grip's first cut *followed* the spine, whose width is status-dependent —
+    3px for Booked, 6px for everything else (§3.1) — so the column of glyphs zig-zagged by 3px down
+    the list, which is precisely the misalignment this whole geometry exists to prevent. Out of flow
+    (`.card > .spine { position: absolute }`, scoped to the card so `status-legend.scss` can still
+    include the bare `spines` mixin) it costs the row no width, and the grip reserves 6px of padding
+    for it so the glyph sits at one x on every card, Booked or not.
+
+    The consequence item 10 warns about is real and is paid deliberately: the strip's leading pad is
+    now **30px grip + 8px padding = 38px** (`$col-grip + 8px` in `matching-column.scss`), spine
+    included, and those 30px come off the name column, the only one that flexes. `$leading-offset` is
+    gone with the spine's cell — the strip was its only reader, and adding it back would double-count
+    the 6px. The trailing edge is untouched at 32px, because the gutter the six-dot glyph used to sit
+    in was reserved space and never a cell: giving it up returned the row nothing and moved nothing.
 
 ---
 

@@ -1,3 +1,4 @@
+@use 'sass:math';
 @use '../card-geometry' as geo;
 @use '../../../styles/lms-tokens' as lms;
 
@@ -19,20 +20,124 @@
   }
 }
 
-// Indented by the spine so the expansion's content aligns with the card body above it.
+// An open card did not read as one object. The drawer opened below a run of white / #F5F5F5 striped
+// 52px rows as four more bands of white / #FAFAFA / white + #F5F5F5 — its match table striped with
+// $lms-card-zebra, the list's own stripe — at a 30px row rhythm and with no boundary of its own. It
+// was built out of the list's vocabulary, so it dissolved into it.
+//
+// FOUR devices separate it now, and not one of them is a hue or a ground:
+//
+//   1. the FRAME — 1px $lms-rule-strong, and nothing else on this screen is framed;
+//   2. the RAIL — the grip's own hairline continued down the sheet's leading edge, with the content
+//      indented to start where the card's name starts. Nothing in the drawer used to line up with
+//      the row that owns it;
+//   3. the NOTCH — an 11px tab on the top edge pointing at the chevron that opened it, so which card
+//      this belongs to is stated rather than inferred from adjacency;
+//   4. the SHADOW — the sheet rises out of a list that is now flat (§5.4).
+//
+// And a fifth thing that is not a device at all: only ONE drawer is open per column at a time
+// (board/card-state.ts). The screen's complaint was a function of how many drawers were stacked, and
+// no amount of treatment answers that as directly as not stacking them.
+//
+// The second lab drew ten alternatives against the version that had only the first of those four
+// (Documents/expansion-lab-2.html; 3, 5, 6, 8 and 0 were chosen and are what is above). Three
+// devices were tried before that and are gone — read the history before adding a fourth:
+//
+//   * the RECESS, two inset shadows, replaced by the outer one in device 4. §5.4 had spent it as the
+//     one thing on the screen that sank, which put three shadow directions inside 200px — a card
+//     lifting on hover, this sinking, band headers doing neither, all in the same soft grey. Three
+//     directions at once read as none. The list is flat now and this is the only shadow left;
+//   * the SUMS CAPTION BAR (#DFE4E8 over #CCD2D7), replaced by type. It separated the block by
+//     value, and value is the axis this screen has exhausted — eight named greys inside ten L*
+//     points. Its two tokens are deleted from _lms-tokens.scss;
+//
+//   * a GREY GROUND (#E8EAED), pulled the day after it shipped. Darker than everything in the list
+//     is certainly separate from it, but on this screen a greyed-out block reads as READ ONLY: every
+//     other disabled thing here recedes exactly that way, from `Confirm space` to a past week's
+//     label. The drawer is the most interactive region on the card — the only route to a match, and
+//     the record's own Edit and Cancel — so it sits on $lms-card, the surface an operator associates
+//     with live content;
+//   * a GUTTER, 10px of $lms-surface around the sheet. It was the right idea and the wrong value:
+//     #FAFAFA between a white card above and a white or #F5F5F5 card below is very nearly invisible,
+//     so it read as a gap where something was missing rather than as a ground the sheet sat on. Six
+//     alternatives were drawn (expansion-lab.html, gutter A-G) — a grey tray, a top-flush version, an
+//     indent — and the answer was that the sheet does not need one: the frame gave it four edges and
+//     the gutter was the only device paying no rent.
+//
+// So the host is a bare wrapper carrying the animation and nothing else. The .expansion div inside
+// it is the sheet, full-bleed, and it is the element every surface below hangs off.
+//
+// The host's own 1px $lms-divider bottom rule is GONE with the shadow change below: a sheet that
+// sits proud of the list closes itself, and a rule under it read as one more of the rules between
+// cards — which is the confusion the whole treatment exists to remove.
 :host {
   display: block;
   animation: apg-expand 120ms ease-out;
-  padding-left: geo.$leading-offset;
+}
+
+// $lms-rule-strong, not $lms-divider: the frame has to outweigh the 1px rule under every card, or
+// it reads as one more of them.
+//
+// It RISES now, and the recess is gone (2026-09-07). The inset pair was §5.4's one exception — the
+// only thing on the screen that sank — and it had to share 200px with a card lifting 1px on hover
+// and with band headers doing neither. Three directions at once in the same soft grey read as no
+// direction at all. One is committed to instead: the list is flat, and the open drawer is the only
+// thing on this screen with a shadow. The bottom edge drops from 2px to 1px because the shadow is
+// what closes the block now, and 2px under a floating sheet reads as a shelf.
+.expansion {
+  position: relative;
   background: lms.$lms-card;
-  border-bottom: 1px solid lms.$lms-divider;
+  border: 1px solid lms.$lms-rule-strong;
+  box-shadow: 0 3px 8px -3px rgb(0 0 0 / 30%);
+  // The leading rail: the sheet's content starts where the card's own name starts. See
+  // $expansion-rail — the number is 29 and the reason it is not 30 is written there.
+  padding-left: geo.$expansion-rail;
+}
+
+// The rail's hairline, continuing the grip's own rule down the side of the drawer. Positioned as an
+// explicit 1px at `rail - 1` rather than as a 29px box with a border-right: both land on the same
+// column, and this form says which pixel it is instead of leaving it to where a border paints
+// inside a box that is itself inside a 1px frame.
+.expansion::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: geo.$expansion-rail - 1px;
+  width: 1px;
+  background: lms.$lms-divider;
+}
+
+// The notch, pointing at the chevron that opened the drawer (design-system.md 6.2).
+//
+// It says which card this sheet belongs to. Until it existed the only thing tying the two together
+// was adjacency — which is exactly the signal that stops working when two cards are open and the
+// column is a run of near-identical bands.
+//
+// `right` is measured from the sheet's padding box while the chevron is placed from the card's outer
+// edge, hence the -1px: the card's new $card-edge gutter, plus half the chevron, less the frame.
+// One expression, so the notch cannot drift off the control it points at. Verified by pixel scan in
+// Documents/expansion-lab-2.html: chevron centre and notch centre both on x=1068.5.
+.expansion::after {
+  content: '';
+  position: absolute;
+  top: -1px;
+  right: calc(#{geo.$card-edge} + #{math.div(geo.$col-chevron, 2)} - 1px);
+  width: 11px;
+  height: 11px;
+  background: lms.$lms-card;
+  border-top: 1px solid lms.$lms-rule-strong;
+  border-left: 1px solid lms.$lms-rule-strong;
+  transform: translate(50%, -50%) rotate(45deg);
 }
 
 // --- 1. the field row ---
+// Left padding is $card-edge, not the 10px the other edges keep: added to the rail's 29 it puts the
+// first label at x=38, under the card's own name. Every block inside the sheet does the same.
 .fields {
   display: flex;
   gap: 24px;
-  padding: 8px 10px 6px;
+  padding: 8px 10px 6px geo.$card-edge;
   border-bottom: 1px solid lms.$lms-rule-soft;
 }
 
@@ -84,18 +189,39 @@
   color: lms.$lms-text-muted;
 }
 
-// --- 2. the sums row ---
+// --- 1. the sums, as the drawer's ANCHOR ---
+//
+// They sit FIRST (the template moved them there), and they are what the drawer is for.
+//
+// This was a #DFE4E8 caption bar until 2026-09-07, and it is now type on white. The bar separated
+// the block by VALUE, and value is the one axis this screen has exhausted: eight named greys inside
+// ten L* points, so a ninth could not separate anything. The type scale, by contrast, was entirely
+// unspent — everything in the drawer sat between 10.5 and 13px, so the block had no focal point at
+// all and the eye drifted across grounds looking for one. The two figures now anchor it by size.
+//
+// Figure over label (`column-reverse`), because the figure is the thing being read and the label is
+// what explains it. The strip stays 30-ish px tall: a 20px numeral and a 12px micro-cap fit inside
+// the padding the bar was already spending.
 .sums {
   display: flex;
-  gap: 24px;
-  padding: 8px 10px;
-  background: lms.$lms-surface;
-  border-bottom: 1px solid lms.$lms-divider;
+  align-items: flex-end;
+  gap: 26px;
+  padding: 8px 10px 6px geo.$card-edge;
+  border-bottom: 1px solid lms.$lms-rule-soft;
 }
 
+.sums .field {
+  flex-direction: column-reverse;
+  align-items: flex-start;
+  gap: 1px;
+}
+
+// 20px, from 13. The one place on this screen where a quantity is set larger than the card's own
+// figures, and it is deliberate: these two sums are the answer the drawer was opened for.
 .sum {
-  font-size: 14px;
-  font-weight: 500;
+  font-size: 20px;
+  font-weight: 600;
+  line-height: 22px;
   @include geo.numerals;
 }
 
@@ -111,9 +237,12 @@
   text-align: left;
 }
 
+// The only ground left inside the sheet, and with the caption bar gone it no longer has anything to
+// compete with — it is simply the table's own head.
 .matches th {
   height: 26px;
   padding: 0 8px;
+  background: lms.$lms-expansion-th;
   border-bottom: 1px solid lms.$lms-divider;
   white-space: nowrap;
   @include geo.micro-caps;
@@ -127,8 +256,29 @@
   vertical-align: middle;
 }
 
-.matches tbody tr:nth-child(even) td {
-  background: lms.$lms-card-zebra;
+// The leading cell aligns with everything else in the sheet, and therefore with the card's name.
+// The table is the one block here whose own padding is not the sheet's, because a cell's 8px is
+// interior to the table's rules.
+.matches th:first-child,
+.matches td:first-child {
+  padding-left: geo.$card-edge;
+}
+
+// The zebra is GONE, and its deletion is the single most load-bearing line of this change: it was
+// $lms-card-zebra, the same #F5F5F5 the card list stripes with, so the drawer's own table was
+// printing the list's stripe inside it. It stays deleted now that the sheet is white again — the
+// vertical rules below do the separating, and the stripe belongs to the list (design-system.md 3.2).
+//
+// Vertical rules take over the job of separating columns. They appear nowhere else on this screen —
+// every other structure here is horizontal — which is exactly why they read instantly as "this is a
+// table", and not as a continuation of the stack of rows above.
+.matches th + th,
+.matches td + td {
+  border-left: 1px solid lms.$lms-rule-soft;
+}
+
+.matches th + th {
+  border-left-color: lms.$lms-expansion-rule;
 }
 
 .matches .num {
@@ -164,7 +314,8 @@
 }
 
 // Every row opens its match (Phase 6, 1.1). The hover fill is the card's own, so the affordance is
-// the one the operator has already learnt one level up, and nothing resizes under the pointer.
+// the one the operator has already learnt one level up, and nothing resizes under the pointer. It
+// went to white-at-45% for the day the sheet had a grey ground, and came back with the white sheet.
 .openable {
   cursor: pointer;
 }
@@ -181,6 +332,7 @@
   align-items: center;
   gap: 8px;
   padding: geo.$expansion-actions-padding;
+  padding-left: geo.$card-edge;
 }
 
 .why {

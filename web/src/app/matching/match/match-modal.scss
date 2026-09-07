@@ -11,16 +11,11 @@
 // The spines come from the same mixin the cards use, so each block reads as the card it stands for.
 @include geo.spines;
 
-// Side by side and equal, because neither parent is the subject of this dialog: the match between
-// them is (design-system.md 11.4.1).
-.pair {
-  display: flex;
-  gap: 10px;
-}
-
+// Stacked, supply above demand, exactly as the drop prompt stacks them (design-system.md 11.1): the
+// dialog that confirms a match reads the way the one that drafted it read, and the way the stock
+// moves. It replaced a side-by-side `.pair` whose two halves had to fit a record's identity, its
+// sub-line and two fact pairs into 300px each and truncated most of them.
 .rec {
-  flex: 1 1 0;
-  min-width: 0;
   display: flex;
   border: 1px solid lms.$lms-divider;
   border-radius: 4px;
@@ -57,8 +52,8 @@
   min-width: 0;
 }
 
-// Only the words give way. "Livestock Availability #8" is a shade too long for half a 640px dialog,
-// and truncating the kicker as one string put the ellipsis on the number — a block naming no record.
+// Only the words give way. Truncating the kicker as one string put the ellipsis on the number — a
+// block naming no record — and it did so on a narrow viewport even now the block has the full width.
 .words {
   min-width: 0;
   @include geo.truncate;
@@ -141,13 +136,14 @@
   font-size: 11.5px;
 }
 
-.note {
-  margin: 10px 0 12px;
-  padding: 8px 10px;
-  border: 1px solid lms.$lms-divider;
-  border-radius: 4px;
-  background: lms.$lms-white;
-  font-size: 12.5px;
+// The arrow between the two records, and the gap that used to be `.rec`'s own bottom margin. Muted,
+// because it says direction, not status: hue on this screen belongs to the quantity meter alone.
+.flow {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 20px;
+  margin: 4px 0;
   color: lms.$lms-text-muted;
 }
 
@@ -156,7 +152,7 @@
   display: flex;
   align-items: flex-start;
   gap: 8px;
-  margin-top: 4px;
+  margin-top: 12px;
 }
 
 .f-quantity,

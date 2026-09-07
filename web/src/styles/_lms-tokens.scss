@@ -40,6 +40,28 @@ $lms-drop-target: #d1e1e8; // a card the drag may land on — deliberately DEEPE
 $lms-hover: #f5f9fb; // card hover
 $lms-column-wash: #f6fafc; // the opposite column during a drag
 
+// --- the expanded card's drawer (design-system.md 6.2) ---
+// ONE strip of chrome inside a WHITE sheet, and the whiteness is the part to leave alone.
+//
+// The drawer briefly had a grey ground (#E8EAED) so it could not be confused with the white/#F5F5F5
+// striped rows around it. It was rejected the same week: on this screen a greyed-out block reads as
+// READ ONLY — everything disabled here recedes exactly that way — and the drawer is the most
+// interactive region on the card. Separation is structural instead — a frame, an aligned rail, a
+// notch and an outer shadow — and none of it touches the ink. Do not reach for a ground again
+// without solving that first.
+//
+// $lms-expansion-head (#DFE4E8) and $lms-expansion-head-rule (#CCD2D7) are GONE (2026-09-07). They
+// grounded the sums caption bar, and the second lab replaced that bar with type: the two figures now
+// sit on white at 20px, which anchors the block by SIZE where the grey anchored it by value. The
+// screen's problem was that eight named greys live inside ten L* points, so the fix could only ever
+// be the removal of one, never a ninth. Two of the eight are gone with those tokens.
+//
+// The two that remain are the match table's own head. Cool greys rather than a petrol tint:
+// $lms-petrol-tint is the current-week band's and $lms-drop-target sits just below it, so a third
+// petrol value in the same column would say "this week" or "droppable" before it said "open".
+$lms-expansion-th: #eceff1; // the match table's header row
+$lms-expansion-rule: #d5d9dd; // the vertical rules between that header's cells
+
 // --- lines and text ---
 $lms-rule-strong: #bdbdbd; // form-field underline, Pending hatch stroke
 $lms-rule-soft: #efefef; // rules inside an expanded card
@@ -92,6 +114,8 @@ $lms-attention-bg: #f5f5f5; // the panel behind a consequential warning
   --lms-drop-target: #{$lms-drop-target};
   --lms-hover: #{$lms-hover};
   --lms-column-wash: #{$lms-column-wash};
+  --lms-expansion-th: #{$lms-expansion-th};
+  --lms-expansion-rule: #{$lms-expansion-rule};
   --lms-rule-strong: #{$lms-rule-strong};
   --lms-rule-soft: #{$lms-rule-soft};
   --lms-faint: #{$lms-faint};

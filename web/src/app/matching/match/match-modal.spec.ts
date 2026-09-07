@@ -75,26 +75,77 @@ describe('Match modal', () => {
   });
 
   /**
-   * The two vocabularies do not map, and a mismatched pair must never be presented as an error — so
-   * the note is information, with no warning glyph and no amber (design-system.md 11.4.2).
+   * Supply above, demand below, with the arrow between them — the same order the drop prompt uses, so
+   * the dialog that confirms a match reads the way the one that drafted it read. Asserted on DOM
+   * order rather than on CSS, because nothing here reorders visually.
    */
-  it('states plainly that the two stock classes come from different lists', async () => {
+  it('puts the availability record above the space, with an arrow between them', async () => {
     const fixture = await mount(context());
-    const note = (fixture.nativeElement as HTMLElement).querySelector('.note');
+    const host = fixture.nativeElement as HTMLElement;
 
-    expect(note?.textContent).toContain('different stock-class lists');
-    expect(note?.textContent).toContain('the judgement is yours');
-  });
-
-  it('says nothing about stock classes when the two happen to read the same', async () => {
-    const fixture = await mount(
-      context('Drafted', {
-        space: aSpace({ id: 4, stockClass: 'Prime' }),
-        availability: anAvailability({ id: 8, stockClass: 'Prime' }),
-      }),
+    const kickers = [...host.querySelectorAll('.rec .kicker .words')].map((element) =>
+      element.textContent?.trim(),
     );
 
-    expect((fixture.nativeElement as HTMLElement).querySelector('.note')).toBeNull();
+    expect(kickers).toEqual(['Livestock Availability', 'Processor Space']);
+    expect(host.querySelector('.rec + .flow + .rec')).not.toBeNull();
+  });
+
+  /**
+   * The stock-class commentary is gone (Mark's call, 2026-09-07). The classes themselves stay — in
+   * each block's sub-line — because the operator still has to read them; it is the paragraph
+   * explaining that the two lists do not map that no longer earns its place, the judgement having
+   * been made at the prompt.
+   */
+  it('shows both stock classes but no longer comments on them', async () => {
+    const fixture = await mount(context());
+    const host = fixture.nativeElement as HTMLElement;
+    const text = host.textContent ?? '';
+
+    expect(text).toContain('Nat Beef - Premium');
+    expect(text).toContain('Prime');
+    expect(text).not.toContain('different stock-class lists');
+    expect(host.querySelector('.note')).toBeNull();
+  });
+
+  // --- the title ------------------------------------------------------------------------------------
+
+  /**
+   * The title names the act and the slot: a draft is here to be confirmed, and past Drafted there is
+   * nothing left to confirm. It is what tells this dialog from the drop prompt, which says
+   * `Draft match — …`.
+   *
+   * The match id is deliberately not in it. It named a table row no operator sees, where the
+   * processor and plant name the slot in front of them; both parent blocks still carry their own
+   * record ids.
+   */
+  it('asks to confirm a draft, to edit anything past it, and names the space', async () => {
+    const drafted = await mount(context('Drafted'));
+    const draftedTitle =
+      (drafted.nativeElement as HTMLElement).querySelector('[mat-dialog-title]')?.textContent ?? '';
+
+    expect(draftedTitle).toContain('Confirm match: ANZCO Rangitikei');
+    expect(draftedTitle).not.toContain('#12');
+
+    const confirmed = await mount(context('Confirmed'));
+
+    expect(
+      (confirmed.nativeElement as HTMLElement).querySelector('[mat-dialog-title]')?.textContent,
+    ).toContain('Edit match: ANZCO Rangitikei');
+  });
+
+  /**
+   * The monogram badge came off the card rows as match noise, and a dialog that still carried one
+   * beside each name was the last place it read as meaningful. Both classes stay on screen in the
+   * blocks' sub-lines.
+   */
+  it('carries no stock-class badge, and still names both classes', async () => {
+    const fixture = await mount(context());
+    const host = fixture.nativeElement as HTMLElement;
+
+    expect(host.querySelector('app-stock-class-tile')).toBeNull();
+    expect(host.textContent).toContain('Nat Beef - Premium');
+    expect(host.textContent).toContain('Prime');
   });
 
   // --- the ceiling ----------------------------------------------------------------------------------
@@ -164,9 +215,9 @@ describe('Match modal', () => {
   });
 
   /**
-   * "Livestock Availability #8" is a shade too long for half a 640px dialog. Truncating the kicker as
-   * one string put the ellipsis on the number, leaving a block that named no record at all — so the
-   * id is its own unshrinkable span.
+   * Truncating the kicker as one string put the ellipsis on the number, leaving a block that named no
+   * record at all — so the id is its own unshrinkable span. The blocks are full-width now that they
+   * stack, but "Livestock Availability #8" still has to survive a narrow viewport.
    */
   it('keeps each record id out of the truncating part of its kicker', async () => {
     const fixture = await mount(context());
@@ -174,7 +225,8 @@ describe('Match modal', () => {
       (span) => span.textContent?.trim(),
     );
 
-    expect(ids).toEqual(['#4', '#8']);
+    // Supply first, demand second — the order the blocks now stack in.
+    expect(ids).toEqual(['#8', '#4']);
   });
 
   it('refuses a quantity above the ceiling and below one head', async () => {
@@ -197,10 +249,10 @@ describe('Match modal', () => {
   // --- the footer -----------------------------------------------------------------------------------
 
   /** Resolved question 3: delete for a mis-drag, cancel-with-reason for anything past it. Never both. */
-  it('offers Delete draft and Confirm match on a drafted match, and no cancel', async () => {
+  it('offers Undo match and Confirm match on a drafted match, and no cancel', async () => {
     const labels = buttons(await mount(context('Drafted')));
 
-    expect(labels).toContain('Delete draft');
+    expect(labels).toContain('Undo match');
     expect(labels).toContain('Confirm match');
     expect(labels).not.toContain('Cancel match…');
   });
@@ -209,7 +261,7 @@ describe('Match modal', () => {
     const labels = buttons(await mount(context('Confirmed')));
 
     expect(labels).toContain('Cancel match…');
-    expect(labels).not.toContain('Delete draft');
+    expect(labels).not.toContain('Undo match');
     expect(labels).not.toContain('Confirm match');
   });
 

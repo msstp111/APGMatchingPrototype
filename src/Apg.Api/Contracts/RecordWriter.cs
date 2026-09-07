@@ -268,7 +268,7 @@ public static class RecordWriter
 
         return value is not null && PlantsOf(processor).Contains(value)
             ? null
-            : $"{PlantRequired} — {processor}'s plants are {string.Join(", ", PlantsOf(processor))}";
+            : $"{PlantRequired}. {processor}'s plants are {string.Join(", ", PlantsOf(processor))}";
     }
 
     /// <summary>The Processor Space side: that processor's own list, and no other's.</summary>
@@ -278,7 +278,7 @@ public static class RecordWriter
 
         return value is not null && StockClassesOf(processor).Contains(value)
             ? null
-            : $"{StockClassRequired} — {processor}'s stock classes are {string.Join(", ", StockClassesOf(processor))}";
+            : $"{StockClassRequired}. {processor}'s stock classes are {string.Join(", ", StockClassesOf(processor))}";
     }
 
     private static string? RejectAvailabilityStockClass(string? stockClass)

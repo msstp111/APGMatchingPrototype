@@ -280,7 +280,7 @@ describe('Match actions', () => {
         () =>
           new HttpErrorResponse({
             status: 400,
-            error: { message: 'Capped at 100 — that is the availability record’s remaining supply' },
+            error: { message: 'Capped at 100, which is the availability record’s remaining supply' },
           }),
       ),
     );
@@ -288,7 +288,7 @@ describe('Match actions', () => {
     act('Drafted', { action: 'save', request: edit({ quantityMatched: 900 }) });
 
     expect(openSnack).toHaveBeenCalledWith(
-      'Capped at 100 — that is the availability record’s remaining supply',
+      'Capped at 100, which is the availability record’s remaining supply',
       '',
       expect.anything(),
     );

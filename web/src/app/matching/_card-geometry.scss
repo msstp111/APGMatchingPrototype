@@ -36,7 +36,13 @@ $filter-row-height: 40px; // reserved by Phase 3, filled by Phase 4
 $filter-chip-height: 26px; // design-system.md 12.2
 $filter-chip-radius: 13px; // a pill: half the chip's height (design-system.md 5.3)
 $empty-band-height: 44px;
-$expansion-actions-padding: 10px 10px 0; // design-system.md 6.2, item 4
+// design-system.md 6.2, item 4. The bottom was 0 while the drawer had no edge of its own; inside a
+// framed sheet, 0 puts the buttons on the border.
+//
+// There is deliberately no $expansion-inset any more. The drawer had a 10px gutter for a day; it was
+// removed once six alternatives to it had been drawn (see card-expansion.scss), and with it went the
+// 6px $leading-offset indent that used to align the drawer's content with the card body above it.
+$expansion-actions-padding: 10px 10px 8px;
 // One number in two places: the veil in matching-column.scss and AUTO_SCROLL_ZONE in
 // drag/column-auto-scroll.ts. If they disagree, the column scrolls somewhere other than where it
 // says it will.
@@ -48,7 +54,11 @@ $drag-chip-height: 30px;
 // Phase 3's $search-strip-height is gone. design-system.md 12.1's shared search strip was
 // deliberately not built (Phase 4) — the per-column filters cover it, and the 52px it reserved went
 // back to the list, which is what section 8.3 asks to protect.
-$leading-offset: $spine-width; // 6px
+// $leading-offset — the spine's 6px — is GONE (2026-09-07). It existed so the header strip could
+// start where a card's first cell started, and the strip was its only reader. The spine is no longer
+// a cell: it is painted over the drag grip's leading edge, so a card's first laid-out box now starts
+// at x=0 and the strip's offset is $col-grip + 8px, spine included. Reinstating it would double-count
+// those 6px.
 
 // --- line 1's columns (design-system.md 6.1) ---
 $col-gap: 8px;
@@ -76,6 +86,37 @@ $col-month: 26px;
 $col-quantity: 40px;
 $col-meter-block: 112px; // 66 meter + 6 gap + 40 numeral
 $col-chevron: 24px;
+// The drag grip's own column — the FIRST cell in the row, with the status spine painted over its
+// leading edge (2026-09-07). A full-height cell rather than a 24px box, so the gesture that used to
+// own the whole card now owns a deliberate 30 x 51px target at the edge an operator scans first.
+//
+// 30px, not 24: it holds the 6px the spine overlays plus a 24px glyph area, so the dots sit clear of
+// the spine and, crucially, at the SAME x on every card. The grip started as a cell *after* the spine
+// and that was visibly wrong on screen — Booked's spine is 3px and every other status's is 6px, so
+// the column of glyphs zig-zagged by 3px down the list. Taking the spine out of flow (see
+// `.card > .spine` in card-shell) is what fixes it: the grip's own box no longer depends on which
+// status the card is in.
+//
+// It is a REAL cell, unlike the six-dot glyph it replaces, so it is also the one number the header
+// strip has to know about: `.strip`'s leading padding is $col-grip + 8px, and if the two ever
+// disagree every heading on line 1 sits 30px off its own column (design-system.md 16.10).
+$col-grip: 30px;
+// The card's own left/right padding, and the ONE number the header strip's trailing edge has to
+// agree with. It appears three times on purpose: the body's horizontal padding, the card's new
+// trailing gutter, and the strip's own padding at both ends.
+$card-edge: 8px;
+// The drawer's leading rail (design-system.md 6.2, idea 5). It carries the grip's hairline down the
+// side of the sheet and indents the sheet's content so that it starts at the same x as the card's
+// own name — 30 + 8 = 38px from the list's left edge. Nothing in the drawer used to line up with
+// the row that owns it, which is a large part of why an open card did not read as one object.
+//
+// 29px, NOT $col-grip's 30, and the missing pixel is the whole of why the first cut looked wrong.
+// The card is edge-to-edge, so its grip paints a border-right INSIDE its own 30px box: the rule is
+// the pixel at x=29. The sheet carries a 1px frame and its rail is positioned inside that, so a
+// 30px rail put the rule on x=31. Measured against the grip in Documents/expansion-lab-2.html
+// (pixel scan, not arithmetic): at 29 the two rules land on the same column and the content lands
+// under the card's name. If it ever looks off by a pixel again, re-measure — do not adjust by eye.
+$expansion-rail: $col-grip - 1px; // 29px
 
 // --- the meter's own parts ---
 $meter-track-width: 66px;
@@ -284,6 +325,16 @@ $meter-gap: 6px;
     background: lms.$lms-card;
     border-bottom: 1px solid lms.$lms-divider;
     box-sizing: border-box;
+    // The trailing gutter (2026-09-07), and it fixes a misalignment that had been on screen since
+    // Phase 3. §16.10 item 10 claimed the card and the strip both spend 32px at their trailing
+    // edge — the card as 8px of body padding plus a 24px chevron, the strip as a 24px spacer cell
+    // plus 8px of padding. The strip is a flex row with `gap: $col-gap`, so it actually spends 40:
+    // 8 padding + 8 gap + 24 cell. `Unmatched` therefore sat 8px LEFT of the numerals under it
+    // (measured 1047 against 1056). This 8px makes the card's trailing run 40 as well.
+    //
+    // It arrived for another reason entirely — the notch under the chevron (§6.2) needs the chevron
+    // off the card's edge to have a column to sit in — and is worth keeping on its own account.
+    padding-right: $card-edge;
     // design-system.md 10: 120ms ease-out on hover. Colour and shadow only — never a dimension, and
     // never a transform, because the pointer is aiming at a 52px row and anything that moves under it
     // moves the target. It is short enough not to lag a pointer sweeping down the list.
@@ -298,46 +349,112 @@ $meter-gap: 6px;
   }
 
   // Nothing resizes on hover: a growing row makes a list of ten cards jitter under the pointer.
-  // `cursor: grab` is here because Phase 5 makes the body a drag handle and the affordance should not
-  // arrive later than the gesture reads.
+  //
+  // `cursor: pointer`, not `grab`. The two gestures were on the same 508px of card until 2026-09-07:
+  // the whole body was the drag handle, so every card offered a grab cursor and expanding one meant
+  // finding the 24px chevron at the far end of the row. They are separated now — the grip on the left
+  // drags, the body expands — and each says which it is with its own cursor.
+  // Colour only. The hover shadow is GONE (2026-09-07): §5.4 now spends shadow on exactly one thing
+  // on this screen, the open drawer rising out of the list. Three shadow behaviours inside 200px —
+  // a card lifting on hover, a drawer sinking into a recess, band headers doing neither, all in the
+  // same soft grey — cancelled each other out, and the drawer is the one that has something to say.
   .card:hover {
     background: lms.$lms-hover;
-    box-shadow: 0 1px 2px rgb(0 0 0 / 10%);
-    cursor: grab;
+    cursor: pointer;
   }
 
-  // design-system.md 10's six-dot grab glyph, which Phase 5 recorded as not built.
+  // ---------------------------------------------------------------------------------------------
+  // The grip — the drag handle, and the only part of the card that drags (2026-09-07)
   //
-  // It is **absolutely positioned in the card body's own 8px right gutter**, not a cell in the row,
-  // and that is the whole trick. A real cell between the body and the chevron would push the card's
-  // trailing edge from 32px to 42px while the header strip stayed at 32px, and the Unmatched column
-  // would stop lining up with its own heading — which 16.10 warns is invisible in code review and
-  // glaring on screen. Positioned, it costs no width at all: the name column keeps its 114px.
+  // design-system.md 10 had the grab affordance as a six-dot glyph absolutely positioned in the
+  // body's right gutter, appearing on hover, while the *whole body* was the `cdkDragHandle`. That
+  // read backwards on screen: the hand cursor said "drag" over all 508px of a row whose commonest
+  // action is expanding it, and expanding meant hitting a 24px chevron in the far corner. Mark asked
+  // for the two to be separated, and for the drag target to be a big one.
   //
-  // Six 2px dots, two columns by three rows, 6 x 10px in an 8px gutter. Reserved space rather than an
-  // inserted one, and only its opacity changes, so 10 says truthfully that nothing resizes on hover.
+  // So the glyph is now a REAL CELL, first in the row after the spine, a full-height 24px column with
+  // Material's `drag_indicator` in it — 24 x 51px of drag target where the old glyph was 6 x 10px of
+  // hover-only hint. It costs the name column 24px, which is why `$col-grip` is added to the header
+  // strip's leading padding in matching-column.scss: line 1 must still sit under its own headings
+  // (design-system.md 16.10), and the strip is the one place that offset is stated.
+  //
+  // It is always visible, not summoned by hover. A handle you have to hover to discover is a handle
+  // an operator does not know is there, and this one is the only route to a match now.
   .card {
     position: relative;
   }
 
-  .grab {
+  // The spine is an OVERLAY, not a cell — and this is what keeps the grip's glyphs in one column.
+  //
+  // In flow, the spine's own width sets where the grip begins, and that width is status-dependent:
+  // 3px for Booked, 6px for everything else (design-system.md 3.1). The result was a run of grips
+  // stepping 3px in and out down the list, which is exactly the misalignment the whole card geometry
+  // exists to prevent. Out of flow it paints over the grip's leading 3-6px instead, which is also
+  // why the grip reserves 6px of padding for it.
+  //
+  // `inset` rather than `align-self: stretch`: `bottom: 0` is the padding box, so the spine is 51px
+  // tall inside the 52px border-box card — the same height stretch gave it, above the bottom rule.
+  // Positioned, so it paints over the grip's hover fill without a z-index of its own; the explicit 1
+  // is there because `.dropcue` also claims 1 and a reader should not have to work out which wins.
+  //
+  // Scoped to `.card >` deliberately: `legend/status-legend.scss` includes the bare `spines` mixin to
+  // draw its four sample spines in a 92px scrap that is not a positioned ancestor, and absolute
+  // positioning in the mixin itself would fling them at the dialog's corner.
+  .card > .spine {
     position: absolute;
-    top: 50%;
-    right: $col-chevron + 1px;
-    width: 6px;
-    height: 10px;
-    margin-top: -5px;
-    opacity: 0;
-    pointer-events: none;
-    background-image: radial-gradient(circle 1px at 1px 1px, lms.$lms-faint 99%, transparent 100%);
-    background-size: 4px 4px;
-    background-position: 0 0;
-    transition: opacity 120ms ease-out;
+    left: 0;
+    top: 0;
+    bottom: 0;
+    z-index: 1;
   }
 
-  // Not on the stay-behind: it is the shadow a lifted card leaves, and nothing about it is grabbable.
-  .card:not(.stay):hover .grab {
-    opacity: 1;
+  .grip {
+    flex: 0 0 $col-grip;
+    align-self: stretch;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: $col-grip;
+    // The spine's 6px, kept clear so the glyph is centred in the 24px that is actually free. A
+    // Booked card's spine is only 3px of it; the padding does not move, because what has to hold is
+    // that the glyph sits at one x on every card, not that it hugs each spine.
+    padding-left: $spine-width;
+    // border-box, because the rule below is INSIDE the 24px. There is no global box-sizing reset in
+    // this app, so without this the grip occupies 25px and every cell on line 1 sits a pixel right of
+    // its own heading in the strip, which states 6 + 24 + 8.
+    box-sizing: border-box;
+    color: lms.$lms-faint;
+    cursor: grab;
+    // Only colour changes under the pointer — see the note on `.card:hover`. The rule on its trailing
+    // edge is what makes 24px of empty space read as a rail rather than as padding.
+    border-right: 1px solid lms.$lms-divider;
+    transition: color 120ms ease-out;
+  }
+
+  .grip .material-symbols-outlined {
+    font-size: 20px;
+    line-height: 20px;
+  }
+
+  .card:not(.stay):hover .grip {
+    color: lms.$lms-text-muted;
+  }
+
+  .grip:hover {
+    color: lms.$lms-petrol;
+    background: lms.$lms-surface;
+  }
+
+  // Nothing about a lifted card's stay-behind is grabbable, and its grip is there for width alone.
+  .card.stay .grip {
+    cursor: default;
+  }
+
+  // The body is the expand target now, so it says so. The 8px right gutter that used to hold the
+  // six-dot glyph is still 8px: it was reserved space, never an inserted cell, so giving the glyph up
+  // gave the row nothing back and moved nothing.
+  .cbody {
+    cursor: pointer;
   }
 
   .card.cancelled {
@@ -379,7 +496,7 @@ $meter-gap: 6px;
     row-gap: 3px;
     align-content: center;
     align-items: center;
-    padding: 0 8px;
+    padding: 0 $card-edge;
   }
 
   // Every cell truncates rather than wrapping: a card must never grow a third line

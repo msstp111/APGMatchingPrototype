@@ -15,8 +15,7 @@ import { MatInputModule } from '@angular/material/input';
 import { catchError, of } from 'rxjs';
 import { ApiClient } from '../../api/api-client';
 import { MatchEditContextDto, UpdateMatchRequest } from '../../api/models';
-import { quantityClass, spineClass, transactionTypeLabel } from '../card/card-chrome';
-import { StockClassTile } from '../card/stock-class-tile';
+import { quantityClass, spaceName, spineClass, transactionTypeLabel } from '../card/card-chrome';
 
 /**
  * What the modal was closed with. The dialog decides nothing and writes nothing: it collects an
@@ -45,10 +44,15 @@ export type MatchModalResult =
  *   warning. The two are never both available.
  * - **Confirm is offered only at `Drafted`**, because pass 1 skips `Notified` (resolved question 2).
  *
- * Both parent blocks are read-only and fixed at creation (spec p.23). The two stock classes are shown
- * plainly and will often look unrelated — `Cows` against `Cow`, `Cattle` against `Mixed Cattle` — and
- * that is the domain rather than an error: the vocabularies do not map, and neither side is validated
- * against the other.
+ * Both parent blocks are read-only and fixed at creation (spec p.23), and they are **stacked, supply
+ * above demand with an arrow between**, the same way the drop prompt stacks them — the dialog that
+ * confirms a match reads the way the one that drafted it read.
+ *
+ * The two stock classes are shown plainly, in each block's sub-line, and will often look unrelated —
+ * `Cows` against `Cow`, `Cattle` against `Mixed Cattle`. That is the domain rather than an error: the
+ * vocabularies do not map and neither side is validated against the other. The bordered note that
+ * used to say so in words is gone (Mark's call, 2026-09-07): by the time a match exists the operator
+ * has already made that judgement at the prompt, and repeating it here only crowded the dialog.
  */
 @Component({
   selector: 'app-match-modal',
@@ -60,7 +64,6 @@ export type MatchModalResult =
     MatFormFieldModule,
     MatInputModule,
     MatAutocompleteModule,
-    StockClassTile,
   ],
   templateUrl: './match-modal.html',
   styleUrl: './match-modal.scss',
@@ -74,6 +77,26 @@ export class MatchModal {
   readonly match = this.data.match;
   readonly space = this.data.space;
   readonly availability = this.data.availability;
+
+  /** `ANZCO Rangitikei`, in the title and on the space block's name line, from one field. */
+  readonly spaceName = spaceName(this.space);
+
+  /**
+   * The title says what this dialog is asking to be done, and which slot it is about.
+   *
+   * A `Drafted` match is here to be confirmed — that is the footer's filled button and the reason the
+   * operator opened it — so the title says `Confirm match — ANZCO Rangitikei`. Past `Drafted` there
+   * is nothing left to confirm and the dialog is an editor, so it says `Edit match — …`. Naming the
+   * act is what tells the two match dialogs apart: the drop prompt drafts a match, and this one
+   * confirms it.
+   *
+   * **The match id used to be here and is not any more** (Mark's call, 2026-09-07). `Confirm match
+   * #3` named the row in the `Matches` table, which no operator has ever seen and no other screen
+   * shows; the processor and plant name the slot they are looking at, on a board where a dozen ANZCO
+   * spaces differ only by plant and date. The two parent blocks below still carry their own record
+   * ids, so nothing identifying has left the dialog.
+   */
+  readonly title = `${this.match.status === 'Drafted' ? 'Confirm' : 'Edit'} match: ${this.spaceName}`;
 
   /**
    * The availability's unmatched quantity **plus this match's own current quantity** (resolved
@@ -128,10 +151,6 @@ export class MatchModal {
   readonly availabilitySubLine = `${this.availability.stockClass} · available from ${
     this.availability.availableFromLabel
   } · ${this.availability.farmerName || 'no farmer on file'}`;
-
-  readonly stockClassesDiffer = this.space.stockClass !== this.availability.stockClass;
-
-  readonly stockClassNote = `${this.space.stockClass} and ${this.availability.stockClass} come from different stock-class lists. There is no mapping between them — the judgement is yours.`;
 
   // --- the editable fields -------------------------------------------------------------------------
 

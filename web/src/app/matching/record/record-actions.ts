@@ -75,7 +75,7 @@ export class RecordActions {
   cancelSpace(space: ProcessorSpaceDto): void {
     const data: CancelRecordData = {
       side: 'demand',
-      title: `Processor space #${space.id} — ${space.processor} ${space.plant}`,
+      title: `Processor space #${space.id}: ${space.processor} ${space.plant}`,
       matches: space.matches,
     };
 
@@ -90,7 +90,7 @@ export class RecordActions {
   cancelAvailability(record: LivestockAvailabilityDto): void {
     const data: CancelRecordData = {
       side: 'supply',
-      title: `Livestock availability #${record.id} — ${record.locationName ?? 'no location'}`,
+      title: `Livestock availability #${record.id}: ${record.locationName ?? 'no location'}`,
       matches: record.matches,
     };
 
@@ -291,7 +291,7 @@ export class RecordActions {
         ? filterAvailability([result.availability], this.preferences.supplyFilters()).length === 0
         : false;
 
-    return hidden ? `${message} — hidden by this column's filters` : message;
+    return hidden ? `${message}, hidden by this column's filters` : message;
   }
 
   /**
@@ -309,7 +309,7 @@ export class RecordActions {
     const message =
       matches.length === 0
         ? `${label} cancelled`
-        : `${label} cancelled — its ${matches.length} ${matches.length === 1 ? 'match is' : 'matches are'} untouched`;
+        : `${label} cancelled, its ${matches.length} ${matches.length === 1 ? 'match is' : 'matches are'} untouched`;
 
     this.snackBar
       .open(message, 'SHOW IT', { duration: CANCEL_SNACK_MS, panelClass: SNACK_PANEL })

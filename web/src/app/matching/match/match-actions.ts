@@ -111,7 +111,7 @@ export class MatchActions {
   private save(context: MatchEditContextDto, request: UpdateMatchRequest): void {
     this.prompted(context, request, () =>
       this.api.updateMatch(context.match.id, request).subscribe({
-        next: (result) => this.applyWrite(result, `Match updated — ${request.quantityMatched} head`),
+        next: (result) => this.applyWrite(result, `Match updated: ${request.quantityMatched} head`),
         error: (error: unknown) => this.report(error),
       }),
     );
@@ -124,15 +124,20 @@ export class MatchActions {
    */
   private confirmMatch(context: MatchEditContextDto, request: UpdateMatchRequest): void {
     this.api.confirmMatch(context.match.id, request).subscribe({
-      next: (result) => this.applyWrite(result, `Match confirmed — ${request.quantityMatched} head`),
+      next: (result) => this.applyWrite(result, `Match confirmed: ${request.quantityMatched} head`),
       error: (error: unknown) => this.report(error),
     });
   }
 
-  /** Resolved question 3: a drafted match is removed outright, with no reason asked for. */
+  /**
+   * Resolved question 3: a drafted match is removed outright, with no reason asked for.
+   *
+   * The button says `Undo match` and so does the snack — a confirmation that reports a different verb
+   * from the one just pressed makes the operator wonder whether a different thing happened.
+   */
   private deleteDraft(context: MatchEditContextDto): void {
     this.api.deleteMatch(context.match.id).subscribe({
-      next: (result) => this.applyWrite(result, 'Draft deleted'),
+      next: (result) => this.applyWrite(result, 'Match undone'),
       error: (error: unknown) => this.report(error),
     });
   }

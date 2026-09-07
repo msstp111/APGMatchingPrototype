@@ -63,5 +63,5 @@ export class ConfirmOverCommit {
     ? `Its ${this.data.matchCount} ${this.matchesWord} are not changed by this, so the record will ` +
       `show as Over-committed until they are re-cut or cancelled.`
     : `Its ${this.data.matchCount} ${this.matchesWord} are not changed by this. An over-filled space ` +
-      `is a normal state — the meter turns blue and reads Over-filled.`;
+      `is a normal state: the meter turns blue and reads Over-filled.`;
 }

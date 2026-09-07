@@ -107,7 +107,12 @@ _card-geometry.scss   ALL dimensions + the card-shell/spines/line-1 mixins + dra
                       Both columns @use it, so design-system.md 6.1's "identical on both sides" is enforced.
 board/matching-board.ts   buildBoard(weeks, spaces, availability) → { demand, supply, unplaced }.
                           Pure. The two band runs are trimmed slices of one array.
-board/card-state.ts       root CardStateStore — which cards are expanded (session only)
+board/card-state.ts       root CardStateStore — which cards are expanded (session only), and since
+                          2026-09-07 AT MOST ONE PER COLUMN. Opening a card closes the other on its
+                          side; the two columns are independent, because comparing a space against
+                          an availability record is what the two columns are for. card-state.spec.ts
+                          guards the per-column half — clearing the whole set is shorter code and
+                          would pass any test that only opens one column.
 drag/drag-state.ts        root DragStore — the card in flight, Escape cancel, drop-state (valid/blocked/same)
 drag/card-drag.ts         acceptsFrom (same-column silent reject) + pairFromDrop (both directions → one pair)
 drag/column-auto-scroll.ts  [columnAutoScroll] on each .list; CDK's own auto-scroll is disabled
@@ -136,8 +141,11 @@ card/card-expansion.ts    fields + both sums + the match table (every row opens 
 card/fill-meter.ts, card/stock-class-tile.ts, card/stock-classes.ts, card/card-chrome.ts
                           matchSummaryLabel / matchBreakdown are the Phase 6 entry point. The tile is
                           NO LONGER on either card row or the header strip — line 1 spells the stock
-                          class out in full two cells along. It survives on the quantity prompt, the
-                          match modal and the drag preview, which have no such column.
+                          class out in full two cells along — and since 2026-09-07 it is off both match
+                          dialogs too, which spell theirs out in words. **The drag chip is the one place
+                          left**: three fields in 200px, no room for a class name, so the monogram is
+                          all that says what species is in hand. card-chrome's spaceName() composes
+                          `ANZCO Kokiri` for both dialog titles.
 legend/status-legend.ts   the key to the board — the four status spines, the four ramp colours (both
                           over states side by side), the red cancelled-partner badge. Opened from a
                           borderless ? in whichever column header is currently on the RIGHT
@@ -165,9 +173,28 @@ testing/dto-fixtures.ts   DTO builders for the specs only
 
 **Drag (Phase 5).** Each card is its own `cdkDropList` (sorting disabled, CDK auto-scroll disabled) holding one `cdkDrag`, and both columns sit in one `cdkDropListGroup` on the screen. The drop never transfers arrays — it reads `item.data` and `container.data`, resolves them through `pairFromDrop` (requirement 1.2: one function, both directions), and asks `GET /api/match-proposal`. Same-column enter-predicate returns false (silent no-op). Escape sets a cancelled flag; CDK has no Escape handling of its own, and `cdkDragEnded` fires *before* `cdkDropListDropped`, so the flag must not be cleared on `ended`. CDK's auto-scroll would scroll the *source* column when the pointer is over a band header in the target, so it is replaced by `columnAutoScroll` (48px zone, `$auto-scroll-zone` / `AUTO_SCROLL_ZONE` — one number in two places). **No keyboard drag path.** The default, the ceiling and the refusal string all arrive from the server; `no-domain-arithmetic.spec.ts`'s allow-list is still exactly two files.
 
-**Getting to a match (Phase 6).** Line 2 shows `matchSummaryLabel` — `2 matches · 1 draft` / `1 match · confirmed` / `no matches` — live matches only (cancelled ones never reach the client); the hover `title` is `matchBreakdown`. With matches it is a **button that toggles the card's expansion**, and every row of the expanded match table opens that match's modal. Two consequences worth knowing: the label sits inside the drag handle, so it stops `pointerdown` or a click that drifts a pixel would lift the card instead; and the row is clickable rather than growing an actions column, because the supply match table already fits seven columns in 508px and not eight. **A match is opened by id and nothing else** — `MatchActions.open(matchId)` — which is what makes the same match openable from its space and from its availability record without two code paths.
+**Getting to a match (Phase 6).** Line 2 shows `matchSummaryLabel` — `2 matches · 1 draft` / `1 match · confirmed` / `no matches` — live matches only (cancelled ones never reach the client); the hover `title` is `matchBreakdown`. With matches it is a **button that toggles the card's expansion**, and every row of the expanded match table opens that match's modal. Two consequences worth knowing: the label sits inside the card body, which since 2026-09-07 toggles the expansion itself, so the button **stops the click** or the body's handler would toggle straight back and the card would look unresponsive (it used to stop `pointerdown` instead, because the body was the drag handle); and the row is clickable rather than growing an actions column, because the supply match table already fits seven columns in 508px and not eight. **A match is opened by id and nothing else** — `MatchActions.open(matchId)` — which is what makes the same match openable from its space and from its availability record without two code paths.
 
 **Filtering and sorting attach to `buildBoard`'s inputs, never its output** — `matching-screen` filters and sorts the lists and calls it again, so the band meta totals *and the per-column trim* reshape for free. Sorting the flat list before banding is also what makes a sort reorder cards **within** each week rather than dissolving the bands; there is deliberately no "ungrouped" mode.
+
+**The expanded card, round two (2026-09-07).** `Documents/expansion-lab-2.html` drew ten treatments
+against the inset sheet and **3, 5, 6, 8 and 0 shipped**: the sums anchor the drawer at 20px on white
+(the `$lms-expansion-head` caption bar and its rule are **deleted** — two of the eight greys gone), a
+**rail** carries the grip's hairline down the sheet and indents its content to the card's own x=38, a
+**notch** on the top edge is centred on the chevron that opened it, the recess became an **outer
+shadow** and is now the only shadow on the screen (hover is colour only), and **one drawer is open per
+column**. The diagnosis behind all five is the thing to carry forward: eight named greys lived inside
+ten L\* points, so **a ninth step could not separate anything** — every remaining fix had to be the
+removal of a grey or a device that is not a value. Two numbers are measured, not derived, and their
+comments say so: `$expansion-rail` is **29px not 30** (the grip's rule is the pixel *inside* its own
+box; at 30 the rail lands 2px right of it) and the notch's offset carries a -1px for the frame.
+
+**The card's trailing edge is 40px, and was 32px wrongly until 2026-09-07.** design-system.md §16.10
+item 10 said the card and the header strip both spend 32 and forgot that `.strip` is a flex row with
+`gap: $col-gap` — the strip has always spent 8 + 8 + 24 = 40. `Unmatched` sat 8px left of the numerals
+under it from Phase 3 onward, in both columns, and every review agreed with the code because the
+document carried the same missing term. The card now takes `padding-right: $card-edge`. `$card-edge`
+is the one number both ends read.
 
 **Filter and sort state (Phase 4).** `MatchingPreferences` (root) holds both columns' filters and sorts plus the flip, persisted to `localStorage` under the single key **`apg.matching.preferences.v2`** (v1 was abandoned when the supply column's `unmatchedOnly` became `hasUnmatched`; bumping the version drops stale state visibly instead of silently re-enabling a filter), validated field by field on read so a stale or hand-edited value falls back to that field's default rather than emptying a column. Every default lives in `filters/filter-defaults.ts` and **both the opening state and `reset()` read the same constants**, which `filter-defaults.spec.ts` asserts so they cannot drift. Card expansion stays session-only in `CardStateStore`. The flip is CSS `order` on the two column hosts — the components are never destroyed, so nothing is lost across it, and Phase 7's `+ Add` buttons will follow the columns because they live in the column header.
 
@@ -197,12 +224,43 @@ testing/dto-fixtures.ts   DTO builders for the specs only
 - **Three screen-level states**: `empty-column.ts` for a side with nothing loaded (checked *before*
   the filtered-empty case, because only one of them has a filter to blame), plus loading and
   API-unreachable panels on `matching-screen`. Every one names what has happened and offers a way out.
-- **The six-dot grab glyph is positioned, not laid out** — absolutely placed in the card body's 8px
-  right gutter. A real cell would push the card's trailing edge from 32px to 42px and the Unmatched
-  column would stop lining up with its header (design-system.md §16.10).
+- **The six-dot grab glyph was positioned, not laid out** — and it is **gone** (superseded
+  2026-09-07, see "The grip and the clickable body" below). Its rationale still stands for the
+  *trailing* edge: nothing may grow between the body and the chevron, or the 32px trailing edge
+  becomes 42px and the Unmatched column stops lining up with its header (design-system.md §16.10).
 - **A wrapping `mat-hint` needs both halves of the fix** — `subscriptSizing="dynamic"` on the field
   *and* `height: auto` on the subscript wrapper. Phase 8 added the missing template half to the
   quantity prompt and both record forms; only the match modal had it.
+
+**The grip and the clickable body (2026-09-07).** A card has **two pointer paths and they no longer
+overlap**. A full-height **30px grip** is the **first cell in the row**, carrying Material's
+`drag_indicator`, always visible, and it is the **only `cdkDragHandle` on the card**; the rest of the
+row is `cursor: pointer` and **a click anywhere in `.cbody` toggles the expansion**. Before this the
+whole body was the handle, so every card offered a grab cursor across 508px of a row whose commonest
+action is expanding it, and expanding meant hitting the 24px chevron in the far corner.
+
+**The status spine is now an overlay, not a cell** — `.card > .spine { position: absolute; left: 0 }`
+inside `card-shell`, with the grip reserving 6px of padding for it. That is not tidying: the spine is
+3px for Booked and 6px for every other status, so while it was in flow it moved the grip beside it and
+the column of glyphs zig-zagged by 3px down the list. The override is scoped to `.card >` because
+`legend/status-legend.scss` includes the bare `spines` mixin to draw four sample spines in a scrap
+that is not a positioned ancestor.
+
+Three more things follow, and all three are the kind that break quietly:
+
+- **The strip's leading pad is now `$col-grip + 8px` = 38px** (`matching-column.scss`), spine
+  included. The grip is a *real cell*, unlike the glyph it replaces, and the 30px come off the name
+  column — the only one that flexes. Leave the term out and every heading on line 1 sits 30px off its
+  own values. **`$leading-offset` is gone**: the strip was its only reader, and re-adding it would
+  double-count the spine's 6px.
+- **The match-count button stops its click.** It is inside the body, and the body toggles.
+- **The chevron stays.** It is the focusable control and the one carrying `aria-expanded`; the body
+  gets no `role` or `tabindex`, because a second tab stop on the same row saying the same thing is only
+  one more thing to tab past. The grip is `aria-hidden` — there is no keyboard drag path
+  (resolved question 14).
+
+`card/card-grip.spec.ts` holds all of it, over both cards in one loop: the grip is the only handle, the
+body expands and collapses, the chevron still works, and the match count opens the card **once**.
 
 Two tests are the phase's own guards: `card/stock-class-coverage.spec.ts` reads both vocabularies out
 of `SeedConfig.cs` and fails naming any stock class without an explicit tile, and
@@ -246,7 +304,7 @@ and `$lms-error` is a semantic token that is no part of the quantity ramp. `canc
 The build is nine phases plus one remediation pass (3b), one chat each, each starting in plan mode. Before working on any of it, read:
 
 - `Documents/ROADMAP.md` — shared context for every phase: domain model, architecture, resolved spec questions, phase list.
-- `Documents/BUILD-LOG.md` — what earlier phases actually did and decided. Every phase appends an entry before finishing.
+- `Documents/BUILD-LOG.md` — what earlier phases actually did and decided. It is a record of the nine-phase build, and that build is over: **do not append to it for ordinary changes.** Read it for the reasoning behind what is already there.
 - `Documents/Phases/PHASE-N-*.md` — detailed requirements for the phase at hand.
 - `Documents/build-plan.html` — the visual plan, and where the per-phase prompts are copied from.
 - `Documents/browser-checklist.md` — the one pass no test can do: every geometry claim and every
@@ -254,7 +312,7 @@ The build is nine phases plus one remediation pass (3b), one chat each, each sta
   phase makes a claim jsdom cannot check, and if you get a browser, run it and record the outcome.
 - `ExistingAppScreenshots/*.png` — four screens from APG's live LMS v7. **The prototype must look like it belongs in that application.** It is built with themed Angular Material, and every prototype screen renders inside the real shell: petrol-blue top bar with the yellow dev flag, and the sidebar with its full nav list. Sample colours from the pixels, not from memory.
 
-The roadmap's **"Resolved spec questions"** override the requirements `.docx` wherever they conflict. Do not reopen them. Each phase closes by spawning a sonnet subagent to review the work, then appending to the build log.
+The roadmap's **"Resolved spec questions"** override the requirements `.docx` wherever they conflict. Do not reopen them. Each phase closed by spawning a sonnet subagent to review the work, then appending to the build log. **That build-log ritual ended with pass 1.** Ongoing tweaks and fixes do not need a build-log entry — write one only if asked, or if a change overturns a decision the log records.
 
 ## What this prototype must prove
 

@@ -142,6 +142,18 @@
   overflow-y: auto;
   overflow-x: hidden;
   position: relative;
+
+  // The scrollbar's lane is reserved whether or not there is a scrollbar in it. Without this the
+  // gutter appears the moment a list overflows and vanishes the moment it does not — and the
+  // commonest way to cross that line is expanding a card, so the whole column twitches sideways
+  // under the pointer at the exact moment the operator is reading it. Every card, the sticky strip
+  // and the band headers narrow together, so the alignment §16.10 is about is untouched.
+  //
+  // It is `stable`, not `stable both-edges`: the reserved lane belongs on the scrollbar's side only,
+  // and mirroring it on the leading edge would push the grip column off the strip's leading pad.
+  // On a platform with overlay scrollbars (macOS's default "show when scrolling") the reserve is 0px
+  // and this declaration is a no-op — correctly, because there is no jump to prevent there either.
+  scrollbar-gutter: stable;
 }
 
 // The opposite column during a drag (design-system.md 10). Hue-free: a wash, not a highlight.
@@ -179,8 +191,22 @@
   align-items: center;
   gap: geo.$col-gap;
   height: geo.$header-strip-height;
-  // the 6px spine + the card's own 8px padding, so each cell sits over its column.
-  padding: 0 8px 0 (geo.$leading-offset + 8px);
+  // the 30px drag grip + the card's own 8px padding, so each cell sits over its column. The grip is a
+  // real cell in the card row (2026-09-07), which is why it appears here: leave it out and every
+  // heading on line 1 sits 30px left of the values under it — the failure design-system.md 16.10
+  // warns is invisible in code review and glaring on screen.
+  //
+  // The spine is NOT added on top of this: it is painted over the grip's leading 6px rather than
+  // laid out beside it, which is what keeps the grips in one column across the 3px Booked spine and
+  // the 6px others. That is also why `$leading-offset` is gone.
+  //
+  // **The TRAILING edge is the half that was wrong.** This row spends 40px after `.s-meter` — 8px
+  // of padding, the 8px `gap` before `.s-chev`, and the 24px cell itself — while the card spent only
+  // 32: a 24px chevron and the body's 8px padding. §16.10 item 10 asserted 32 on both sides and
+  // forgot this row's own gap, so `Unmatched` sat 8px left of the numerals beneath it from Phase 3
+  // until 2026-09-07. The card carries a `padding-right: $card-edge` now and the two are 40 each.
+  // If either end of this rule changes, measure the other one before believing it still lines up.
+  padding: 0 geo.$card-edge 0 (geo.$col-grip + geo.$card-edge);
   background: lms.$lms-surface;
   border-bottom: 1px solid lms.$lms-divider;
   @include geo.micro-caps;

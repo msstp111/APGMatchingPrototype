@@ -73,6 +73,17 @@ export function quantityClass(state: QuantityState, side: MatchSide): string {
 }
 
 /** `Finance Stock` / `Grazing Stock` / `Other` — never the enum spelling (design-system.md 6.1). */
+/**
+ * `ANZCO Kokiri` — the processor and its plant, which is how APG names a slot in conversation.
+ *
+ * Both match dialogs put it in their title, and it is here rather than interpolated in two templates
+ * because the plant can be blank on a hand-built or partially filled record and `ANZCO ` with a
+ * trailing space in a dialog title is the kind of thing nobody notices until a demo.
+ */
+export function spaceName(space: { readonly processor: string; readonly plant: string }): string {
+  return [space.processor, space.plant].filter((part) => part?.trim()).join(' ');
+}
+
 export function transactionTypeLabel(type: TransactionType): string {
   switch (type) {
     case 'FinanceStock':
@@ -163,6 +174,6 @@ export function cancelledPartnerTitle(count: number, side: MatchSide): string {
 
   return (
     `${count} matched ${plural} been cancelled. The ${count === 1 ? 'match' : 'matches'} ` +
-    `themselves have not — cancelling a record never cascades.`
+    `themselves have not. Cancelling a record never cascades.`
   );
 }

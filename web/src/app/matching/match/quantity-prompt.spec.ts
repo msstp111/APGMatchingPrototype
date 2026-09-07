@@ -63,7 +63,7 @@ describe('Quantity prompt', () => {
     const fixture = await mount();
     const text = fixture.nativeElement.textContent as string;
 
-    expect(text).toContain('Match 20 head');
+    expect(text).toContain('Draft match: Alliance Group Rangitikei');
     expect(text).toContain('Cattle');
     expect(text).toContain('Bull');
     // The field is prefilled with the default, so the hint carries only the ceiling — and has to,
@@ -112,6 +112,34 @@ describe('Quantity prompt', () => {
 
     expect(kickers).toEqual(['Livestock Availability', 'Processor Space']);
     expect(host.querySelector('.rec + .flow + .rec')).not.toBeNull();
+  });
+
+  /**
+   * The title names the slot, not the quantity. The figure it used to carry is in the quantity field
+   * 200px below and follows the operator's own typing; the processor and plant say which of a dozen
+   * near-identical spaces this dialog is about, which nothing else in the dialog's chrome does.
+   */
+  it('names the processor and plant in the title, and no head count', async () => {
+    const fixture = await mount();
+    const title =
+      (fixture.nativeElement as HTMLElement).querySelector('[mat-dialog-title]')?.textContent ?? '';
+
+    expect(title).toContain('Draft match: Alliance Group Rangitikei');
+    expect(title).not.toContain('head');
+  });
+
+  /**
+   * The monogram badge came off the card rows as match noise, and a dialog that still carried one
+   * beside each name was the last place it read as meaningful. Both stock classes are still on
+   * screen — spelled out beside the name, which is what the card rows do too.
+   */
+  it('carries no stock-class badge, and still names both classes', async () => {
+    const fixture = await mount();
+    const host = fixture.nativeElement as HTMLElement;
+
+    expect(host.querySelector('app-stock-class-tile')).toBeNull();
+    expect(host.textContent).toContain('Cattle');
+    expect(host.textContent).toContain('Bull');
   });
 
   it('explains the cap instead of silently clamping', async () => {
