@@ -505,11 +505,27 @@ $meter-gap: 6px;
     cursor: default;
   }
 
-  // The body is the expand target now, so it says so. The 8px right gutter that used to hold the
-  // six-dot glyph is still 8px: it was reserved space, never an inserted cell, so giving the glyph up
-  // gave the row nothing back and moved nothing.
+  // The body is the expand target, so it says so — `pointer`, not `grab`, even while "Drag anywhere"
+  // is on and it drags as well (design-system.md 16.13). The commoner of its two gestures is the
+  // click, and a grab cursor across 508px of a row whose usual action is expanding it is the exact
+  // complaint that separated the two in the first place. The grip beside it advertises the drag; the
+  // rule below says `grabbing` the moment one actually starts, which is when a cursor can afford to.
+  //
+  // The 8px right gutter that used to hold the six-dot glyph is still 8px: it was reserved space,
+  // never an inserted cell, so giving the glyph up gave the row nothing back and moved nothing.
   .cbody {
     cursor: pointer;
+  }
+
+  // A card is in flight somewhere on the screen (`DragStore`'s `apg-dragging` on `document.body`).
+  //
+  // No `!important`, and the specificity is the whole design: at (0,2,1) and (0,2,2) this beats
+  // `.cbody`'s `pointer` (0,1,0) and `.card:hover`'s (0,2,0), and loses to `.target.same .card`'s
+  // `no-drop` and `.target.blocked .card`'s `not-allowed` (both (0,3,0)) — so a drag says `grabbing`
+  // everywhere except the two places §10 has it say something more specific.
+  body.apg-dragging .card,
+  body.apg-dragging .card * {
+    cursor: grabbing;
   }
 
   .card.cancelled {
@@ -750,25 +766,30 @@ $meter-gap: 6px;
     cursor: no-drop;
   }
 
-  // --- Phase 9: the card under the pointer, and everything that is not ---
+  // --- The source column recedes, and ONLY the source column (2026-09-09) ---
   //
-  // The hot card is not painted a different colour — it is the one card left at full strength while
-  // its neighbours recede. That is deliberate: hue is committed to the quantity meter, and the
-  // screen already carried too many lit rows at once, which is the complaint this phase answers.
-  // Adding a twelfth signal would have made it worse; taking eleven away is what fixed it.
-  // The badge recedes with its card. It is a sibling of `.card`, not a child — pinned there so a
-  // target picking one up moves no cell of line 1 — so it needs naming, or a full-strength glyph is
-  // left floating over a receded row.
-  .target.dim .card,
-  .target.dim .dropcue {
+  // `DragStore.isDimmed` now answers this for the source side alone, so this rule reaches every card
+  // in the column the drag came from except the one that was picked up. Nothing is added to the
+  // origin row; everything around it is taken away.
+  //
+  // **Phase 9 put the same scrim on the target column and it is gone.** It was the one device in the
+  // gesture that removed information rather than adding a mark: an operator choosing a target is
+  // reading those thirty rows against one another — meters, statuses, dates — and this faded all of
+  // them, on every row the pointer crossed, to say something the hot card's 2px outline and
+  // $lms-drop-target fill had already said. `Documents/drag-lab-2.html` drew ten alternatives; idea 1
+  // is the one that shipped, and it ships by deleting a clause in the store. If a later hand wants
+  // "a bit more feedback" on the far column, read that lab first — most of what looks like a fix here
+  // costs the reading.
+  .target.dim .card {
     opacity: 0.55;
   }
 
-  // A full record: the one exception still worth marking, now that eligibility is not.
+  // A full record: the one exception worth marking, and the only opacity left on the target side.
   //
-  // Deliberately *after* the scrim above and deliberately further down it. A card that would refuse
-  // the drop is more emphatically out of the running than one that is merely not the card under the
-  // pointer, and the two rules carry equal specificity, so source order is what says so.
+  // It survives the deletion above because it says something about *this* record — it would refuse
+  // the drop — rather than something about the twenty-nine rows that would not. The badge recedes
+  // with it: `.dropcue` is a sibling of `.card`, not a child (pinned so a target picking one up moves
+  // no cell of line 1), so it needs naming, or a full-strength glyph is left over a receded row.
   .target.blocked .card,
   .target.blocked .dropcue {
     opacity: 0.45;

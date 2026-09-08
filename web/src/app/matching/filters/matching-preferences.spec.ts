@@ -135,6 +135,31 @@ describe('Matching preferences', () => {
   });
 
   /**
+   * Both toggles were added to the v2 object without bumping the version, which is only safe because
+   * the reader falls back field by field: an object stored before either existed simply has no such
+   * key. This is that claim, written down — the stored object above is exactly such an object.
+   */
+  it('gives an older stored object the defaults for toggles it predates', () => {
+    localStorage.setItem(PREFERENCES_STORAGE_KEY, JSON.stringify({ version: 2, flipped: true }));
+
+    const preferences = store();
+
+    expect(preferences.flipped()).toBe(true);
+    expect(preferences.filterOnDrag()).toBe(false);
+    expect(preferences.dragAnywhere()).toBe(false);
+  });
+
+  it('carries both drag toggles across a reload, independently', () => {
+    const first = store();
+    first.toggleDragAnywhere();
+
+    const reloaded = store();
+
+    expect(reloaded.dragAnywhere()).toBe(true);
+    expect(reloaded.filterOnDrag()).toBe(false);
+  });
+
+  /**
    * Stock classes, processors and plants have no known set to validate against, so a value that no
    * longer exists in the data is kept rather than silently dropped: it filters nothing in, the empty
    * state names it, and quietly discarding a selection the operator made is the worse failure.

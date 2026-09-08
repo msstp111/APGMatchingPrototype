@@ -97,16 +97,24 @@
           Phase 6 makes it the way in. Clicking opens the expansion, whose match table opens a match —
           Phase 5's log named this label the entry point and ruled out drawing a second chip beside it.
           The whole body opens the card now, so this button no longer has to be the way in; it stays
-          because the dotted underline is what says the matches are reachable. Its click is stopped so
-          the body's own handler does not toggle a second time and land back where it started. The
-          pointerdown that used to be stopped here is gone with the body's drag handle.
+          because the dotted underline is what says the matches are reachable.
+
+          ITS GUARD IS ON `mousedown`, AND THE EVENT MATTERS. This button sits inside the body, and
+          since 2026-09-09 the body is a `cdkDragHandle` again — so without a guard a click here that
+          drifted eight pixels would lift the card instead of opening it. CDK binds `mousedown` on the
+          card root, not `pointerdown`, so `mousedown` is the one that has to be stopped; the
+          pre-2026-09-07 code stopped `pointerdown` for this same purpose and, against current CDK,
+          would not have worked. `CardPress` ignores presses on nested controls independently, so the
+          double toggle the old `(click)` guard prevented cannot arise either: the body has no click
+          handler of its own any more.
         -->
       @if (hasMatches()) {
         <button
           type="button"
           class="mcount"
           [title]="matchesTitle()"
-          (click)="$event.stopPropagation(); toggle()"
+          (mousedown)="$event.stopPropagation()"
+          (click)="toggle()"
         >
           {{ matchesLabel() }}
         </button>
@@ -155,12 +163,17 @@
     <span class="spine" [class]="spine()"></span>
 
     <!--
-      The grip: a full-height 30px cell — 6px of spine overlay plus a 24px glyph area — and the ONLY
-      `cdkDragHandle` on the card (2026-09-07). Until then the whole body was the handle, so a hand
-      cursor covered all 508px of a row whose commonest action is expanding it, and expanding meant
-      reaching the chevron in the far corner. The two are separated now — this drags, the body below
-      expands — and the glyph is a real cell rather than the hover-only six dots §10 had in the right
-      gutter, because a drag target should be big and in the place the eye starts.
+      The grip: a full-height 30px cell — 6px of spine overlay plus a 24px glyph area — and the
+      **unconditional** `cdkDragHandle` on the card. It was the only one from 2026-09-07, when the body
+      stopped being a handle: a hand cursor had covered all 508px of a row whose commonest action is
+      expanding it, while expanding meant reaching the chevron in the far corner. The glyph is a real
+      cell rather than the hover-only six dots §10 had in the right gutter, because a drag target
+      should be big and in the place the eye starts.
+
+      Since 2026-09-09 the body is a handle again, but only while "Drag anywhere" is on. This one never
+      switches off, and that is the point of keeping it: whatever the preference says, and however a
+      press is being misread for whoever is holding the mouse, one place on every row is guaranteed to
+      drag and says so with its own glyph and its own cursor.
     -->
     <!--
       `pointerdown` starts "Filter on drag" watching the pointer (drag/drag-narrowing.ts). It narrows
@@ -181,11 +194,32 @@
     </span>
 
     <!--
-      The body is the expand target. It carries no role and no tabindex: the chevron beside it is the
-      focusable control with the aria-expanded state, and a second tab stop saying the same thing on
-      the same row would only be one more thing to tab past.
+      The body is the expand target, and since 2026-09-09 it is a drag target too when "Drag anywhere"
+      is on (drag/card-press.ts, design-system.md 16.13).
+
+      The three regions of the row are now: the grip drags and only drags, this middle ~478px does
+      both, and the chevron clicks and only clicks. The chevron needs no attribute to stay out of it —
+      it is a SIBLING of this element, not a descendant, and CDK arms a drag only from a handle that
+      contains the event's target.
+
+      `(click)` is gone from here. A click and a drag on one surface cannot be told apart by a click
+      event, which fires after a drag that ends back over its own card; `CardPress` reports the pointer
+      sequence instead and `bodyClicked()` asks CDK whether a drag actually began. The press is also
+      handed to "Filter on drag" through the same `grabbed()` the grip calls, so the far column narrows
+      from one code path whichever region the drag started in.
+
+      It carries no role and no tabindex: the chevron beside it is the focusable control with the
+      aria-expanded state, and a second tab stop saying the same thing on the same row would only be
+      one more thing to tab past.
     -->
-    <div class="cbody" (click)="toggle()">
+    <div
+      class="cbody"
+      cdkDragHandle
+      [cdkDragHandleDisabled]="!dragAnywhere()"
+      [cardPress]="dragAnywhere()"
+      (pressStarted)="bodyPressed($event)"
+      (clicked)="bodyClicked()"
+    >
       <ng-container [ngTemplateOutlet]="lines" />
     </div>
 

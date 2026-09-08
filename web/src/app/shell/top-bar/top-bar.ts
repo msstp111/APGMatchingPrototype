@@ -42,13 +42,33 @@ export class TopBar {
 
   readonly filterTitle = computed(() =>
     this.filterOnDrag()
-      ? 'On: picking up a card hides the records on the other side whose stock class could not take '
-        + 'it. Nothing is blocked — release the card and the whole column comes back.'
-      : 'Off: both columns show every record while a card is dragged. Turn on to hide the stock '
-        + 'classes that could not be matched with the card in hand.',
+      ? 'On: picking up a card hides the records on the other side whose stock class could not take ' +
+        'it. Nothing is blocked — release the card and the whole column comes back.'
+      : 'Off: both columns show every record while a card is dragged. Turn on to hide the stock ' +
+        'classes that could not be matched with the card in hand.',
   );
 
   toggleFilterOnDrag(): void {
     this.preferences.toggleFilterOnDrag();
+  }
+
+  /**
+   * Whether a card's middle region drags as well as expands (`matching/drag/card-press.ts`).
+   *
+   * Reached the same way, and for the same reason, as `filterOnDrag` above: one switch governing both
+   * columns, held in the root-provided store, set from the bar rather than from a column.
+   */
+  readonly dragAnywhere = this.preferences.dragAnywhere;
+
+  readonly dragAnywhereTitle = computed(() =>
+    this.dragAnywhere()
+      ? 'On: a card can be dragged from anywhere between its grip and its chevron, and a click there ' +
+        'still expands it. Turn off if a click ever lifts a card instead of opening it.'
+      : 'Off: only the grip at the left of a card starts a drag, and the rest of the row expands it. ' +
+        'Turn on to drag from the row itself as well.',
+  );
+
+  toggleDragAnywhere(): void {
+    this.preferences.toggleDragAnywhere();
   }
 }

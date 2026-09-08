@@ -13,7 +13,9 @@ import { ProcessorSpaceDto } from '../../api/models';
 import { CardStateStore } from '../board/card-state';
 import { acceptsFrom, pairFromDrop } from '../drag/card-drag';
 import { DragCard, DragStore } from '../drag/drag-state';
+import { CardPress } from '../drag/card-press';
 import { DragNarrowing } from '../drag/drag-narrowing';
+import { MatchingPreferences } from '../filters/matching-preferences';
 import { DragPreview } from '../drag/drag-preview';
 import { DropOutcome } from '../drag/drop-outcome';
 import { MatchDrop } from '../match/match-drop';
@@ -52,6 +54,7 @@ import {
     CdkDragHandle,
     CdkDragPreview,
     CdkDropList,
+    CardPress,
     FillMeter,
     CardExpansion,
     DragPreview,
@@ -67,6 +70,7 @@ export class SpaceCard {
   private readonly state = inject(CardStateStore);
   private readonly drag = inject(DragStore);
   private readonly narrowing = inject(DragNarrowing);
+  private readonly preferences = inject(MatchingPreferences);
   private readonly matchDrop = inject(MatchDrop);
   private readonly outcome = inject(DropOutcome);
 
@@ -182,7 +186,54 @@ export class SpaceCard {
     this.narrowing.grab(this.dragCard(), event);
   }
 
+  /**
+   * "Drag anywhere" (2026-09-09): whether the middle of the row drags as well as expands.
+   *
+   * Read here rather than in `CardPress` so one place knows which arrangement is in force — the
+   * directive is told, the `cdkDragHandle` beside it is disabled or not, and the narrowing below asks
+   * the same question.
+   */
+  readonly dragAnywhere = this.preferences.dragAnywhere;
+
+  /**
+   * Whether CDK started a drag during the press now in progress.
+   *
+   * A plain field, not a signal: it is written and read inside one pointer sequence and nothing
+   * renders from it. It is reset on `pointerdown` and only there — `cdkDragEnded` fires *before* the
+   * pointer comes up, so a reset there would already have happened by the time the release is judged.
+   */
+  private draggedThisPress = false;
+
+  /**
+   * The middle of the row has been pressed.
+   *
+   * "Filter on drag" is handed the press exactly as the grip hands it one, so the far column narrows
+   * through a single code path whichever region the drag began in — and only when the region can
+   * actually start a drag, or a press that can only ever be a click would be watched for nothing.
+   */
+  bodyPressed(event: PointerEvent): void {
+    this.draggedThisPress = false;
+
+    if (this.dragAnywhere()) {
+      this.grabbed(event);
+    }
+  }
+
+  /**
+   * The press ended without CDK taking it for a drag, so it was a click: expand or collapse.
+   *
+   * The guard is what makes one surface carry both gestures. A drag released back over its own card
+   * fires an ordinary `click` on the way out — which is why the body no longer has a `(click)`
+   * binding at all — and a drag cancelled with Escape must not open the card it declined to move.
+   */
+  bodyClicked(): void {
+    if (!this.draggedThisPress) {
+      this.toggle();
+    }
+  }
+
   dragStarted(): void {
+    this.draggedThisPress = true;
     this.drag.begin(this.dragCard());
   }
 

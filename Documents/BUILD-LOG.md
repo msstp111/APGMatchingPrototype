@@ -4013,3 +4013,84 @@ matches the two sums are `0` and `0`, and at 20px they are now the loudest thing
 idea 3's anchor, anchoring nothing, above a sentence explaining there is nothing to total. It is
 honest rather than wrong. `browser-checklist.md` section M carries the two cheapest remedies if it
 grates in the demo.
+
+---
+
+## Post-pass-1 tweak — the middle of the row drags again, behind a toggle, 2026-09-09
+
+**Why this reopens a decision this log records.** The 2026-09-07 entry above took whole-body dragging
+off the card and was right to: the card advertised the rarer of its two gestures across all 508px of
+its width, and the commoner one was a 24px chevron at the far end. Mark's ask this time is narrower
+and does not contradict that. The screen is run by two or three power users who will learn its
+interactions once, and for them a drag reachable from only 30px of a 540px row is a tax. So the
+**middle** region gets its drag back — and the two ends stay unambiguous on purpose.
+
+**Three regions, and which of them is negotiable.**
+
+| Region | Width | Drag | Click |
+| --- | --- | --- | --- |
+| Grip | 30px | **always** | — |
+| Middle (`.cbody`) | ~478px | only with `Drag anywhere` on | **always** |
+| Chevron | 24px | never | **always** |
+
+The grip never switches off, and that is the point of keeping it: whatever the preference says, one
+place on every row is guaranteed to drag and says so with its own glyph and its own `grab` cursor.
+The chevron needed no work at all — it is a *sibling* of `.cbody`, not a descendant, and CDK arms a
+drag only from a handle that `contains` the event's target.
+
+**The hazard, and why a number answers it.** The concrete bug the old arrangement had was a click
+that drifted a pixel lifting the card instead of opening it — this log records the `stopPropagation`
+that worked around it twice. The fix is not cleverness but slop: `dragStartThreshold` goes from CDK's
+default 5 to **8** (`DRAG_SLOP`, `drag/card-press.ts`), and the rule has **no dead zone and no
+timer** — a press that never crosses 8px is a click *however long it is held*, one that crosses it is
+a drag and never also a click. Both are decided by the same event, so a gesture that does neither, or
+both, is unreachable.
+
+**What the client deliberately does not do is re-derive that.** `CardPress` reports the pointer
+sequence; the card asks CDK whether a drag began, through the `(cdkDragStarted)` binding it already
+had. Reimplementing CDK's threshold in TypeScript would be a second implementation of one rule, and
+the two would part company the first time page and client coordinates did — a wheel-scroll mid-press
+does exactly that. Same argument as the domain values on the DTOs, applied to a library instead of a
+language.
+
+**Four things that would break quietly, and where they are pinned.**
+
+- **`.cbody` lost its `(click)` binding entirely.** A drag released back over its own card fires an
+  ordinary `click` on the way out, so a click event cannot tell the two gestures apart.
+- **`button.mcount` swapped its guard, and the event matters.** It stopped `click` to avoid a double
+  toggle; it now stops **`mousedown`**, because that is what CDK binds on the drag root and therefore
+  what keeps a wobble on the label from lifting the card. The pre-2026-09-07 code stopped
+  `pointerdown` for this same purpose and would not have worked against current CDK.
+- **`CARD_DRAG_CONFIG` is provided at the application root**, not on the two card components.
+  `DragNarrowing` is root-provided and reads `dragStartThreshold` off the same token to decide when a
+  press has become a drag; provided lower down, CDK would have seen 8 while the narrowing saw its
+  fallback of 5. That service had been reworked the same day to narrow on the move that *starts* the
+  drag rather than on the press, which is what let the body reuse the grip's `grabbed()` unchanged —
+  one narrowing path, whichever region the drag begins in, and no second timing rule to keep in step.
+- **`card-grip.spec.ts` had to stop counting the `cdk-drag-handle` class.** CDK stamps it on a
+  *disabled* handle too, so counting could not tell the toggle's two states apart and would have
+  passed unchanged if the toggle did nothing at all. It asks the `CdkDragHandle` instances whether
+  they are disabled instead.
+
+**The cursor stays `pointer` over the middle**, which is the one place this could have quietly undone
+2026-09-07. The click is still the commoner of that region's two gestures, and a grab cursor across
+508px of a row whose usual action is expanding it was Mark's original complaint verbatim. Instead the
+whole screen turns `grabbing` once a drag actually starts (`apg-dragging` on `document.body`), with
+the rule weak enough in the cascade that `no-drop` over the source column and `not-allowed` over a
+blocked target both still win.
+
+**Off by default**, switched from the top bar beside `Filter on drag` and independent of it. Two costs
+are accepted while it is on, both because CDK stamps `touch-action: none` and `user-select: none` on
+every handle: touch and pen cannot scroll a column by dragging a card body, and the card's text is not
+selectable. A mouse is assumed available at all times (resolved question 14), the wheel and the
+scrollbar are unaffected, and the toggle is the way back.
+
+**State at close.** Angular **368 tests across 33 files** (up 28: 12 in the new `card-press.spec.ts`,
+6 more in `card-grip.spec.ts`, 4 in `top-bar.spec.ts`, 2 in `matching-preferences.spec.ts`, and the
+rest arriving with the same day's `Filter on drag` work), `npm run build` clean with no warnings,
+bundle 994.83 kB against the 1 MB warn budget — **5 kB of headroom, and worth watching.**
+
+**Unrun, and it is the half that matters.** `browser-checklist.md` gains a `Drag anywhere` section.
+jsdom cannot say whether eight pixels is actually generous enough for a real trackpad click, nor
+whether a drag started mid-row still lands where it is aimed. Those are the two questions the feature
+turns on and only a pointer can answer them.

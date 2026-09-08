@@ -41,7 +41,10 @@ describe('The card’s drag chrome', () => {
       providers: [
         provideZonelessChangeDetection(),
         { provide: DOCUMENT, useValue: document },
-        { provide: MatchActions, useValue: { open: () => undefined, confirmSpace: () => undefined } },
+        {
+          provide: MatchActions,
+          useValue: { open: () => undefined, confirmSpace: () => undefined },
+        },
         {
           provide: RecordActions,
           useValue: { editSpace: () => undefined, editAvailability: () => undefined },
@@ -128,13 +131,33 @@ describe('The card’s drag chrome', () => {
 
       expect(target.classList.contains('valid')).toBe(true);
       expect(target.classList.contains('hot')).toBe(false);
-      // Not the hot card, and the pointer is in this column: it recedes.
-      expect(target.classList.contains('dim')).toBe(true);
 
       drag.enter(supply);
       await settle(fixture);
 
       expect(target.classList.contains('hot')).toBe(true);
+    });
+
+    /**
+     * 2026-09-09, drag-lab-2 idea 1. A card in the far column is not dimmed at any point of the
+     * gesture — not on the crossing, not while the pointer is three rows below it, not while another
+     * card is hot. The whole column stays as readable as it was before the card was picked up,
+     * because comparing those rows is what the operator is doing while the card is in the air.
+     */
+    it('never recedes, however the drag moves over its column', async () => {
+      const { fixture, target, drag } = await mount(AvailabilityCard, { record: availability });
+
+      drag.begin(demand);
+      crossTheGutter();
+      await settle(fixture);
+
+      expect(target.classList.contains('dim')).toBe(false);
+
+      drag.enter({ side: 'supply', availability: anAvailability({ id: 99 }) });
+      await settle(fixture);
+
+      // Another card in the same column is the hot one, and this one still reads at full strength.
+      expect(target.classList.contains('hot')).toBe(false);
       expect(target.classList.contains('dim')).toBe(false);
     });
 

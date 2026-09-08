@@ -36,7 +36,7 @@
   -->
   <button
     type="button"
-    class="drag-filter"
+    class="pref-toggle drag-filter"
     [class.on]="filterOnDrag()"
     [attr.aria-pressed]="filterOnDrag()"
     (click)="toggleFilterOnDrag()"
@@ -46,6 +46,30 @@
       filterOnDrag() ? 'filter_alt' : 'filter_alt_off'
     }}</span>
     Filter on drag
+  </button>
+
+  <!--
+    "Drag anywhere" (2026-09-09). Its peer in every respect — same shape, same filled ON state, same
+    store — and independent of it: either, neither or both.
+
+    On, the ~478px between the grip and the chevron drags as well as expands; off, the row is exactly
+    what it has been since 2026-09-07 and the grip is the only way to start a drag. It is a toggle
+    rather than a straight change because the gesture it restores is the one that was taken off the
+    card for a reason (a click that drifted lifted it), and because the two or three people who run
+    this screen should be able to put it back the moment it gets in the way.
+  -->
+  <button
+    type="button"
+    class="pref-toggle drag-anywhere"
+    [class.on]="dragAnywhere()"
+    [attr.aria-pressed]="dragAnywhere()"
+    (click)="toggleDragAnywhere()"
+    [title]="dragAnywhereTitle()"
+  >
+    <span class="material-symbols-outlined" aria-hidden="true">{{
+      dragAnywhere() ? 'drag_pan' : 'drag_indicator'
+    }}</span>
+    Drag anywhere
   </button>
 
   <span class="dev-flag"># DEV ENVIRONMENT #</span>

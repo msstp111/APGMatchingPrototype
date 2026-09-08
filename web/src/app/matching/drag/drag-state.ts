@@ -99,13 +99,15 @@ export class DragStore {
    * true for the rest of it (lab idea 4).
    *
    * Once armed it never disarms: a pointer that wanders back over the source column mid-drag has not
-   * un-learned where it is going, and flickering the whole target side off and on again as it drifts
-   * across the gutter would be worse than either state.
+   * un-learned where it is going, and flickering the far side off and on again as it drifts across
+   * the gutter would be worse than either state.
+   *
+   * It is the *only* thing the pointer's column decides now. There was a live `overTarget` signal
+   * beside it until 2026-09-09, read by nothing but the target-column scrim; deleting the scrim
+   * (drag-lab-2 idea 1) left it with no readers, and a signal written on every pointer move that
+   * nothing renders from is a change-detection pass per frame for nobody.
    */
   private readonly isArmed = signal(false);
-
-  /** Live, unlike {@link isArmed}: the pointer is inside the opposite column *right now*. */
-  private readonly overTarget = signal(false);
 
   /**
    * Each column's host element, registered on init and never removed — the two columns outlive every
@@ -170,13 +172,13 @@ export class DragStore {
     this.current.set(card);
     this.hotCard.set(null);
     this.isArmed.set(false);
-    this.overTarget.set(false);
     this.targetRect = this.measureTargetColumn(card.side);
     // Fail open. If no column has registered — a test harness, or a render order nobody has hit yet —
     // there is no gutter to cross, and a drag that can never arm is a drag where nothing lights up at
     // all. Degrading to Phase 5's "armed from pickup" is far better than a dead screen.
     this.isArmed.set(this.targetRect === null);
     this.document.body.classList.remove(CANCELLED_CLASS);
+    this.document.body.classList.add(DRAGGING_CLASS);
 
     this.escapeListener = (event: KeyboardEvent) => {
       if (event.key === 'Escape') {
@@ -213,6 +215,7 @@ export class DragStore {
     this.cancelledDrag = true;
     this.current.set(null);
     this.clearDragState();
+    this.document.body.classList.remove(DRAGGING_CLASS);
     this.document.body.classList.add(CANCELLED_CLASS);
     this.stopListening();
   }
@@ -221,6 +224,7 @@ export class DragStore {
   end(): void {
     this.current.set(null);
     this.clearDragState();
+    this.document.body.classList.remove(DRAGGING_CLASS);
     this.document.body.classList.remove(CANCELLED_CLASS);
     this.stopListening();
   }
@@ -265,48 +269,46 @@ export class DragStore {
   }
 
   /**
-   * Whether this card recedes so the two ends of the gesture are the only lit rows.
+   * Whether this card recedes so the row the card came from is the only lit one near it.
    *
-   * One method for what the lab kept as two ideas, because they are one device pointed at both ends:
+   * **The source column, and nothing else** (lab idea 12c): every card except the one that was picked
+   * up, from the moment it is picked up. It marks the origin by subtraction — nothing is added to the
+   * row the drag came from, everything around it is taken away — and it deliberately does not wait
+   * for {@link armed}, because it answers a question the operator has at pickup rather than at the
+   * drop: *which row did this come from*.
    *
-   * - **the target column** (idea 3) dims every card except the hot one, but only while the pointer is
-   *   actually in the column — leave it and the column comes back, because the operator is no longer
-   *   choosing and the backlog is what they are reading instead;
-   * - **the source column** (idea 12c) dims every card except the one that was picked up, from the
-   *   moment it is picked up, which is what marks the origin without adding any ink to it.
+   * **The target column is never dimmed** (2026-09-09, drag-lab-2 idea 1). Phase 9's other spotlight
+   * scrimmed every card in the far column but the hot one, and it was the one device in the gesture
+   * that removed information: the operator is choosing between those rows, and choosing means reading
+   * their meters, their statuses and their dates against one another. The card under the pointer is
+   * already the only card in the list carrying a 2px petrol outline and a $lms-drop-target fill, so
+   * the scrim was a second answer to a question that was answered, paid for in thirty rows of
+   * contrast and a repaint on every row the pointer crossed. `drag-lab-2.html` is where the ten
+   * alternatives were drawn; this is the one that shipped, and it ships by deleting a clause.
    *
-   * The source half deliberately does not wait for {@link armed}. It is the one thing on the screen
-   * that changes before the gutter is crossed, and it earns the exception by answering a question the
-   * operator has at pickup rather than at the drop: *which row did this come from*.
+   * The refusal is untouched — a card with no unmatched quantity still recedes to 0.45 through
+   * `.target.blocked`, which is a statement about that record and not about the other twenty-nine.
    */
   isDimmed(side: MatchSide, id: number): boolean {
     const source = this.current();
 
-    if (source === null) {
+    if (source === null || source.side !== side) {
       return false;
     }
 
-    if (source.side === side) {
-      return !this.isSource(side, id);
-    }
-
-    return this.isArmed() && this.overTarget() && !this.isHot(side, id);
+    return !this.isSource(side, id);
   }
 
   /**
    * The same scrim over a column's week-band headers, which are chrome rather than candidates.
    *
    * They dim with the cards around them: a lit band header over a column of receded cards reads as
-   * the header being the thing selected.
+   * the header being the thing selected. Which is now the source column only — see {@link isDimmed}.
    */
   isColumnDimmed(side: MatchSide): boolean {
     const source = this.current();
 
-    if (source === null) {
-      return false;
-    }
-
-    return source.side === side || (this.isArmed() && this.overTarget());
+    return source !== null && source.side === side;
   }
 
   /** Whether the drag that has just ended was cancelled with Escape, so its drop must do nothing. */
@@ -356,16 +358,18 @@ export class DragStore {
   }
 
   /**
-   * Which side of the gutter the pointer is on, and whether it has ever been on the far side.
+   * Whether the pointer has ever been on the far side of the gutter, which is the whole of what the
+   * pointer's column decides.
    *
-   * Both are signals and both are written only when the answer changes — this runs on every pointer
-   * move, and a signal written per frame schedules change detection per frame. The pointer position
-   * itself stays a plain field for exactly that reason.
+   * It runs on every pointer move and writes **once per drag**: the flag is one-way, so the first
+   * crossing sets it and every later move returns on the guard without so much as measuring. A signal
+   * written per frame would schedule change detection per frame, which is why the pointer position
+   * itself stays a plain field.
    */
   private trackColumn(): void {
     const rect = this.targetRect;
 
-    if (rect === null) {
+    if (rect === null || this.isArmed()) {
       return;
     }
 
@@ -375,11 +379,7 @@ export class DragStore {
       this.pointerY >= rect.top &&
       this.pointerY <= rect.bottom;
 
-    if (inside !== this.overTarget()) {
-      this.overTarget.set(inside);
-    }
-
-    if (inside && !this.isArmed()) {
+    if (inside) {
       this.isArmed.set(true);
     }
   }
@@ -393,7 +393,6 @@ export class DragStore {
   private clearDragState(): void {
     this.hotCard.set(null);
     this.isArmed.set(false);
-    this.overTarget.set(false);
     this.targetRect = null;
   }
 
@@ -416,3 +415,14 @@ export class DragStore {
  * CDK appends the preview to the body where no component's styles can reach it.
  */
 const CANCELLED_CLASS = 'apg-drag-cancelled';
+
+/**
+ * On `document.body` for as long as a card is in flight, so the cursor can say `grabbing` across the
+ * whole screen rather than only over the element the gesture started on.
+ *
+ * It exists because the middle of a card shows `cursor: pointer` at rest — it is a click target first
+ * — and a drag that began there would otherwise be the one gesture on this screen that never changes
+ * the cursor at all. The rule itself is in `_card-geometry.scss`, beside the other cursors, and is
+ * deliberately weak enough that `no-drop` and `not-allowed` still win over it.
+ */
+const DRAGGING_CLASS = 'apg-dragging';

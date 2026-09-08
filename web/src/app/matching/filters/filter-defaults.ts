@@ -148,6 +148,20 @@ export const DEFAULT_FLIPPED = false;
  */
 export const DEFAULT_FILTER_ON_DRAG = false;
 
+/**
+ * "Drag anywhere" starts **off**, and the reason is not the one above.
+ *
+ * Switched on, a card's middle region drags as well as expands (`drag/card-press.ts`); switched off,
+ * the row behaves exactly as it has since 2026-09-07 — the grip drags, the rest expands. So this is
+ * not an aid that reorganises the screen, it is a second gesture on a surface that already has one,
+ * and the risk it carries is the specific one that took whole-body dragging off the card in the first
+ * place: a click that drifts lifting the card instead of opening it. `DRAG_SLOP`'s eight pixels
+ * are the answer to that, but "off until asked for" is what makes the answer optional.
+ *
+ * The two toggles sit side by side in the top bar and are independent: either, neither or both.
+ */
+export const DEFAULT_DRAG_ANYWHERE = false;
+
 // ---------------------------------------------------------------------------------------------
 // "Clear filters" is not the same thing as "Reset to default"
 // ---------------------------------------------------------------------------------------------

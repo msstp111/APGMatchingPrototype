@@ -1,0 +1,1495 @@
+<!doctype html>
+<html lang="en-NZ">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>APG matching — reading the board mid-drag</title>
+<!--
+  ============================================================================================
+  THROWAWAY. Not part of the Angular application, not routed, not imported anywhere.
+  One self-contained file: no build step, no framework, no CDN, no network. Opens over file://.
+  Sixth in the series, same pattern and same reasons as drag-lab.html, expansion-lab.html,
+  expansion-lab-2.html, sums-strip-lab.html and open-row-lab.html.
+
+  WHY A SECOND DRAG LAB
+  drag-lab.html asked "the drag says nothing about where it will land" and shipped ideas 1, 2, 4,
+  8, 12b and 12c: a hot card, no eligibility marking, progressive disclosure, the compact chip,
+  a dotted origin ring, and a spotlight on the source column. It also shipped idea 3 — scrim
+  every card in the TARGET column except the one under the pointer, to 55%.
+
+  Idea 3 is the one that is now complained about, and its own cost line in drag-lab.html called
+  it: "it dims the quantity meters and the status spines you are choosing between, and the whole
+  column flickers as the pointer travels." That is exactly the report — the board is harder to
+  read at the moment you most need to read it, because choosing a target means comparing the
+  candidates, and the treatment is applied to all of them at once.
+
+  THE DIAGNOSIS THE TEN IDEAS ANSWER
+    1. THE SCRIM IS THE ONE CHANNEL THAT REMOVES INFORMATION. Five devices are in play during a
+       drag — the chip, the hot card's outline and fill, the dotted origin, the source-column
+       spotlight, and this. Four of them add a mark to one row. This one takes contrast off
+       thirty-odd rows to say something the outline has already said.
+    2. IT IS APPLIED TO `.card`, SO IT HITS EVERYTHING. `opacity` on the card fades the plant
+       name, the class, the date, the head count, the meter, the spine and the status word in one
+       stroke. Nothing about the treatment distinguishes the cells you are comparing from the
+       cells you are ignoring.
+    3. IT CHANGES ON EVERY ROW THE POINTER CROSSES. Thirty rows repaint per travel, at 120ms
+       each, while the operator is scanning. Scanning and choosing are different moments and the
+       treatment cannot tell them apart.
+    4. THE HOT CARD IS ALREADY THE ONLY MARKED CARD. Since Phase 9 `.valid` alone draws nothing:
+       the card under the pointer takes a 2px petrol outline AND a $lms-drop-target fill, on a
+       screen where nothing else in the list carries either. The scrim is a second answer to a
+       question that was already answered.
+    5. "FILTER ON DRAG" MAY HAVE OVERTAKEN IT. Shipped 2026-09-09, it drops the far column from
+       42 rows to 15 while the card is held — the actual remedy for "too many rows lit", and it
+       does it by removing rows rather than removing contrast. Turn it on and see how much of the
+       complaint is left.
+
+  Geometry and colour are copied from the real screen so the alternatives are judged against the
+  thing the designer already knows:
+      web/src/styles/_lms-tokens.scss                     every colour below
+      web/src/app/matching/_card-geometry.scss            every dimension; card-shell, the spines,
+                                                          and the Phase 9 drag block reproduced
+                                                          declaration for declaration under
+                                                          "BASELINE"
+      web/src/app/matching/card/space-card.html           the row: grip, spine overlay, line 1/2
+      web/src/app/matching/drag/drag-state.ts             isDimmed / dropState / armed, in JS
+      web/src/app/matching/drag/drag-narrowing.ts         the Filter on drag control
+      web/src/app/matching/column/matching-column.scss    the 28px strip, leading pad 30 + 8
+
+  Material Symbols is deliberately not used — the icon font would not load offline, so every
+  glyph here is inline SVG.
+
+  HOW TO DRIVE IT
+  The drag is real, but it is CLICK-TO-LIFT rather than press-and-hold, because a lab you cannot
+  let go of is a lab you cannot read the notes of. Click a grip (the six dots at the head of any
+  row) to pick the card up; move the pointer; click again to drop; Escape cancels. Everything
+  else about the gesture is the app's: the target side arms when the pointer first crosses the
+  gutter and stays armed, the card under the pointer is found with elementFromPoint, and the
+  source column dims from the moment of pickup.
+
+  Click a note, or press 1-9 and 0, to toggle an idea. The URL hash carries the combination.
+
+  ONE HONEST DIFFERENCE FROM THE APP. min(source unmatched, target unmatched) is computed here,
+  in JS, for the chip's outcome pill. In web/ that is exactly what no-domain-arithmetic.spec.ts
+  forbids — the figure would have to come off the wire. Drag-lab's idea 10 carries the same note
+  and it is still unresolved; this file is not the place it gets resolved.
+  ============================================================================================
+-->
+<style>
+:root {
+  /* --- LMS tokens, copied verbatim from _lms-tokens.scss --- */
+  --lms-petrol: #00567e;
+  --lms-surface: #fafafa;
+  --lms-divider: #e0e0e0;
+  --lms-text: #212121;
+  --lms-text-muted: #757575;
+  --lms-card: #ffffff;
+  --lms-card-zebra: #f5f5f5;
+  --lms-band: #f0f0f0;
+  --lms-petrol-tint: #e8f1f6;
+  --lms-drop-target: #d1e1e8;
+  --lms-hover: #f5f9fb;
+  --lms-column-wash: #f6fafc;
+  --lms-rule-strong: #bdbdbd;
+  --lms-rule-soft: #efefef;
+  --lms-faint: #9e9e9e;
+  --lms-supply-ink: #37393c;
+  --lms-error: #ba1a1a;
+  --lms-dev-flag: #ccd457;
+  --q-under-bar: #e8820c;
+  --q-under-ink: #a85b00;
+  --q-exact-bar: #2e7d32;
+  --q-exact-ink: #1b5e20;
+  --q-over-bar: #1565c0;
+  --q-over-ink: #0d47a1;
+  --q-pink-bar: #d81b60;
+  --q-pink-ink: #ad1457;
+  --q-track: #e0e0e0;
+
+  /* --- geometry, from _card-geometry.scss --- */
+  --card-h: 52px;
+  --strip-h: 28px;
+  --band-h: 30px;
+  --chead-h: 40px;
+  --filter-h: 40px;
+  --spine: 6px;
+  --spine-booked: 3px;
+  --col-gap: 8px;
+  --col-grip: 30px;
+  --col-sclass: 96px;
+  --col-date: 50px;
+  --col-month: 26px;
+  --col-qty: 40px;
+  --col-meter: 112px;
+  --col-chev: 24px;
+  --card-edge: 8px;
+  --meter-track: 66px;
+  --meter-numeral: 40px;
+  --drag-chip: 232px;
+
+  /* --- the two values the ideas PROPOSE, and that exist nowhere in the app ---
+         --scrim-half is idea 3's softer dose. 0.55 came from §10's drag PLACEHOLDER, which is a
+         silhouette you are meant to ignore; a candidate you are meant to read is a different job.
+         --blocked-hatch is idea 7's pattern ground: it says "full" without spending value, on the
+         same 45 degrees Pending's spine already uses. */
+  --scrim-half: 0.82;
+  --blocked-hatch: repeating-linear-gradient(45deg, #e6e6e6 0 5px, #f2f2f2 5px 10px);
+}
+
+* { box-sizing: border-box; }
+html, body { height: 100%; margin: 0; }
+
+body {
+  display: flex;
+  background: var(--lms-surface);
+  color: var(--lms-text);
+  font-family: Roboto, "Segoe UI", "Helvetica Neue", Arial, sans-serif;
+  font-size: 13px;
+  overflow: hidden;
+}
+
+body.lifted { cursor: grabbing; }
+
+/* ============================================================================================
+   page frame: lab left, notes pinned right
+   ============================================================================================ */
+.lab { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; height: 100%; }
+
+.intro {
+  flex: 0 0 auto;
+  padding: 10px 14px 8px;
+  background: #fff;
+  border-bottom: 1px solid var(--lms-divider);
+}
+.intro h1 { margin: 0 0 3px; font-size: 15px; font-weight: 600; }
+.intro p { margin: 0 0 4px; max-width: 118ch; font-size: 12.5px; line-height: 17px; color: #3d4144; }
+.intro p:last-child { margin-bottom: 0; }
+.intro b { font-weight: 600; }
+.intro code {
+  font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  font-size: 11.5px;
+  background: var(--lms-surface);
+  border: 1px solid var(--lms-divider);
+  padding: 0 3px;
+}
+.intro .how {
+  padding: 5px 8px;
+  border-left: 3px solid var(--lms-petrol);
+  background: var(--lms-petrol-tint);
+  color: #10384c;
+}
+.throwaway {
+  display: inline-block;
+  margin-right: 6px;
+  padding: 1px 6px;
+  background: var(--lms-dev-flag);
+  color: #33370f;
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: 0.6px;
+  vertical-align: 1px;
+}
+
+.presets {
+  flex: 0 0 auto;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 14px;
+  background: #fff;
+  border-bottom: 1px solid var(--lms-divider);
+}
+.plabel {
+  font-size: 10.5px; font-weight: 500; letter-spacing: 0.7px;
+  text-transform: uppercase; color: var(--lms-text-muted); margin-right: 2px;
+}
+.presets button, .seg-ctl button {
+  height: 26px; padding: 0 9px;
+  border: 1px solid var(--lms-rule-strong); border-radius: 13px;
+  background: #fff; font-family: inherit; font-size: 11.5px;
+  color: var(--lms-text); cursor: pointer;
+}
+.presets button:hover, .seg-ctl button:hover { background: var(--lms-hover); }
+.presets button.on, .seg-ctl button.on {
+  background: var(--lms-petrol); border-color: var(--lms-petrol); color: #fff;
+}
+.presets .sep { width: 1px; height: 20px; background: var(--lms-divider); margin: 0 3px; }
+.seg-ctl { display: inline-flex; align-items: center; gap: 4px; }
+.seg-ctl button { border-radius: 3px; padding: 0 8px; }
+
+.active {
+  margin-left: auto;
+  font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  font-size: 11px; color: var(--lms-text-muted);
+}
+
+.statusline {
+  flex: 0 0 auto;
+  display: flex; align-items: center; gap: 10px;
+  padding: 5px 14px;
+  background: var(--lms-surface);
+  border-bottom: 1px solid var(--lms-divider);
+  font-size: 11.5px; color: var(--lms-text-muted);
+}
+.statusline b { color: var(--lms-text); font-weight: 600; }
+.statusline .what { margin-left: auto; color: var(--lms-faint); }
+
+/* ============================================================================================
+   THE REAL SCREEN, REPRODUCED. Do not "improve" anything from here to THE IDEAS: its whole job
+   is to be the thing the alternatives are measured against. matching-screen.scss: 12px sides,
+   16px gutter, and the gutter is load-bearing here — crossing it is what arms the target side.
+   ============================================================================================ */
+.screen {
+  position: relative;
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  gap: 16px;
+  padding: 12px;
+}
+
+.col {
+  flex: 1 1 0;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  background: var(--lms-card);
+  border: 1px solid var(--lms-divider);
+}
+
+/* --- column header, 40px --- */
+.chead {
+  flex: 0 0 auto;
+  display: flex; align-items: center; gap: 8px;
+  height: var(--chead-h); padding: 0 10px;
+  border-bottom: 1px solid var(--lms-divider);
+}
+.chead .glyph { color: var(--lms-petrol); display: inline-flex; }
+.col.supply .chead .glyph { color: var(--lms-supply-ink); }
+.ctitle { margin: 0; font-size: 14px; font-weight: 600; }
+.showing { margin-left: auto; font-size: 11.5px; color: var(--lms-text-muted); font-variant-numeric: tabular-nums; }
+.add {
+  display: inline-flex; align-items: center; gap: 3px;
+  height: 26px; padding: 0 8px;
+  border: 1px solid var(--lms-rule-strong); border-radius: 3px;
+  background: #fff; color: var(--lms-petrol);
+  font-family: inherit; font-size: 12px; font-weight: 500;
+}
+
+/* the §10.2 narrowing chip, in the Filtered chip's place */
+.narrowchip {
+  display: none;
+  align-items: center; gap: 3px;
+  height: 22px; padding: 0 8px;
+  border-radius: 11px;
+  background: var(--lms-petrol-tint); color: var(--lms-petrol);
+  font-size: 11.5px; font-weight: 500; white-space: nowrap;
+}
+.col.narrowed .narrowchip { display: inline-flex; }
+
+/* --- filter row, 40px --- */
+.frow {
+  flex: 0 0 auto;
+  display: flex; align-items: center; gap: 6px;
+  height: var(--filter-h); padding: 0 10px;
+  background: var(--lms-surface);
+  border-bottom: 1px solid var(--lms-divider);
+  overflow: hidden;
+}
+.chip {
+  display: inline-flex; align-items: center; gap: 3px;
+  height: 26px; padding: 0 9px;
+  border: 1px solid var(--lms-rule-strong); border-radius: 13px;
+  background: #fff; font-size: 11.5px; white-space: nowrap;
+}
+.chip.set { border-color: var(--lms-petrol); color: var(--lms-petrol); background: var(--lms-petrol-tint); }
+.sortby {
+  margin-left: auto;
+  font-size: 10.5px; font-weight: 500; letter-spacing: 0.7px;
+  text-transform: uppercase; color: var(--lms-text-muted); white-space: nowrap;
+}
+
+/* --- the scrolling list --- */
+.list { flex: 1 1 auto; min-height: 0; overflow-y: auto; overflow-x: hidden; position: relative; }
+
+/* the 28px micro-cap strip, sticky at 0. Leading padding is $col-grip + 8px, spine included. */
+.strip {
+  position: sticky; top: 0; z-index: 4;
+  display: flex; align-items: center; gap: var(--col-gap);
+  height: var(--strip-h);
+  padding: 0 8px 0 calc(var(--col-grip) + 8px);
+  background: var(--lms-surface);
+  border-bottom: 1px solid var(--lms-divider);
+  font-size: 10.5px; font-weight: 500; line-height: 12px;
+  letter-spacing: 0.7px; text-transform: uppercase; color: var(--lms-text-muted);
+}
+.s-name { flex: 1 1 auto; min-width: 0; }
+.s-sclass { flex: 0 0 var(--col-sclass); }
+.s-date { flex: 0 0 var(--col-date); }
+.s-qty { flex: 0 0 var(--col-qty); text-align: right; }
+.s-meter { flex: 0 0 var(--col-meter); text-align: right; }
+.s-chev { flex: 0 0 var(--col-chev); }
+
+/* --- week bands --- */
+.band { border-top: 2px solid var(--lms-text-muted); }
+.band.current { border-top-color: var(--lms-petrol); }
+
+.bhead {
+  position: sticky; top: var(--strip-h); z-index: 1;
+  display: flex; align-items: center; gap: 8px;
+  height: var(--band-h); padding: 0 10px;
+  background: var(--lms-band);
+  border-bottom: 1px solid var(--lms-divider);
+  transition: opacity 120ms ease-out;
+}
+.band.current .bhead { background: var(--lms-petrol-tint); }
+.blabel {
+  font-size: 12px; font-weight: 500; line-height: 14px;
+  letter-spacing: 0.7px; text-transform: uppercase; color: var(--lms-text-muted);
+}
+.band.current .blabel { color: var(--lms-petrol); }
+.band.past .blabel, .band.past .totals { color: var(--lms-faint); }
+.blabel .dt { font-weight: 700; }
+.tag { font-size: 8.5px; font-weight: 700; line-height: 11px; letter-spacing: 0.3px; text-transform: uppercase; }
+.tag.now { color: var(--lms-petrol); }
+.tag.gone { color: var(--lms-faint); }
+.totals { margin-left: auto; font-size: 11px; line-height: 14px; color: var(--lms-text-muted); font-variant-numeric: tabular-nums; }
+
+/* --- the 52px card row: card-shell in _card-geometry.scss --- */
+
+/* The drop list is a wrapper around the row. Nothing about it may change the row's height or the
+   line-1 alignment, so its highlights are outlines and its badge is absolutely positioned. */
+.target { position: relative; }
+.target.hidden { display: none; }
+
+.card {
+  position: relative;
+  display: flex;
+  height: var(--card-h);
+  background: var(--lms-card);
+  border-bottom: 1px solid var(--lms-divider);
+  padding-right: var(--card-edge);
+  transition: background-color 120ms ease-out, opacity 120ms ease-out, box-shadow 120ms ease-out;
+}
+.card.zebra { background: var(--lms-card-zebra); }
+.card:hover { background: var(--lms-hover); cursor: pointer; }
+.card:hover .grip { color: var(--lms-text-muted); }
+
+/* Cancelled removes colour rather than adding any (design-system.md 3). */
+.card.cancelled { filter: grayscale(1); opacity: 0.62; }
+.card.cancelled .name { text-decoration: line-through; }
+
+/* The spine is an OVERLAY, not a cell — it paints over the grip's leading 3-6px, which is what
+   keeps every grip glyph at one x whatever the status. */
+.card > .spine { position: absolute; left: 0; top: 0; bottom: 0; z-index: 1; }
+.sp-booked { width: var(--spine-booked); background: var(--lms-divider); }
+.sp-pending { width: var(--spine); background: repeating-linear-gradient(45deg, var(--lms-rule-strong) 0 2px, #fff 2px 4px); }
+.sp-confirmed { width: var(--spine); background: var(--lms-petrol); }
+.sp-cancelled { width: var(--spine); background: repeating-linear-gradient(180deg, var(--lms-faint) 0 6px, transparent 6px 10px); }
+
+.grip {
+  flex: 0 0 var(--col-grip);
+  align-self: stretch;
+  display: flex; align-items: center; justify-content: center;
+  width: var(--col-grip);
+  padding-left: var(--spine);
+  color: var(--lms-faint);
+  cursor: grab;
+  border-right: 1px solid var(--lms-divider);
+  transition: color 120ms ease-out, background-color 120ms ease-out;
+}
+.grip:hover { color: var(--lms-petrol); background: var(--lms-surface); }
+
+.cbody {
+  flex: 1 1 auto; min-width: 0;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) var(--col-sclass) var(--col-date) var(--col-qty) var(--col-meter);
+  grid-template-rows: 17px 14px;
+  column-gap: var(--col-gap);
+  row-gap: 3px;
+  align-content: center;
+  align-items: center;
+  padding: 0 8px;
+  cursor: pointer;
+}
+.cbody > * { min-width: 0; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+
+/* Line 1 is the PLANT on demand and the LOCATION on supply (2026-09-08); the processor and the
+   farmer both live on line 2. */
+.name { grid-area: 1 / 1; font-size: 13px; font-weight: 500; line-height: 16px; }
+.sclass { grid-area: 1 / 2; font-size: 13px; font-weight: 500; line-height: 16px; color: var(--lms-text-muted); }
+.day { grid-area: 1 / 3; font-size: 13px; font-weight: 600; line-height: 16px; font-variant-numeric: tabular-nums; }
+.qty { grid-area: 1 / 4; font-size: 13px; font-weight: 500; line-height: 16px; text-align: right; font-variant-numeric: tabular-nums; }
+.meter { grid-area: 1 / 5; }
+
+.meta { grid-area: 2 / 1; font-size: 11.5px; line-height: 14px; color: var(--lms-text-muted); }
+.month {
+  grid-area: 2 / 3; justify-self: start; width: var(--col-month);
+  font-size: 9px; font-weight: 600; line-height: 12px;
+  letter-spacing: 0.7px; text-transform: uppercase; color: var(--lms-text-muted);
+}
+.trail {
+  grid-area: 2 / 3 / 3 / 6;
+  justify-self: end;
+  max-width: calc(100% - (var(--col-month) + var(--col-gap)));
+  display: flex; align-items: center; gap: var(--col-gap);
+  overflow: hidden;
+  font-size: 11.5px; line-height: 14px; color: var(--lms-text-muted);
+}
+.over { flex: 0 0 auto; font-weight: 500; }
+.mcount { flex: 0 1 auto; min-width: 0; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+.status { flex: 0 0 auto; display: inline-flex; align-items: center; gap: 3px; white-space: nowrap; }
+
+.chev {
+  flex: 0 0 var(--col-chev); align-self: center;
+  display: inline-flex; align-items: center; justify-content: center;
+  width: var(--col-chev); height: var(--col-chev);
+  padding: 0; border: 0; border-radius: 50%; background: none;
+  color: var(--lms-text-muted);
+}
+
+/* --- the fill meter: the one place hue lives --- */
+.meter { display: flex; align-items: center; gap: 6px; }
+.track {
+  position: relative;
+  flex: 0 0 var(--meter-track); width: var(--meter-track); height: 8px;
+  border-radius: 1px; background: var(--q-track); overflow: hidden;
+}
+.seg { position: absolute; top: 0; left: 0; height: 100%; border-radius: 1px; }
+.seg.incl { opacity: 0.45; }
+.numeral {
+  flex: 0 0 var(--meter-numeral); width: var(--meter-numeral);
+  font-size: 15px; font-weight: 600; line-height: 16px;
+  text-align: right; font-variant-numeric: tabular-nums;
+}
+.meter.over .track { overflow: visible; box-shadow: inset 0 0 0 1px currentcolor; }
+.over-run { position: absolute; top: -2px; right: -6px; width: 3px; height: 12px; border-radius: 1px; background: currentcolor; }
+
+.q-under { color: var(--q-under-bar); }
+.q-under .seg { background: var(--q-under-bar); }
+.q-under .numeral { color: var(--q-under-ink); }
+.q-exact { color: var(--q-exact-bar); }
+.q-exact .seg { background: var(--q-exact-bar); }
+.q-exact .numeral { color: var(--q-exact-ink); }
+.q-over { color: var(--q-over-bar); }
+.q-over .seg { background: var(--q-over-bar); }
+.q-over .numeral { color: var(--q-over-ink); }
+.q-pink { color: var(--q-pink-bar); }
+.q-pink .seg { background: var(--q-pink-bar); }
+.q-pink .numeral { color: var(--q-pink-ink); }
+
+.over.i-over { color: var(--q-over-ink); }
+.over.i-pink { color: var(--q-pink-ink); }
+
+/* ============================================================================================
+   BASELINE — the Phase 9 drag block from _card-geometry.scss, declaration for declaration.
+   Everything under THE IDEAS is measured against this, so change nothing here.
+   ============================================================================================ */
+
+/* Eligibility is NOT announced: `.valid` on its own draws nothing. The two things worth saying
+   are the card under the pointer and the cards that would refuse it. */
+.target.valid.hot .card {
+  outline: 2px solid var(--lms-petrol);
+  outline-offset: -2px;
+  background: var(--lms-drop-target);
+}
+
+.target.same .card { cursor: no-drop; }
+
+/* THE SUBJECT OF THIS LAB. isDimmed(): every card in the target column except the hot one, once
+   armed and while the pointer is inside that column — and every card in the SOURCE column except
+   the one that was picked up, from the moment of pickup. */
+.target.dim .card,
+.target.dim .dropcue { opacity: 0.55; }
+
+/* Deliberately after the scrim and deliberately further down it: a card that would refuse the
+   drop is more emphatically out of the running than one that is merely not under the pointer. */
+.target.blocked .card,
+.target.blocked .dropcue { opacity: 0.45; }
+.target.blocked .card { background: #eeeeee; cursor: not-allowed; }
+.target.blocked.hot .card { box-shadow: inset 0 0 0 2px var(--lms-faint); }
+
+/* The origin, marked rather than merely un-dimmed (idea 12b). DOTTED, not dashed: dashed already
+   means Cancelled. On the WRAPPER, so a dimmed card cannot take the ring down with it. */
+.target.origin { outline: 2px dotted var(--lms-petrol); outline-offset: -2px; }
+.card.stay { pointer-events: none; }
+
+/* the band headers recede with the cards around them (isColumnDimmed) */
+.bhead.dim { opacity: 0.55; }
+
+/* the + / block badge, a sibling of .card so a target picking one up moves no cell of line 1 */
+.dropcue {
+  position: absolute; top: 50%; right: 4px; z-index: 2;
+  transform: translateY(-50%);
+  display: none; align-items: center; justify-content: center;
+  color: var(--lms-petrol);
+  pointer-events: none;
+}
+.target.valid.hot .dropcue, .target.blocked .dropcue { display: flex; }
+.target.blocked .dropcue { color: var(--lms-faint); }
+
+/* --- the §10.1 chip on the pointer: 232px, two fields, and the outcome pill under it --- */
+.chipdrag {
+  position: fixed; z-index: 20; left: 0; top: 0;
+  display: none;
+  width: var(--drag-chip);
+  pointer-events: none;
+}
+body.lifted .chipdrag { display: block; }
+.chipdrag .body {
+  display: flex; align-items: center; gap: 6px;
+  height: 30px; padding: 0 8px;
+  background: #fff; border: 2px solid var(--lms-petrol); border-radius: 3px;
+  box-shadow: 0 6px 14px rgb(0 0 0 / 24%);
+  font-size: 12px; font-weight: 500;
+}
+.chipdrag .cname { flex: 1 1 auto; min-width: 0; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+.chipdrag .chead-count { flex: 0 0 auto; color: var(--lms-text-muted); font-variant-numeric: tabular-nums; }
+.chipdrag .pill {
+  display: none;
+  float: right;
+  margin-top: 4px; padding: 1px 7px;
+  background: #fff; border: 1px solid var(--lms-petrol); border-radius: 10px;
+  color: var(--lms-petrol); font-size: 11px; font-weight: 500;
+}
+.chipdrag.partial .pill { display: block; }
+
+/* --- idea 8's guide. Inert until i8; JS positions it whether or not the idea is on. --- */
+.guide { position: absolute; left: 0; right: 0; height: 2px; display: none; pointer-events: none; z-index: 6; }
+.guide .faintline { position: absolute; inset: 0; background: rgb(0 86 126 / 22%); }
+.guide .solid { position: absolute; top: 0; height: 2px; background: var(--lms-petrol); }
+.screen.i8 .guide.live { display: block; }
+
+/* ============================================================================================
+   THE IDEAS. One class per idea on `.screen`. Every rule is scoped through `.targetside` or
+   `.sourceside` — the classes the drag puts on the two columns — so nothing here can touch the
+   board when no card is in the air, which is the whole test: the screen at rest must not change.
+
+   SOURCE ORDER IS THE TIE-BREAK. Where two ideas set the same declaration the later number wins,
+   so 1 + 3 is 3's 0.82 and not 1's full strength. That is deliberate; the combinations worth
+   keeping are in the presets.
+   ============================================================================================ */
+
+/* --- 1. Delete the target-side scrim ------------------------------------------------------
+   One clause out of isDimmed(). The hot card keeps its outline and its fill, blocked cards keep
+   their grey ground, the source column keeps its spotlight — the only thing that goes is the
+   treatment applied to the thirty rows the operator is choosing between. */
+.screen.i1 .targetside .target.dim .card,
+.screen.i1 .targetside .target.dim .dropcue { opacity: 1; }
+.screen.i1 .targetside .bhead.dim { opacity: 1; }
+
+/* --- 2. Dim the ink, not the record ------------------------------------------------------
+   opacity on .card hits the name, the class, the date, the head count, the meter, the spine and
+   the status word in one stroke. Take it off the card and put it on the META only: line 2, the
+   month, the trailing run. Line 1 — every figure you are comparing — stays at full strength. */
+.screen.i2 .targetside .target.dim .card { opacity: 1; }
+.screen.i2 .targetside .target.dim .meta,
+.screen.i2 .targetside .target.dim .month,
+.screen.i2 .targetside .target.dim .trail,
+.screen.i2 .targetside .target.dim .sclass { opacity: 0.4; }
+
+/* --- 3. Halve the dose --------------------------------------------------------------------
+   0.55 is §10's PLACEHOLDER value, and a placeholder is a silhouette you are meant to ignore.
+   --scrim-half is 0.82: enough to sort the column into one lit row and a receded field, not
+   enough to take the meters with it. */
+.screen.i3 .targetside .target.dim .card,
+.screen.i3 .targetside .target.dim .dropcue { opacity: var(--scrim-half); }
+.screen.i3 .targetside .bhead.dim { opacity: var(--scrim-half); }
+
+/* --- 4. Band-scoped spotlight -------------------------------------------------------------
+   Dim by week band rather than by row: the band the pointer is in stays at full strength and the
+   others recede. Structurally honest — a delivery week is what you are choosing within — and it
+   changes state once per band crossing instead of once per row. */
+.screen.i4 .targetside .band.hotband .target.dim .card,
+.screen.i4 .targetside .band.hotband .target.dim .dropcue { opacity: 1; }
+.screen.i4 .targetside .band.hotband .bhead.dim { opacity: 1; }
+
+/* --- 5. Dwell, don't chase ----------------------------------------------------------------
+   The scrim is withheld until the pointer has been on one card for DWELL_MS. While it is
+   travelling the column is fully lit; the moment it settles, the column recedes around the row
+   it settled on. Idea 4 of drag-lab, applied to the second-by-second instead of to the gutter. */
+.screen.i5 .targetside .target.dim .card,
+.screen.i5 .targetside .target.dim .dropcue { opacity: 1; }
+.screen.i5 .targetside .bhead.dim { opacity: 1; }
+.screen.i5.dwelt .targetside .target.dim .card,
+.screen.i5.dwelt .targetside .target.dim .dropcue { opacity: 0.55; }
+.screen.i5.dwelt .targetside .bhead.dim { opacity: 0.55; }
+
+/* --- 6. Ground, not opacity ---------------------------------------------------------------
+   No transparency anywhere. The target column's list takes $lms-column-wash, every card in it
+   goes transparent so the wash reads through, and the hot card is the one PURE WHITE row —
+   figure against ground rather than opaque against faded. Every figure keeps its full contrast.
+   The zebra stripe is spent for the duration of the drag, which is the thing to judge. */
+.screen.i6 .targetside .list { background: var(--lms-column-wash); }
+.screen.i6 .targetside .target .card { background: transparent; opacity: 1; }
+.screen.i6 .targetside .target .dropcue { opacity: 1; }
+.screen.i6 .targetside .bhead.dim { opacity: 1; }
+.screen.i6 .targetside .target.valid.hot .card { background: #ffffff; }
+.screen.i6 .targetside .target.blocked .card { background: #ededed; }
+
+/* --- 7. Two tiers, not three --------------------------------------------------------------
+   Today: hot / valid-dimmed / blocked-dimmer. The middle tier is the one carrying no information
+   — every valid card is equally valid, which is the argument Phase 9 used to kill the outline on
+   all of them. Drop it, and mark the exception in PATTERN rather than in value, so a full record
+   reads as unavailable without going faint. */
+.screen.i7 .targetside .target.dim:not(.blocked) .card,
+.screen.i7 .targetside .target.dim:not(.blocked) .dropcue { opacity: 1; }
+.screen.i7 .targetside .bhead.dim { opacity: 1; }
+.screen.i7 .targetside .target.blocked .card { opacity: 0.8; background: var(--blocked-hatch); }
+.screen.i7 .targetside .target.blocked .dropcue { opacity: 1; }
+
+/* --- 8. Locate the pointer instead of hiding the alternatives -----------------------------
+   A guide at the hot row's centre-line: solid petrol across the target column, faint across the
+   rest of the screen so the eye can pick it up peripherally without anything being taken away.
+   Replaces the scrim; does not compose with it. */
+.screen.i8 .targetside .target.dim .card,
+.screen.i8 .targetside .target.dim .dropcue { opacity: 1; }
+.screen.i8 .targetside .bhead.dim { opacity: 1; }
+
+/* --- 9. Asymmetric contrast ---------------------------------------------------------------
+   "Which column is live" is currently said twice — once by dimming the source and once by
+   dimming the target — and one of those is free. Push the source column further down (0.4 plus
+   the wash) and leave the target at full strength. */
+.screen.i9 .targetside .target.dim .card,
+.screen.i9 .targetside .target.dim .dropcue { opacity: 1; }
+.screen.i9 .targetside .bhead.dim { opacity: 1; }
+.screen.i9 .sourceside .list { background: var(--lms-column-wash); }
+.screen.i9 .sourceside .target.dim .card { opacity: 0.4; }
+.screen.i9 .sourceside .bhead.dim { opacity: 0.4; }
+
+/* --- 0. Let the narrowing do it -----------------------------------------------------------
+   With Filter on drag on, the far column already holds only the candidates — the scrim is then
+   fading the very rows the aid selected. `.narrowed` is on the screen only while a drag is in
+   flight AND the toggle is on, so this is a no-op with the toggle off, exactly as it would be. */
+.screen.i0.narrowed .targetside .target.dim .card,
+.screen.i0.narrowed .targetside .target.dim .dropcue { opacity: 1; }
+.screen.i0.narrowed .targetside .bhead.dim { opacity: 1; }
+
+/* --- the exception, protected -------------------------------------------------------------
+   Every idea above that suppresses the MIDDLE tier does it with a rule on `.target.dim`, and a
+   blocked card in the target column is dim as well as blocked — so without this the exception
+   would be lost as a side effect of an idea that never mentioned it. 6 and 7 are excluded because
+   both restate the blocked treatment on purpose; everything else leaves it exactly as it ships. */
+.screen:not(.i6):not(.i7) .targetside .target.blocked .card,
+.screen:not(.i6):not(.i7) .targetside .target.blocked .dropcue { opacity: 0.45; }
+
+/* the third empty state: narrowed to nothing (drag/nothing-compatible.ts) */
+.nothing {
+  display: none;
+  flex-direction: column; align-items: center; gap: 6px;
+  padding: 40px 24px; text-align: center; color: var(--lms-text-muted);
+}
+.col.narrowed.empty .nothing { display: flex; }
+.nothing .big { font-size: 13px; font-weight: 500; color: var(--lms-text); }
+
+/* ============================================================================================
+   notes panel
+   ============================================================================================ */
+.notes {
+  flex: 0 0 350px;
+  height: 100%;
+  overflow-y: auto;
+  padding: 12px 14px 40px;
+  background: #fff;
+  border-left: 1px solid var(--lms-divider);
+}
+.notes h2 {
+  margin: 14px 0 6px;
+  font-size: 10.5px; font-weight: 700; letter-spacing: 0.8px;
+  text-transform: uppercase; color: var(--lms-petrol);
+}
+.notes h2:first-child { margin-top: 0; }
+.diag { border-left: 3px solid var(--lms-rule-strong); padding: 2px 0 2px 10px; }
+.diag ol { margin: 0; padding-left: 16px; }
+.diag li { font-size: 11.5px; line-height: 16px; color: #3d4144; margin-bottom: 5px; }
+
+.note {
+  display: block; width: 100%;
+  margin-bottom: 6px; padding: 7px 9px;
+  border: 1px solid var(--lms-divider); border-radius: 3px;
+  background: #fff; font-family: inherit; text-align: left; cursor: pointer;
+}
+.note:hover { background: var(--lms-hover); }
+.note.on { border-color: var(--lms-petrol); background: var(--lms-petrol-tint); }
+.note .n { display: block; font-size: 12.5px; font-weight: 600; }
+.note .k {
+  display: inline-block; min-width: 15px;
+  color: var(--lms-petrol); font-variant-numeric: tabular-nums;
+}
+.note.on .k { color: var(--lms-petrol); }
+.note .d { margin: 3px 0 0; font-size: 11.5px; line-height: 15.5px; color: #3d4144; }
+.note .r { margin: 3px 0 0; font-size: 11px; line-height: 15px; color: var(--lms-text-muted); }
+.note .r b { font-weight: 600; color: #5c5f62; }
+
+.foot { margin: 16px 0 0; font-size: 11px; line-height: 15px; color: var(--lms-faint); }
+.foot code { font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace; font-size: 10.5px; }
+</style>
+</head>
+<body>
+
+<div class="lab">
+  <div class="intro">
+    <h1><span class="throwaway">THROWAWAY</span>Reading the board mid-drag — drag lab 2</h1>
+    <p>
+      <code>drag-lab.html</code> shipped six things, and one of them is the complaint: <b>idea 3,
+      the spotlight</b> — every card in the target column scrimmed to 55% except the one under the
+      pointer. Its own cost line predicted this: <i>“it dims the quantity meters and the status
+      spines you are choosing between, and the whole column flickers as the pointer travels.”</i>
+      Ten answers, numbered as they were put in the chat.
+    </p>
+    <p class="how">
+      <b>Click a grip</b> (the six dots at the head of a row) to lift a card · move the pointer ·
+      <b>click again to drop</b> · <b>Esc</b> cancels. Click-to-lift rather than press-and-hold so
+      you can read the notes without letting go. Everything else is the app's: the far side arms
+      when the pointer first crosses the gutter, and the source column dims from pickup.
+    </p>
+  </div>
+
+  <div class="presets" id="presets">
+    <span class="plabel">Preset</span>
+    <span class="sep"></span>
+    <span class="plabel">Filter on drag</span>
+    <span class="seg-ctl" id="fodctl"></span>
+    <span class="sep"></span>
+    <span class="plabel">Dwell</span>
+    <span class="seg-ctl" id="dwellctl"></span>
+    <span class="active" id="activeout">baseline</span>
+  </div>
+
+  <div class="statusline">
+    <span id="dragout">Nothing in the air.</span>
+    <span class="what" id="propwhat">nothing on — this is the screen as it ships</span>
+  </div>
+
+  <div class="screen" id="screen">
+    <div class="col supply" id="col-supply"></div>
+    <div class="col demand" id="col-demand"></div>
+    <div class="guide" id="guide"><span class="faintline"></span><span class="solid"></span></div>
+  </div>
+</div>
+
+<div class="chipdrag" id="chip">
+  <div class="body"><span class="cname"></span><span class="chead-count"></span></div>
+  <span class="pill"></span>
+</div>
+
+<div class="notes">
+  <h2>The diagnosis</h2>
+  <div class="diag">
+    <ol>
+      <li><b>The scrim is the one channel that removes information.</b> Five devices are in play
+          during a drag; four of them add a mark to one row, and this one takes contrast off thirty
+          rows to say what the outline has already said.</li>
+      <li><b>It is applied to <code>.card</code>.</b> One <code>opacity</code> fades the plant name,
+          the class, the date, the head count, the meter, the spine and the status word together.
+          Nothing separates the cells you are comparing from the ones you are ignoring.</li>
+      <li><b>It changes on every row the pointer crosses.</b> Thirty rows repainting at 120ms while
+          the operator is still scanning. Scanning and choosing are different moments.</li>
+      <li><b>The hot card is already the only marked card.</b> A 2px petrol outline and a
+          <code>#D1E1E8</code> fill, on a screen where nothing else in the list carries either.</li>
+      <li><b>“Filter on drag” may have overtaken it.</b> It answers “too many rows” by removing rows
+          rather than removing contrast. Turn it on and see how much of the complaint survives.</li>
+    </ol>
+  </div>
+
+  <h2>A · Take the scrim away</h2>
+  <div id="group-a"></div>
+  <h2>B · Dim less, or dim something else</h2>
+  <div id="group-b"></div>
+  <h2>C · Dim at a different moment</h2>
+  <div id="group-c"></div>
+  <h2>D · Say it another way</h2>
+  <div id="group-d"></div>
+
+  <p class="foot">
+    Sixth in the series, after <code>drag-lab.html</code>, <code>expansion-lab.html</code>,
+    <code>expansion-lab-2.html</code>, <code>sums-strip-lab.html</code> and
+    <code>open-row-lab.html</code>. Two treatments are deliberately absent: a hue change on the
+    non-candidates (hue is committed to the quantity meter) and a blur (it costs the same reading
+    the scrim does and costs a repaint per frame as well).
+  </p>
+</div>
+
+<script>
+/* ============================================================================================
+   glyphs — inline SVG, because the icon font would not load over file://
+   ============================================================================================ */
+var SVG = {
+  grip: '<svg width="20" height="20" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><circle cx="7.5" cy="5" r="1.4"/><circle cx="12.5" cy="5" r="1.4"/><circle cx="7.5" cy="10" r="1.4"/><circle cx="12.5" cy="10" r="1.4"/><circle cx="7.5" cy="15" r="1.4"/><circle cx="12.5" cy="15" r="1.4"/></svg>',
+  chevDown: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg>',
+  booked: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="12" cy="12" r="9"/></svg>',
+  confirmed: '<svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 3a9 9 0 100 18 9 9 0 000-18zm-1 13l-4-4 1.4-1.4L11 13.2l4.6-4.6L17 10z"/></svg>',
+  pending: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M8 12h8"/></svg>',
+  cancelled: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M5.6 5.6l12.8 12.8"/></svg>',
+  plusBadge: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>',
+  blockBadge: '<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M5.6 5.6l12.8 12.8"/></svg>',
+  factory: '<svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M3 21h18v-9l-5 3v-3l-5 3V9L3 13z"/></svg>',
+  pin: '<svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 2a7 7 0 00-7 7c0 5 7 13 7 13s7-8 7-13a7 7 0 00-7-7zm0 9.5A2.5 2.5 0 1112 6.5a2.5 2.5 0 010 5z"/></svg>',
+  plus: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>',
+  filter: '<svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M3 5h18l-7 8v6l-4 2v-8z"/></svg>',
+  down: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg>'
+};
+
+var STATUS_GLYPH = { Booked: SVG.booked, Pending: SVG.pending, Confirmed: SVG.confirmed, Cancelled: SVG.cancelled };
+
+/* ============================================================================================
+   StockClassCompatibility, transcribed from src/Apg.Domain/Matching/StockClassCompatibility.cs.
+   The client's own contribution is only ever "do the two tag lists intersect" — the tags reach it
+   on the DTO. Transcribed here because this file has no server; it is the one place in the lab
+   where a domain rule is restated, and it must not be extended.
+   ============================================================================================ */
+var ANY_CATTLE = ['beef-prime', 'beef-cow', 'beef-bull', 'beef-ultra', 'beef-premium'];
+var ALL_GROUPS = ['lamb', 'mutton', 'deer'].concat(ANY_CATTLE);
+var GROUPS = {
+  'Lamb': ['lamb'], 'Mutton': ['mutton'], 'Deer': ['deer'],
+  'Cattle': ANY_CATTLE, 'Cows': ['beef-cow'], 'Bulls': ['beef-bull'],
+  'Nat Beef - Ultra': ['beef-ultra'], 'Nat Beef - Premium': ['beef-premium'],
+  'Cow': ['beef-cow'], 'Bull': ['beef-bull'], 'Sire Bull': ['beef-bull'],
+  'GFNB ultra': ['beef-ultra'], 'GFNB premium': ['beef-premium'],
+  'Mixed Cattle': ['beef-prime', 'beef-cow', 'beef-bull'],
+  'Prime': ['beef-prime']
+};
+function groupsFor(name) { return GROUPS[name] || ALL_GROUPS; }
+function compatible(a, b) {
+  var x = groupsFor(a);
+  return groupsFor(b).some(function (g) { return x.indexOf(g) !== -1; });
+}
+
+/* ============================================================================================
+   the data — both columns, the seed's own shape and roughly the screenshot's contents.
+
+   Nothing is computed: every sum and every unmatched figure is written out as the DTO would
+   deliver it, `ulabel` as a MAGNITUDE (`24 Over-committed`, never `-24`). Deliberate content:
+     * two FULL records per column (unmatched 0) so the blocked treatment has something to sit on;
+     * one Cancelled and one over-state per column, because those are the rows a scrim damages
+       most — grayscale(1) and 0.62 are already spent on the first, and the second is the one the
+       colour exists to shout about;
+     * enough classes on both sides that Filter on drag has real work to do.
+   ============================================================================================ */
+var SUPPLY = [
+  { band: '30 Aug', past: true, totals: '4 records · 1,494 head', cards: [
+    { id: 's1', name: 'Terrace Valley Hills', meta: 'Moana Waikari · Finance Stock', sclass: 'GFNB ultra',
+      day: '30', month: 'Aug', qty: 81, incl: 0, excl: 0, unmatched: 81, ulabel: '81',
+      ramp: 'q-under', status: 'Booked', spine: 'sp-booked', mcount: 'no matches' },
+    { id: 's2', name: 'Birch Acres', meta: 'Gavin Ngata · Other', sclass: 'Mutton',
+      day: '31', month: 'Aug', qty: 640, incl: 0, excl: 0, unmatched: 640, ulabel: '640',
+      ramp: 'q-under', status: 'Booked', spine: 'sp-booked', mcount: 'no matches' },
+    { id: 's3', name: 'Moss Gate Lodge', meta: 'Nigel Fraser · Grazing Stock', sclass: 'Lamb',
+      day: '31', month: 'Aug', qty: 730, incl: 730, excl: 730, unmatched: 0, ulabel: '0',
+      ramp: 'q-exact', status: 'Pending', spine: 'sp-pending', mcount: '2 matches · confirmed' },
+    { id: 's4', name: 'Hawk Holly Hills', meta: 'Bruce Doolan · Finance Stock', sclass: 'Prime',
+      day: '31', month: 'Aug', qty: 43, incl: 0, excl: 0, unmatched: 43, ulabel: '43',
+      ramp: 'q-under', status: 'Booked', spine: 'sp-booked', mcount: 'no matches' }
+  ]},
+  { band: '6 Sep', current: true, totals: '5 records · 981 head', cards: [
+    { id: 's5', name: 'Stone Stead Farming', meta: 'Ngaire Doolan · Grazing Stock', sclass: 'Mixed Cattle',
+      day: '7', month: 'Sep', qty: 23, incl: 0, excl: 0, unmatched: 23, ulabel: '23',
+      ramp: 'q-under', status: 'Booked', spine: 'sp-booked', mcount: 'no matches' },
+    { id: 's6', name: 'Spur Bank Lodge', meta: 'Tipene Nicholls · Grazing Stock', sclass: 'Sire Bull',
+      day: '7', month: 'Sep', qty: 2, incl: 0, excl: 0, unmatched: 2, ulabel: '2',
+      ramp: 'q-under', status: 'Booked', spine: 'sp-booked', mcount: 'no matches' },
+    { id: 's7', name: 'Matai Bank Pastoral', meta: 'Aroha Cardno · Other', sclass: 'Lamb',
+      day: '9', month: 'Sep', qty: 800, incl: 495, excl: 495, unmatched: 305, ulabel: '305',
+      ramp: 'q-under', status: 'Pending', spine: 'sp-pending', mcount: '2 matches · confirmed' },
+    { id: 's8', name: 'Terrace Rimu Crossing', meta: 'Kelly Paterson · Grazing Stock', sclass: 'Mixed Cattle',
+      day: '9', month: 'Sep', qty: 87, incl: 111, excl: 111, unmatched: -24, ulabel: '24',
+      ramp: 'q-pink', over: 'Over-committed', ink: 'i-pink',
+      status: 'Pending', spine: 'sp-pending', mcount: '2 matches · confirmed' },
+    { id: 's9', name: 'Elm Ford Acres', meta: 'Wiremu Ruawai · Grazing Stock', sclass: 'Mutton',
+      day: '9', month: 'Sep', qty: 550, incl: 550, excl: 421, unmatched: 0, ulabel: '0',
+      ramp: 'q-exact', status: 'Pending', spine: 'sp-pending', mcount: '3 matches · 1 draft' }
+  ]},
+  { band: '13 Sep', totals: '4 records · 923 head', cards: [
+    { id: 's10', name: 'Gorge Glen View', meta: 'Hone Ruawai · Grazing Stock', sclass: 'Cow',
+      day: '13', month: 'Sep', qty: 61, incl: 0, excl: 0, unmatched: 61, ulabel: '61',
+      ramp: 'q-under', status: 'Booked', spine: 'sp-booked', mcount: 'no matches' },
+    { id: 's11', name: 'Ruru Flats', meta: 'Hamish Ngata · Finance Stock', sclass: 'Mutton',
+      day: '14', month: 'Sep', qty: 480, incl: 120, excl: 0, unmatched: 360, ulabel: '360',
+      ramp: 'q-under', status: 'Pending', spine: 'sp-pending', mcount: '1 match · 1 draft' },
+    { id: 's12', name: 'Bread Ltd', meta: 'Callum Struthers · Other', sclass: 'Lamb',
+      day: '15', month: 'Sep', qty: 340, incl: 0, excl: 0, unmatched: 340, ulabel: '340',
+      ramp: 'q-under', status: 'Cancelled', spine: 'sp-cancelled', mcount: 'no matches' },
+    { id: 's13', name: 'Star Partnership', meta: 'Whetu Hollows · Grazing Stock', sclass: 'Sire Bull',
+      day: '16', month: 'Sep', qty: 42, incl: 0, excl: 0, unmatched: 42, ulabel: '42',
+      ramp: 'q-under', status: 'Booked', spine: 'sp-booked', mcount: 'no matches' }
+  ]}
+];
+
+var DEMAND = [
+  { band: '30 Aug', past: true, totals: '4 spaces · 379 head', cards: [
+    { id: 'd1', name: 'Rangitikei', meta: 'ANZCO', sclass: 'Nat Beef - Ultra',
+      day: '2', month: 'Sep', qty: 51, incl: 12, excl: 12, unmatched: 39, ulabel: '39',
+      ramp: 'q-under', status: 'Booked', spine: 'sp-booked', mcount: '1 match · confirmed' },
+    { id: 'd2', name: 'Rangitikei', meta: 'ANZCO · Second shift', sclass: 'Cows',
+      day: '4', month: 'Sep', qty: 77, incl: 77, excl: 77, unmatched: 0, ulabel: '0',
+      ramp: 'q-exact', status: 'Confirmed', spine: 'sp-confirmed', mcount: '3 matches · confirmed' },
+    { id: 'd3', name: 'Canterbury', meta: 'ANZCO · Second shift', sclass: 'Bulls',
+      day: '4', month: 'Sep', qty: 124, incl: 0, excl: 0, unmatched: 124, ulabel: '124',
+      ramp: 'q-under', status: 'Booked', spine: 'sp-booked', mcount: 'no matches' },
+    { id: 'd4', name: 'Eltham', meta: 'ANZCO', sclass: 'Prime',
+      day: '4', month: 'Sep', qty: 127, incl: 0, excl: 0, unmatched: 127, ulabel: '127',
+      ramp: 'q-under', status: 'Booked', spine: 'sp-booked', mcount: 'no matches' }
+  ]},
+  { band: '6 Sep', current: true, totals: '6 spaces · 2,160 head', cards: [
+    { id: 'd5', name: 'Kokiri', meta: 'ANZCO · AM kill', sclass: 'Nat Beef - Premium',
+      day: '7', month: 'Sep', qty: 60, incl: 0, excl: 0, unmatched: 60, ulabel: '60',
+      ramp: 'q-under', status: 'Booked', spine: 'sp-booked', mcount: 'no matches' },
+    { id: 'd6', name: 'Rakaia', meta: 'ANZCO', sclass: 'Cows',
+      day: '7', month: 'Sep', qty: 136, incl: 46, excl: 46, unmatched: 90, ulabel: '90',
+      ramp: 'q-under', status: 'Booked', spine: 'sp-booked', mcount: '1 match · confirmed' },
+    { id: 'd7', name: 'Kokiri', meta: 'ANZCO', sclass: 'Mutton',
+      day: '9', month: 'Sep', qty: 560, incl: 0, excl: 0, unmatched: 560, ulabel: '560',
+      ramp: 'q-under', status: 'Booked', spine: 'sp-booked', mcount: 'no matches' },
+    { id: 'd8', name: 'Canterbury', meta: 'ANZCO', sclass: 'Lamb',
+      day: '10', month: 'Sep', qty: 350, incl: 350, excl: 350, unmatched: 0, ulabel: '0',
+      ramp: 'q-exact', status: 'Confirmed', spine: 'sp-confirmed', mcount: '2 matches · confirmed' },
+    { id: 'd9', name: 'Canterbury', meta: 'ANZCO · AM kill', sclass: 'Nat Beef - Ultra',
+      day: '11', month: 'Sep', qty: 124, incl: 79, excl: 79, unmatched: 45, ulabel: '45',
+      ramp: 'q-under', status: 'Booked', spine: 'sp-booked', mcount: '1 match · confirmed' },
+    { id: 'd10', name: 'Smithfield', meta: 'Alliance Group · Before midday', sclass: 'Lamb',
+      day: '11', month: 'Sep', qty: 930, incl: 29, excl: 29, unmatched: 901, ulabel: '901',
+      ramp: 'q-under', status: 'Booked', spine: 'sp-booked', mcount: '1 match · confirmed' }
+  ]},
+  { band: '13 Sep', totals: '5 spaces · 1,818 head', cards: [
+    { id: 'd11', name: 'Belfast', meta: 'SFF', sclass: 'Lamb',
+      day: '15', month: 'Sep', qty: 920, incl: 36, excl: 0, unmatched: 884, ulabel: '884',
+      ramp: 'q-under', status: 'Booked', spine: 'sp-booked', mcount: '1 match · 1 draft' },
+    { id: 'd12', name: 'Mataura', meta: 'Alliance Group · PM kill', sclass: 'Lamb',
+      day: '16', month: 'Sep', qty: 570, incl: 150, excl: 150, unmatched: 420, ulabel: '420',
+      ramp: 'q-under', status: 'Booked', spine: 'sp-booked', mcount: '1 match · confirmed' },
+    { id: 'd13', name: 'Mataura', meta: 'Alliance Group · First draft, 7am', sclass: 'Cattle',
+      day: '16', month: 'Sep', qty: 124, incl: 0, excl: 0, unmatched: 124, ulabel: '124',
+      ramp: 'q-under', status: 'Booked', spine: 'sp-booked', mcount: 'no matches' },
+    { id: 'd14', name: 'Dannevirke', meta: 'Alliance Group', sclass: 'Deer',
+      day: '18', month: 'Sep', qty: 66, incl: 0, excl: 0, unmatched: 66, ulabel: '66',
+      ramp: 'q-under', status: 'Booked', spine: 'sp-booked', mcount: 'no matches' },
+    { id: 'd15', name: 'Lorneville', meta: 'Alliance Group · Yard by 6:30am', sclass: 'Mutton',
+      day: '19', month: 'Sep', qty: 610, incl: 650, excl: 650, unmatched: -40, ulabel: '40',
+      ramp: 'q-over', over: 'Over-filled', ink: 'i-over',
+      status: 'Cancelled', spine: 'sp-cancelled', mcount: '2 matches · confirmed' }
+  ]}
+];
+
+var COLUMNS = {
+  supply: {
+    bands: SUPPLY, title: 'Livestock Availability', glyph: SVG.pin, add: '+ Add record',
+    total: 50, strip: ['Location', 'Stock class', 'From', 'Avail', 'Unmatched'],
+    chips: ['Status: 2 selected', 'Stock class: All', 'Location: All', 'More (1)']
+  },
+  demand: {
+    bands: DEMAND, title: 'Processor Spaces', glyph: SVG.factory, add: '+ Add space',
+    total: 40, strip: ['Plant', 'Stock class', 'Date', 'Req', 'Unmatched'],
+    chips: ['Status: Booked', 'Stock class: All', 'Processor: All', 'More']
+  }
+};
+
+/* ============================================================================================
+   the ten ideas
+   ============================================================================================ */
+var IDEAS = [
+  { k: 1, group: 'a', name: 'Delete the target-side scrim',
+    d: 'One clause out of isDimmed(). The hot card keeps its outline and its $lms-drop-target fill, blocked cards keep their grey ground, the source column keeps its spotlight. The only thing that goes is the treatment on the thirty rows you are choosing between.',
+    r: '<b>Cost: negative — it deletes code.</b> Risk: the hot card then carries the whole signal, so judge it on a card near the bottom of a long scroll and on a Cancelled record, where grayscale has already taken the fill’s hue down. Everything in group A is a variant of this one.' },
+
+  { k: 2, group: 'b', name: 'Dim the ink, not the record',
+    d: 'opacity on .card fades the name, the class, the date, the head count, the meter, the spine and the status word in one stroke. Put it on the META instead — line 2, the month, the trailing run — and leave every figure on line 1 at full strength.',
+    r: '<b>Cost: four selectors inside card-shell, no new value.</b> Risk: a card at two ink strengths is a busier object than a card at one, and the split has to be the right one — the farmer/processor on line 2 is arguably part of the choice, not chrome. Watch the over-state word: it lives in the trail and it is the loudest thing on the row.' },
+
+  { k: 3, group: 'b', name: 'Halve the dose',
+    d: '0.55 → 0.82. The 0.55 came from §10’s drag PLACEHOLDER, which is a silhouette you are meant to ignore; a candidate you are meant to read is a different job and deserves a different number.',
+    r: '<b>Cost: one number.</b> Risk: a scrim this light can read as a rendering artefact rather than as intent — either it separates the hot card or it does not, and if it does not it is 30 rows of cost for nothing. Compare it directly against 1 before keeping it.' },
+
+  { k: 4, group: 'c', name: 'Band-scoped spotlight',
+    d: 'Dim by week band rather than by row: the band the pointer is inside stays lit and the others recede. Structurally honest — a delivery week is what you are choosing within — and it changes state once per band crossing instead of once per row.',
+    r: '<b>Cost: small. DragStore already knows the hot card; the band asks whether it holds it.</b> Risk: the row you want is often in the next band down, and this makes the neighbours you are comparing against the ones that are dark. Also uneven — a band of one card is a spotlight, a band of nine is no scrim at all.' },
+
+  { k: 5, group: 'c', name: 'Dwell, don’t chase',
+    d: 'Withhold the scrim until the pointer has been on one card for ~180ms. While it travels the column is fully lit; the moment it settles, the column recedes around what it settled on. drag-lab’s progressive disclosure, applied to the second instead of to the gutter.',
+    r: '<b>Cost: one timer in the drag store, cleared on pointerup.</b> Risk: a timer inside a drag is a thing to get wrong, and a slow deliberate pointer never travels fast enough to benefit. Turn the Dwell control up to 400ms and see whether the delay reads as lag rather than as calm.' },
+
+  { k: 6, group: 'b', name: 'Ground, not opacity',
+    d: 'No transparency anywhere. The target column’s list takes $lms-column-wash, every card in it goes transparent so the wash reads through, and the hot card is the one PURE WHITE row. Figure against ground rather than opaque against faded, and every figure keeps its contrast.',
+    r: '<b>Cost: four declarations, and it composes with the outline.</b> Risk: the zebra stripe is spent for the duration of the drag — flip through a long column and decide whether you miss it. Two washes then live in one column, so pair it with drag-lab’s idea 5 (free the current-week tint) or the band header and the ground argue.' },
+
+  { k: 7, group: 'a', name: 'Two tiers, not three',
+    d: 'Today: hot / valid-dimmed / blocked-dimmer. The middle tier carries no information — every valid card is equally valid, which is exactly the argument Phase 9 used to kill the outline on all of them. Drop it, and mark the one exception in PATTERN rather than in value.',
+    r: '<b>Cost: it replaces the scrim with a hatch on the blocked cards.</b> Risk: 45° hatching is Pending’s spine, so the pattern is not unspoken-for — check a Pending card that is also full. Presumes 1; on its own it is 1 with a louder exception.' },
+
+  { k: 8, group: 'd', name: 'Locate the pointer instead of hiding the alternatives',
+    d: 'A guide at the hot row’s centre-line — solid petrol across the target column, faint across the rest of the screen. It answers “which row am I on” peripherally, without taking anything away. Stated as a crosshair in the brainstorm; drawn here with the faint continuation, because inside the column alone the guide is just the outline again.',
+    r: '<b>Cost: moderate, and the honest part is the continuation.</b> Inside the column it is one absolutely-positioned element. Across the gutter it is a body-level overlay measured off two rects, which is the same objection drag-lab’s idea 11 carried. Risk: a fourth horizontal rule in a list already made of them, and it must never be mistaken for a divider.' },
+
+  { k: 9, group: 'a', name: 'Asymmetric contrast',
+    d: '“Which column is live” is said twice today — once by dimming the source and once by dimming the target — and only one of those is free. Push the source column further down (0.4 plus the wash) and leave the target at full strength.',
+    r: '<b>Cost: one number and one deleted clause.</b> Risk: it makes abandoning a drag expensive — the column you came from is the one you re-read when you change your mind, and at 0.4 it is barely readable. Also doubles down on a treatment (12c) that nobody has complained about, which may be a reason to leave it alone.' },
+
+  { k: 0, group: 'd', name: 'Let the narrowing do it',
+    d: 'With Filter on drag on, the far column already holds only the candidates — the scrim is then fading the very rows the aid just selected for you. Make the scrim conditional on the toggle being off. Turn the Filter on drag control on to see this one do anything at all.',
+    r: '<b>Cost: one condition.</b> Risk: two different drag behaviours depending on a preference the operator set weeks ago, which is a thing to explain in a demo. And it leaves the complaint fully intact for everyone with the toggle off — which is everyone, since it is off by default. Arguably an argument for 1, not an idea of its own.' }
+];
+
+var PRESETS = [
+  { name: 'Today', set: [], what: 'nothing on — this is the screen as it ships' },
+  { name: 'My pick', set: [1, 6], what: 'scrim deleted, target column on a wash, hot card the one white row' },
+  { name: 'Cheapest', set: [1], what: 'one clause deleted and nothing added. Is it enough?' },
+  { name: 'Quiet spotlight', set: [4, 5], what: 'band-scoped and dwell-gated — the version that stops flickering' },
+  { name: 'Ink only', set: [2], what: 'the card stays, its meta recedes' },
+  { name: 'Softer', set: [3], what: 'the same treatment at 0.82 — compare against Today, not against the others' },
+  { name: 'Nothing removed', set: [1, 7, 8], what: 'no scrim; the exception hatched and the pointer guided' },
+  { name: 'Asymmetric', set: [9], what: 'the source recedes, the target does not' },
+  { name: 'Filter answers it', set: [0], what: 'needs Filter on drag ON — then the aid does the work the scrim was doing' },
+  { name: 'Everything', set: [1, 2, 3, 4, 5, 6, 7, 8, 9, 0], what: 'too much, on purpose — the mirror before you leave the house' }
+];
+
+/* ============================================================================================
+   state
+   ============================================================================================ */
+var on = new Set();
+var filterOnDrag = false;
+var DWELL_MS = 180;
+
+/* the drag, mirroring drag/drag-state.ts:
+     src        the card in flight (DragCard)
+     armed      the pointer has crossed into the far column at least once, and STAYS true
+     overTarget the pointer is inside the far column right now
+     hot        the card under the pointer, by side and id
+   The pointer position itself is a plain field, exactly as it is in DragStore, because it changes
+   per frame and nothing renders off it directly. */
+var drag = null;
+
+var BY_ID = {};
+[['supply', SUPPLY], ['demand', DEMAND]].forEach(function (pair) {
+  pair[1].forEach(function (b) {
+    b.cards.forEach(function (c) { c.side = pair[0]; BY_ID[c.id] = c; });
+  });
+});
+
+function otherSide(side) { return side === 'supply' ? 'demand' : 'supply'; }
+
+/* ============================================================================================
+   render — built once. The drag then mutates classes on the existing nodes rather than
+   re-rendering, which is both what the app does and the only way the hover state survives.
+   ============================================================================================ */
+function meter(c) {
+  var pct = function (v) { return Math.max(0, Math.min(100, Math.round((v / c.qty) * 100))); };
+  var over = c.unmatched < 0;
+  return '<div class="meter ' + c.ramp + (over ? ' over' : '') + '">' +
+    '<span class="track">' +
+      '<span class="seg incl" style="width:' + pct(c.incl) + '%"></span>' +
+      '<span class="seg" style="width:' + pct(c.excl) + '%"></span>' +
+      (over ? '<span class="over-run"></span>' : '') +
+    '</span>' +
+    '<span class="numeral">' + c.ulabel + '</span>' +
+  '</div>';
+}
+
+function card(c, index) {
+  var zebra = index % 2 === 1;
+  return '<div class="target" data-id="' + c.id + '" data-side="' + c.side + '">' +
+    '<div class="card' + (zebra ? ' zebra' : '') + (c.status === 'Cancelled' ? ' cancelled' : '') + '">' +
+      '<span class="spine ' + c.spine + '"></span>' +
+      '<span class="grip" data-grip="' + c.id + '" title="Click to lift this card">' + SVG.grip + '</span>' +
+      '<div class="cbody">' +
+        '<span class="name">' + c.name + '</span>' +
+        '<span class="sclass">' + c.sclass + '</span>' +
+        '<span class="day">' + c.day + '</span>' +
+        '<span class="qty">' + c.qty + '</span>' +
+        meter(c) +
+        '<span class="meta">' + c.meta + '</span>' +
+        '<span class="month">' + c.month + '</span>' +
+        '<span class="trail">' +
+          (c.over ? '<span class="over ' + c.ink + '">' + c.over + '</span>' : '') +
+          '<span class="mcount">' + c.mcount + '</span>' +
+          '<span class="status">' + STATUS_GLYPH[c.status] + c.status + '</span>' +
+        '</span>' +
+      '</div>' +
+      '<span class="chev">' + SVG.chevDown + '</span>' +
+    '</div>' +
+    '<span class="dropcue"></span>' +
+  '</div>';
+}
+
+function column(side) {
+  var cfg = COLUMNS[side];
+  var i = -1;
+  var shown = 0;
+
+  var bands = cfg.bands.map(function (b) {
+    return '<div class="band' + (b.current ? ' current' : '') + (b.past ? ' past' : '') + '" data-band="' + b.band + '">' +
+      '<div class="bhead">' +
+        '<span class="blabel">Week of <span class="dt">' + b.band + '</span></span>' +
+        (b.current ? '<span class="tag now">this week</span>' : '') +
+        (b.past ? '<span class="tag gone">past</span>' : '') +
+        '<span class="totals">' + b.totals + '</span>' +
+      '</div>' +
+      b.cards.map(function (c) { i += 1; shown += 1; return card(c, i); }).join('') +
+    '</div>';
+  }).join('');
+
+  return '<div class="chead">' +
+      '<span class="glyph">' + cfg.glyph + '</span>' +
+      '<h2 class="ctitle">' + cfg.title + '</h2>' +
+      '<span class="showing" data-shown="' + shown + '">showing ' + shown + ' of ' + cfg.total + '</span>' +
+      '<span class="narrowchip">' + SVG.filter + '<span class="narrowtext"></span></span>' +
+      '<button class="add">' + SVG.plus + ' ' + cfg.add + '</button>' +
+    '</div>' +
+    '<div class="frow">' +
+      cfg.chips.map(function (t, n) {
+        return '<span class="chip' + (n === 0 ? ' set' : '') + '">' + t + ' ' + SVG.down + '</span>';
+      }).join('') +
+      '<span class="sortby">↓ Soonest</span>' +
+    '</div>' +
+    '<div class="list">' +
+      '<div class="strip">' +
+        '<span class="s-name">' + cfg.strip[0] + '</span>' +
+        '<span class="s-sclass">' + cfg.strip[1] + '</span>' +
+        '<span class="s-date">' + cfg.strip[2] + '</span>' +
+        '<span class="s-qty">' + cfg.strip[3] + '</span>' +
+        '<span class="s-meter">' + cfg.strip[4] + '</span>' +
+        '<span class="s-chev"></span>' +
+      '</div>' +
+      '<div class="nothing">' +
+        '<span class="big">Nothing here could take that record.</span>' +
+        '<span>Filter on drag is hiding every ' + cfg.title.toLowerCase() + ' record with an incompatible stock class. Let go and switch the toggle off to see them all.</span>' +
+      '</div>' +
+      bands +
+    '</div>';
+}
+
+document.getElementById('col-supply').innerHTML = column('supply');
+document.getElementById('col-demand').innerHTML = column('demand');
+
+var screenEl = document.getElementById('screen');
+var chipEl = document.getElementById('chip');
+var guideEl = document.getElementById('guide');
+var colEl = { supply: document.getElementById('col-supply'), demand: document.getElementById('col-demand') };
+var targets = Array.prototype.map.call(document.querySelectorAll('.target'), function (el) {
+  return { el: el, id: el.dataset.id, side: el.dataset.side, card: el.querySelector('.card'),
+           cue: el.querySelector('.dropcue'), band: el.closest('.band'), rec: BY_ID[el.dataset.id] };
+});
+var bands = Array.prototype.slice.call(document.querySelectorAll('.band'));
+
+/* ============================================================================================
+   the drag — drag/drag-state.ts and drag/drag-narrowing.ts, in ninety lines of vanilla JS
+   ============================================================================================ */
+function lift(id) {
+  var rec = BY_ID[id];
+  drag = { id: id, side: rec.side, rec: rec, armed: false, overTarget: false,
+           hot: null, hotSince: 0, dwelt: false, x: 0, y: 0 };
+  document.body.classList.add('lifted');
+  colEl[rec.side].classList.add('sourceside');
+  colEl[otherSide(rec.side)].classList.add('targetside');
+  chipEl.querySelector('.cname').textContent = rec.name;
+  chipEl.querySelector('.chead-count').textContent = rec.qty + ' head';
+  placeChip();
+  narrow();
+  paint();
+}
+
+function placeChip() {
+  chipEl.style.transform = 'translate(' + (ptr.x + 12) + 'px,' + (ptr.y + 12) + 'px)';
+}
+
+function drop() {
+  if (!drag) return;
+  drag = null;
+  document.body.classList.remove('lifted');
+  colEl.supply.classList.remove('sourceside', 'targetside');
+  colEl.demand.classList.remove('sourceside', 'targetside');
+  narrow();
+  paint();
+}
+
+/* Filter on drag: the far column shows only the classes that could take the held record. The
+   client's whole contribution is the tag-list intersection; the pairings are the domain's. */
+function narrow() {
+  ['supply', 'demand'].forEach(function (side) {
+    var col = colEl[side];
+    var active = drag !== null && filterOnDrag && side !== drag.side;
+    col.classList.toggle('narrowed', active);
+
+    var shown = 0;
+    targets.forEach(function (t) {
+      if (t.side !== side) return;
+      var hidden = active && !compatible(
+        side === 'demand' ? t.rec.sclass : drag.rec.sclass,
+        side === 'demand' ? drag.rec.sclass : t.rec.sclass);
+      t.el.classList.toggle('hidden', hidden);
+      if (!hidden) shown += 1;
+    });
+
+    /* a band whose cards are all hidden keeps no header: §9.3's re-trim, in one line */
+    bands.forEach(function (b) {
+      if (b.closest('.col') !== col) return;
+      var any = Array.prototype.some.call(b.querySelectorAll('.target'), function (el) {
+        return !el.classList.contains('hidden');
+      });
+      b.style.display = active && !any ? 'none' : '';
+    });
+
+    col.classList.toggle('empty', active && shown === 0);
+    var showing = col.querySelector('.showing');
+    showing.textContent = 'showing ' + (active ? shown : showing.dataset.shown) + ' of ' + COLUMNS[side].total;
+    if (active) { col.querySelector('.narrowtext').textContent = drag.rec.sclass + ' only'; }
+  });
+
+  screenEl.classList.toggle('narrowed', drag !== null && filterOnDrag);
+}
+
+/* dropState(side, unmatched), verbatim from DragStore: nothing here works out a quantity, and the
+   `< 1` comparisons are against figures the server computed. */
+function dropState(t) {
+  if (!drag || !drag.armed) return 'none';
+  if (t.side === drag.side) return 'same';
+  return drag.rec.unmatched < 1 || t.rec.unmatched < 1 ? 'blocked' : 'valid';
+}
+
+function isHot(t) { return drag && drag.hot === t.id; }
+
+/* isDimmed(): the target column dims every card but the hot one, and only while the pointer is
+   inside it; the source column dims every card but the one that was picked up, from pickup. */
+function isDimmed(t) {
+  if (!drag) return false;
+  if (t.side === drag.side) return t.id !== drag.id;
+  return drag.armed && drag.overTarget && !isHot(t);
+}
+
+function paint() {
+  targets.forEach(function (t) {
+    var cls = ['target'];
+    if (t.el.classList.contains('hidden')) cls.push('hidden');
+
+    if (drag) {
+      var state = dropState(t);
+      if (state !== 'none') cls.push(state);
+      if (isHot(t)) cls.push('hot');
+      if (isDimmed(t)) cls.push('dim');
+      if (t.side === drag.side && t.id === drag.id) cls.push('origin');
+      t.card.classList.toggle('stay', t.side === drag.side && t.id === drag.id);
+      t.cue.innerHTML = state === 'blocked' ? SVG.blockBadge : (isHot(t) && state === 'valid' ? SVG.plusBadge : '');
+      if (state === 'blocked') t.cue.title = 'No unmatched quantity';
+    } else {
+      t.card.classList.remove('stay');
+      t.cue.innerHTML = '';
+    }
+
+    t.el.className = cls.join(' ');
+  });
+
+  /* band headers recede with the cards around them (isColumnDimmed), and idea 4 needs to know
+     which band holds the hot card */
+  var hotBand = null;
+  if (drag && drag.hot) {
+    var h = targets.filter(function (t) { return t.id === drag.hot; })[0];
+    hotBand = h ? h.band : null;
+  }
+  bands.forEach(function (b) {
+    var side = b.closest('.col') === colEl.supply ? 'supply' : 'demand';
+    var dim = drag !== null &&
+      (side === drag.side || (drag.armed && drag.overTarget));
+    b.querySelector('.bhead').classList.toggle('dim', dim);
+    b.classList.toggle('hotband', b === hotBand);
+  });
+
+  screenEl.classList.toggle('dwelt', drag !== null && drag.dwelt);
+  positionGuide();
+  updateChip();
+  status();
+}
+
+function positionGuide() {
+  var live = false;
+  if (drag && drag.hot) {
+    var h = targets.filter(function (t) { return t.id === drag.hot; })[0];
+    if (h) {
+      var r = h.card.getBoundingClientRect();
+      var s = screenEl.getBoundingClientRect();
+      var c = colEl[otherSide(drag.side)].getBoundingClientRect();
+      guideEl.style.top = Math.round(r.top - s.top + r.height / 2) + 'px';
+      var solid = guideEl.querySelector('.solid');
+      solid.style.left = Math.round(c.left - s.left) + 'px';
+      solid.style.width = Math.round(c.width) + 'px';
+      live = true;
+    }
+  }
+  guideEl.classList.toggle('live', live);
+}
+
+function updateChip() {
+  if (!drag) return;
+  var partial = false;
+  var pill = chipEl.querySelector('.pill');
+  if (drag.hot) {
+    var h = targets.filter(function (t) { return t.id === drag.hot; })[0];
+    if (h && dropState(h) === 'valid') {
+      /* THE ONE PIECE OF ARITHMETIC IN THIS FILE, and in web/ it would be a spec failure —
+         the figure would have to come off /api/match-proposal. See the header. */
+      var qty = Math.min(drag.rec.unmatched, h.rec.unmatched);
+      partial = qty !== drag.rec.qty;
+      pill.textContent = 'Match ' + qty + ' head';
+    }
+  }
+  chipEl.classList.toggle('partial', partial);
+}
+
+function status() {
+  var out = document.getElementById('dragout');
+  if (!drag) { out.innerHTML = 'Nothing in the air. <b>Click a grip to lift a card.</b>'; return; }
+  var hot = drag.hot ? BY_ID[drag.hot] : null;
+  out.innerHTML =
+    '<b>' + drag.rec.name + '</b> (' + drag.rec.sclass + ', ' + drag.rec.unmatched + ' unmatched) · ' +
+    (drag.armed ? (drag.overTarget ? 'over the far column' : 'armed, pointer back on the source side')
+                : 'not armed yet — cross the gutter') +
+    (hot ? ' · on <b>' + hot.name + '</b>' : ' · no card under the pointer') +
+    (drag.dwelt ? ' · dwelt' : '');
+}
+
+/* --- pointer plumbing ------------------------------------------------------------------- */
+var dwellTimer = null;
+
+/* The pointer is tracked whether or not a card is in the air, for one reason: the chip has to
+   appear UNDER the pointer at pickup, and a click-to-lift gesture gives no move of its own. */
+var ptr = { x: 0, y: 0 };
+
+document.addEventListener('pointermove', function (e) {
+  ptr.x = e.clientX;
+  ptr.y = e.clientY;
+  if (!drag) return;
+  drag.x = e.clientX;
+  drag.y = e.clientY;
+  placeChip();
+
+  /* arming: measured off the far COLUMN, and once armed it never disarms */
+  var rect = colEl[otherSide(drag.side)].getBoundingClientRect();
+  var inside = e.clientX >= rect.left && e.clientX <= rect.right &&
+               e.clientY >= rect.top && e.clientY <= rect.bottom;
+  var changed = inside !== drag.overTarget;
+  drag.overTarget = inside;
+  if (inside) drag.armed = true;
+
+  /* the hot card, found the way CDK finds it: whatever is under the pointer */
+  var el = document.elementFromPoint(e.clientX, e.clientY);
+  var t = el ? el.closest('.target') : null;
+  var hot = t && t.dataset.side !== drag.side && !t.classList.contains('hidden') ? t.dataset.id : null;
+
+  if (hot !== drag.hot) {
+    drag.hot = hot;
+    drag.dwelt = false;
+    changed = true;
+    clearTimeout(dwellTimer);
+    if (hot) {
+      dwellTimer = setTimeout(function () {
+        if (drag) { drag.dwelt = true; paint(); }
+      }, DWELL_MS);
+    }
+  }
+
+  if (changed) paint(); else positionGuide();
+});
+
+/* Click-to-lift, click-to-drop. The grip is the only handle, exactly as it is on the real card. */
+document.addEventListener('click', function (e) {
+  if (e.target.closest('.notes') || e.target.closest('.presets')) return;
+  var grip = e.target.closest('[data-grip]');
+  if (drag) { drop(); return; }
+  if (grip) { lift(grip.dataset.grip); }
+});
+
+document.addEventListener('keydown', function (e) {
+  if (e.metaKey || e.ctrlKey || e.altKey) return;
+  if (e.key === 'Escape') { drop(); return; }
+  if (/^[0-9]$/.test(e.key)) { toggle(+e.key); e.preventDefault(); }
+});
+
+/* ============================================================================================
+   chrome
+   ============================================================================================ */
+function render() {
+  var list = Array.from(on).sort(function (a, b) { return (a === 0 ? 10 : a) - (b === 0 ? 10 : b); });
+  screenEl.className = 'screen ' + list.map(function (k) { return 'i' + k; }).join(' ') +
+    (drag && drag.dwelt ? ' dwelt' : '') + (drag && filterOnDrag ? ' narrowed' : '');
+
+  document.getElementById('activeout').textContent = list.length
+    ? list.map(function (k) { return 'i' + k; }).join(' + ') : 'baseline';
+
+  var preset = PRESETS.filter(function (p) {
+    return p.set.length === on.size && p.set.every(function (k) { return on.has(k); });
+  })[0];
+  document.getElementById('propwhat').textContent = preset ? preset.what
+    : list.length + (list.length === 1 ? ' idea on' : ' ideas on');
+
+  Array.prototype.forEach.call(document.querySelectorAll('#presets [data-preset]'), function (b) {
+    b.classList.toggle('on', PRESETS[+b.dataset.preset] === preset);
+  });
+  Array.prototype.forEach.call(document.querySelectorAll('#fodctl button'), function (b) {
+    b.classList.toggle('on', (b.dataset.fod === 'on') === filterOnDrag);
+  });
+  Array.prototype.forEach.call(document.querySelectorAll('#dwellctl button'), function (b) {
+    b.classList.toggle('on', +b.dataset.ms === DWELL_MS);
+  });
+  Array.prototype.forEach.call(document.querySelectorAll('.note'), function (n) {
+    n.classList.toggle('on', on.has(+n.dataset.k));
+  });
+
+  location.replace('#' + list.concat([filterOnDrag ? 'fod' : 'nofod', 'd' + DWELL_MS]).join(','));
+}
+
+function toggle(k) {
+  if (on.has(k)) on.delete(k); else on.add(k);
+  render();
+}
+
+var presetsEl = document.getElementById('presets');
+PRESETS.forEach(function (p, i) {
+  var b = document.createElement('button');
+  b.textContent = p.name;
+  b.dataset.preset = i;
+  b.title = p.what;
+  b.onclick = function () { on = new Set(p.set); render(); };
+  presetsEl.insertBefore(b, presetsEl.querySelector('.sep'));
+});
+
+var fodctl = document.getElementById('fodctl');
+[{ v: 'off', t: 'Off' }, { v: 'on', t: 'On' }].forEach(function (o) {
+  var b = document.createElement('button');
+  b.textContent = o.t;
+  b.dataset.fod = o.v;
+  b.title = 'The real §10.2 toggle: while a card is held, the far column shows only the stock classes that could take it. Idea 0 does nothing without it.';
+  b.onclick = function () { filterOnDrag = o.v === 'on'; narrow(); paint(); render(); };
+  fodctl.appendChild(b);
+});
+
+var dwellctl = document.getElementById('dwellctl');
+[{ ms: 180, t: '180ms' }, { ms: 400, t: '400ms' }, { ms: 900, t: '900ms' }].forEach(function (o) {
+  var b = document.createElement('button');
+  b.textContent = o.t;
+  b.dataset.ms = o.ms;
+  b.title = 'How long the pointer must sit on one card before idea 5 lets the scrim in';
+  b.onclick = function () { DWELL_MS = o.ms; render(); };
+  dwellctl.appendChild(b);
+});
+
+IDEAS.forEach(function (idea) {
+  var el = document.createElement('button');
+  el.className = 'note';
+  el.dataset.k = idea.k;
+  el.innerHTML = '<span class="n"><span class="k">' + idea.k + '</span> ' + idea.name + '</span>' +
+                 '<p class="d">' + idea.d + '</p><p class="r">' + idea.r + '</p>';
+  el.onclick = function () { toggle(idea.k); };
+  document.getElementById('group-' + idea.group).appendChild(el);
+});
+
+/* The hash carries the set, the toggle and the dwell, so a combination worth keeping can be
+   pasted back into a chat. */
+var tokens = location.hash.slice(1).split(',').map(function (s) { return s.trim(); });
+on = new Set(tokens.filter(function (s) { return /^\d$/.test(s); }).map(Number));
+if (tokens.indexOf('fod') !== -1) filterOnDrag = true;
+var dTok = tokens.filter(function (s) { return /^d\d+$/.test(s); })[0];
+if (dTok) DWELL_MS = +dTok.slice(1);
+
+render();
+status();
+</script>
+</body>
+</html>

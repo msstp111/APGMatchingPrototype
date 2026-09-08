@@ -582,6 +582,13 @@ filled rail, is the one exception and is argued for in its own bullet:
   out. Verified live: `gripRuleX` and `railRuleX` both 1133, `nameX` and the sheet's first label both
   1142.
 
+  **A cancelled record takes the stroke down with it.** `cancelled-card` greyscales `.card` and
+  deliberately nothing else — the drawer is the most interactive region on the card, and everything
+  that recedes on this screen recedes because it is read-only. That left a greyed grip three pixels
+  above a full-strength blue rail, so the rail and the continued spine take the card's own
+  `grayscale(1)` / `.62` under `:host(.cancelled)` on the expansion, and nothing else in the sheet
+  moves. The lab predicted this; the running app confirmed it before it was fixed.
+
   The grip's **hover** is restated for an open card — `$lms-hover` rather than the `$lms-surface` a
   closed card's grip uses, because `#FAFAFA` punches a grey hole in the column exactly where the
   pointer is. It has to out-weigh both `.grip:hover` and `.card:hover .grip`, the second of which
@@ -1109,16 +1116,44 @@ that rule is the backlog.
 
 | State | Treatment |
 | --- | --- |
-| **Card hover** | background `#F5F9FB`, **`cursor: pointer` over the body and `cursor: grab` over the grip**. **Nothing resizes** — a growing row makes a list of ten cards jitter under the pointer. **Superseded 2026-09-07 (§16.12):** the hover-only six-dot glyph in the right gutter, and the whole-body drag handle it hinted at, are both gone. The card now has *two* pointer paths and each states which it is: a permanent 30 × 51px grip first in the row drags (with the status spine painted over its leading 6px, so the glyphs line up whatever the status), and the rest of the row expands. |
+| **Card hover** | background `#F5F9FB`, **`cursor: pointer` over the body and `cursor: grab` over the grip**. **Nothing resizes** — a growing row makes a list of ten cards jitter under the pointer. **Superseded 2026-09-07 (§16.12):** the hover-only six-dot glyph in the right gutter, and the whole-body drag handle it hinted at, are both gone. The card now has *two* pointer paths and each states which it is: a permanent 30 × 51px grip first in the row drags (with the status spine painted over its leading 6px, so the glyphs line up whatever the status), and the rest of the row expands. **Amended 2026-09-09 (§16.13):** with "Drag anywhere" on, the middle region drags *as well as* expands — but its cursor stays `pointer`, because the click is still the commoner of its two gestures. |
+| **Dragging, anywhere on screen** | `cursor: grabbing`, from `apg-dragging` on `document.body` while a card is in flight (`DragStore`). It exists because the middle region reads `pointer` at rest, so a drag begun there would otherwise be the one gesture on this screen that never changes the cursor. Deliberately weak in the cascade: `no-drop` over the source column and `not-allowed` over a blocked target both still win. |
 | **Card active / pressed** | background `#EEEEEE`, no movement |
 | **Dragging (CDK preview)** | **1:1 scale** — no tilt, no shrink; the operator is aiming at a 52px row and a transformed preview lies about where the pointer is. `0 8px 16px rgba(0,0,0,.24)` + `2px solid #00567E` outline, `cursor: grabbing`. Escape cancels. |
 | **Drag placeholder** (the gap left behind) | a flat `#EEEEEE` silhouette at the **same 52px height**, carrying the record name at 55% opacity. Same height matters: the list must not reflow mid-drag. **Not a dashed outline** — dashed already means Cancelled. |
-| **Valid drop target** | `2px solid #00567E` outline inset, background `#E8F1F6`, a `+` badge left of the chevron. The whole opposite column also takes a `#F6FAFC` wash the moment a drag starts. |
+| **Valid drop target** | **Nothing, until it is the card under the pointer** — see §10.3. Phase 5's outline-and-fill on every eligible card, the `+` badge and the whole-column wash are all gone: the far column is eligible in its entirety, so a mark on all of it named nothing. The card under the pointer takes `2px solid #00567E` inset and `#D1E1E8` (`$lms-drop-target`, one step deeper than the current-week tint so a target and "this is the week you are in" are not the same colour). |
 | **Invalid target — same column** | **nothing changes at all.** No outline, no shake, no message. Dropping within a column is a no-op by specification (Phase 5, 1.3), and an error for a gesture that simply does not apply teaches an operator to fear the screen. The only cue is `cursor: no-drop`. |
 | **Blocked target — no unmatched quantity** | background `#EEEEEE`, a `block` glyph, `cursor: not-allowed`, `matTooltip="No unmatched quantity"`. Distinct from the same-column case because here the gesture *would* apply — the record is simply full. |
 | **Auto-scroll zone** | 48px at the top and bottom of each column, marked by a petrol gradient veil to 14% opacity while dragging. Must scroll **through** band headers, not only within a band. |
 | **Disabled control** | Material's own disabled styling, **plus a stated reason** beside it wherever the reason is not obvious (see §6.2's Confirm). |
 | **Focus** | Material's own, exactly as it arrives. Do not remove it; do not build on it. |
+
+### 10.3 What a drag actually paints (2026-09-09)
+
+Five things change while a card is in the air, and the list is short on purpose — Phase 5 lit forty
+rows at once and that is the complaint every revision since has been answering.
+
+| When | What |
+| --- | --- |
+| **Pickup** | The **source column** recedes to 55% — every card and every band header except the row that was picked up, which takes a **2px dotted petrol ring** (dotted, not dashed: dashed means Cancelled). The origin is marked by subtraction. |
+| **Pickup** | The **chip** (§10.1) replaces the card under the pointer. |
+| **Before the gutter is crossed** | **Nothing on the far side.** A drag with no target in mind has nothing to say, and `dropState` returns `none` until the pointer has been inside the opposite column once. It stays armed after that — drifting back over the source column does not un-learn where the drag is going. |
+| **Under the pointer** | One card: `2px solid #00567E` inset, `#D1E1E8` fill, and the proposed quantity ghosted into its meter. |
+| **Any full record** | 45% and a `block` glyph, `cursor: not-allowed`. A statement about that record, not about the rest of the column. |
+
+**The target column is never dimmed, and that is the 2026-09-09 change.** Phase 9 scrimmed every
+card in the far column but the hot one, and it read as the screen going quiet at exactly the moment
+the operator needed to read it: choosing a target means comparing those rows — meters, statuses,
+dates, backlog age — against one another, and the scrim faded all of them, repainting on every row
+the pointer crossed, to say something the hot card's outline and fill had already said. It was the
+one device in the gesture that removed information rather than adding a mark.
+
+`Documents/drag-lab-2.html` is the sixth lab and drew ten answers — softer doses, dimming the meta
+only, band-scoped and dwell-gated variants, a wash instead of opacity, a guide at the pointer's row.
+**Idea 1 shipped: delete it.** The cost was negative — one clause out of `DragStore.isDimmed`, one
+selector out of `_card-geometry.scss`, and the live `overTarget` signal with them, since the scrim
+was its only reader. Before adding anything back to that column, read the lab: most of what looks
+like a fix there is paid for in the reading.
 
 ### 10.1 The drag chip
 
@@ -1156,7 +1191,7 @@ drops from 33 booked spaces to the 8 lamb ones; grab a Bulls space and the suppl
 
 | Piece | Treatment |
 | --- | --- |
-| **The toggle** | §14.1's white-on-petrol chrome button, 26px, and the same shape as the reset beside it — one selector, not a copy, because two chrome controls 1px apart look like a mistake. **Filled white with petrol text while on**, `aria-pressed`, glyph `filter_alt` / `filter_alt_off`. A toggle whose only ON cue is its wording is a state nobody notices they are in. It is **not** marked as debug scaffolding: unlike the reset and `+ Add`, this is a real feature of the screen. |
+| **The toggle** | §14.1's white-on-petrol chrome button, 26px, and the same shape as the reset beside it — one selector (`.pref-toggle`), not a copy, because chrome controls 1px apart look like a mistake. **Filled white with petrol text while on**, `aria-pressed`, glyph `filter_alt` / `filter_alt_off`. A toggle whose only ON cue is its wording is a state nobody notices they are in. It is **not** marked as debug scaffolding: unlike the reset and `+ Add`, this is a real feature of the screen. **"Drag anywhere" (§16.13) is its neighbour and shares the class**, filled state and all; the two are independent — either, neither or both. |
 | **The narrowed column** | nothing is added to the cards. The list simply holds fewer of them, the bands re-trim (§9.3), and `showing 4 of 47` states it — the *loaded* total never changes, because the aid hides records and does not unload them. |
 | **The header chip** | the §12.3 `Filtered` chip's shape in petrol on `#E8F1F6`, reading `Lamb only`, and it **takes that chip's place** rather than adding a fifth item to a 596px header. `Reset` stands down with it; it was never clickable mid-gesture. Petrol is identity and no part of the quantity ramp, so it borrows no meaning from the meters below it. |
 | **Narrowed to nothing** | §13's third empty state. Reachable in the demo: Alliance Group books `Deer` and the supply vocabulary has none. |
@@ -1712,6 +1747,53 @@ processor's and farmer's name for the excl-draft one.
     gone with the spine's cell — the strip was its only reader, and adding it back would double-count
     the 6px. The trailing edge is untouched at 32px, because the gutter the six-dot glyph used to sit
     in was reserved space and never a cell: giving it up returned the row nothing and moved nothing.
+
+13. **The middle of the row drags again, behind a toggle (2026-09-09).** Item 12 separated the two
+    gestures and was right to. What it also did was make the drag reachable from 30px of a 540px row,
+    and this screen is run by two or three people who will learn its interactions once. So the row now
+    has **three** pointer regions, not two:
+
+    | Region | Width | Drag | Click |
+    | --- | --- | --- | --- |
+    | Grip | 30px | **always** | — |
+    | Middle (`.cbody`) | ~478px | only with "Drag anywhere" on | **always** |
+    | Chevron | 24px | never | **always** |
+
+    The two ends are deliberately unambiguous. The grip is the guaranteed drag — it never switches
+    off, whatever the preference says, so there is always one place on every row that behaves the way
+    the glyph and the `grab` cursor promise. The chevron needs no attribute to stay out of it: it is a
+    **sibling** of `.cbody`, not a descendant, and CDK arms a drag only from a handle that *contains*
+    the event's target.
+
+    **The risk is the one item 12 was curing, and it is met with a number rather than an argument.**
+    Whole-body dragging came off the card because a click that drifted a pixel lifted the row instead
+    of opening it. CDK's `dragStartThreshold` therefore goes from its default 5 to **8**
+    (`DRAG_SLOP` in `drag/card-press.ts`, provided at the application root), and the rule has no dead
+    zone and no timer: a press that never crosses 8px is a click *however long it is held*, and one
+    that crosses it is a drag and never also a click. The card does not re-derive that — it asks CDK,
+    through the `(cdkDragStarted)` binding it already had, because a second implementation of CDK's
+    own threshold in TypeScript would disagree with it the first time page and client coordinates
+    parted company.
+
+    `.cbody` loses its `(click)` binding entirely, and that is not tidying. A drag released back over
+    its own card fires an ordinary `click` on the way out, so a click event cannot tell the two
+    gestures apart; `CardPress` reports the pointer sequence instead. `button.mcount` swaps its guard
+    for the same reason in reverse: it stopped `click` to avoid a double toggle, and now stops
+    **`mousedown`** to keep a wobble on it from lifting the card. The event matters — CDK binds
+    `mousedown`, not `pointerdown`, so the pre-2026-09-07 code that stopped `pointerdown` for this
+    purpose would not have worked against current CDK.
+
+    **The threshold is provided at the root, and that placement is load-bearing.** `DragNarrowing`
+    reads `dragStartThreshold` off the same token to decide when a press has become a drag. Provided
+    on the two card components, CDK would have seen 8 while the narrowing still saw its fallback of 5.
+
+    **Off by default**, and switched from the top bar beside "Filter on drag" — its peer in shape and
+    in behaviour, and independent of it (§10.2's toggle row, §14.1's chrome). Off, the row is
+    exactly what item 12 made it. Two costs are accepted while it is on, both because CDK stamps
+    `touch-action: none` and `user-select: none` on every handle: touch and pen cannot scroll a column
+    by dragging a card body, and the card's text is not selectable. A mouse is assumed available at
+    all times (resolved question 14), the wheel and the scrollbar are unaffected, the grip has carried
+    the same restriction since 2026-09-07 unnoticed, and the toggle is the way back.
 
 ---
 

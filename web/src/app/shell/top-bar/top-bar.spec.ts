@@ -5,12 +5,15 @@ import { DemoReset } from '../demo-reset/demo-reset';
 import { TopBar } from './top-bar';
 
 /**
- * The top bar's two chrome controls, and specifically the one that has a state.
+ * The top bar's chrome controls, and specifically the two that have a state.
  *
- * "Filter on drag" is a toggle in a row of buttons, so the thing worth testing is that it reads as
- * one: pressed state exposed to assistive tech, filled while on, and the switch itself living in the
- * preference store rather than in this component — the matching screen is what acts on it, and a copy
- * of the state here is how the two would come to disagree.
+ * "Filter on drag" and "Drag anywhere" are toggles in a row of buttons, so what is worth testing is
+ * that they read as toggles: pressed state exposed to assistive tech, filled while on, and the switch
+ * itself living in the preference store rather than in this component — the matching screen is what
+ * acts on both, and a copy of the state here is how the two would come to disagree.
+ *
+ * They are independent, which is easy to break by wiring the second to the first's signal, so that is
+ * asserted outright rather than left to be noticed.
  */
 describe('Top bar', () => {
   async function mount() {
@@ -34,6 +37,10 @@ describe('Top bar', () => {
 
   function toggle(fixture: Awaited<ReturnType<typeof mount>>): HTMLButtonElement {
     return (fixture.nativeElement as HTMLElement).querySelector<HTMLButtonElement>('.drag-filter')!;
+  }
+
+  function dragAnywhere(fixture: Awaited<ReturnType<typeof mount>>): HTMLButtonElement {
+    return (fixture.nativeElement as HTMLElement).querySelector<HTMLButtonElement>('.drag-anywhere')!;
   }
 
   it('offers the filter as a toggle, off to begin with', async () => {
@@ -80,6 +87,51 @@ describe('Top bar', () => {
 
     expect(toggle(fixture).title).toContain('On');
     expect(toggle(fixture).title).toContain('Nothing is blocked');
+  });
+
+  it('offers “Drag anywhere” as a second toggle, also off to begin with', async () => {
+    const fixture = await mount();
+    const button = dragAnywhere(fixture);
+
+    expect(button.textContent).toContain('Drag anywhere');
+    expect(button.getAttribute('aria-pressed')).toBe('false');
+    expect(button.classList.contains('on')).toBe(false);
+    expect(button.title).toContain('Off');
+  });
+
+  it('turns “Drag anywhere” on, and says what it changes', async () => {
+    const fixture = await mount();
+
+    dragAnywhere(fixture).click();
+    await fixture.whenStable();
+
+    expect(dragAnywhere(fixture).getAttribute('aria-pressed')).toBe('true');
+    expect(dragAnywhere(fixture).classList.contains('on')).toBe(true);
+    expect(dragAnywhere(fixture).title).toContain('On');
+    expect(TestBed.inject(MatchingPreferences).dragAnywhere()).toBe(true);
+  });
+
+  it('keeps the two toggles independent', async () => {
+    const fixture = await mount();
+    const preferences = TestBed.inject(MatchingPreferences);
+
+    dragAnywhere(fixture).click();
+    await fixture.whenStable();
+
+    expect(preferences.dragAnywhere()).toBe(true);
+    expect(preferences.filterOnDrag()).toBe(false);
+    expect(toggle(fixture).classList.contains('on')).toBe(false);
+  });
+
+  /**
+   * Both borrow the reset's shape through one shared class rather than a copy each: three chrome
+   * controls side by side, and one of them a pixel out from its neighbours looks like a mistake.
+   */
+  it('gives both toggles the shared control shape', async () => {
+    const fixture = await mount();
+
+    expect(toggle(fixture).classList.contains('pref-toggle')).toBe(true);
+    expect(dragAnywhere(fixture).classList.contains('pref-toggle')).toBe(true);
   });
 
   it('still carries the demo reset and the dev flag', async () => {

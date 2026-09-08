@@ -54,12 +54,13 @@
 // petrol-on-petrol reads as nothing. It is deliberately quieter than the dev flag beside it — the
 // flag is the statement, this is the tool.
 //
-// "Filter on drag" borrows the same shape, and one selector rather than a copy: the two sit side by
-// side, and a chrome control that is 1px different from its neighbour looks like a mistake rather
-// than a distinction. What separates them is the toggle's filled ON state below — the reset has no
-// state to show.
+// The two toggles beside it — "Filter on drag" and "Drag anywhere" — borrow the same shape, through
+// one shared `.pref-toggle` class rather than a copy each: the three sit side by side, and a chrome
+// control that is 1px different from its neighbour looks like a mistake rather than a distinction.
+// What separates them from the reset is the filled ON state below; the reset has no state to show.
+// Each toggle keeps a name of its own (`.drag-filter`, `.drag-anywhere`) for the specs to aim at.
 .demo-reset,
-.drag-filter {
+.pref-toggle {
   display: inline-flex;
   align-items: center;
   gap: 5px;
@@ -91,7 +92,7 @@
 // The toggle's ON state: filled, so it reads across a room and from a screenshot. An outline that
 // changed only its wording would be a state nobody notices they are in, and this one changes what
 // the screen does the next time a card is picked up.
-.drag-filter.on {
+.pref-toggle.on {
   background: lms.$lms-white;
   border-color: lms.$lms-white;
   color: lms.$lms-petrol;

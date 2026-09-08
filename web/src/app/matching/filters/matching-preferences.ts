@@ -6,6 +6,7 @@ import {
   DemandSortField,
   DEFAULT_DEMAND_FILTERS,
   DEFAULT_DEMAND_SORT,
+  DEFAULT_DRAG_ANYWHERE,
   DEFAULT_FILTER_ON_DRAG,
   DEFAULT_FLIPPED,
   DEFAULT_SUPPLY_FILTERS,
@@ -50,6 +51,14 @@ export interface MatchingViewPreferences {
    * governs both directions, and it is set from the top bar rather than from a column's filter row.
    */
   readonly filterOnDrag: boolean;
+  /**
+   * Whether a card's middle region drags as well as expands (`drag/card-press.ts`).
+   *
+   * Beside `filterOnDrag` for the same reasons — one switch, both columns, set from the top bar — and
+   * independent of it: either, neither or both. Off restores the row exactly as it has behaved since
+   * 2026-09-07, with the grip as the only way to start a drag.
+   */
+  readonly dragAnywhere: boolean;
   readonly demand: { readonly filters: DemandFilters; readonly sort: Sort<DemandSortField> };
   readonly supply: { readonly filters: SupplyFilters; readonly sort: Sort<SupplySortField> };
 }
@@ -57,6 +66,7 @@ export interface MatchingViewPreferences {
 const DEFAULTS: MatchingViewPreferences = {
   flipped: DEFAULT_FLIPPED,
   filterOnDrag: DEFAULT_FILTER_ON_DRAG,
+  dragAnywhere: DEFAULT_DRAG_ANYWHERE,
   demand: { filters: DEFAULT_DEMAND_FILTERS, sort: DEFAULT_DEMAND_SORT },
   supply: { filters: DEFAULT_SUPPLY_FILTERS, sort: DEFAULT_SUPPLY_SORT },
 };
@@ -67,6 +77,7 @@ export class MatchingPreferences {
 
   readonly flipped = computed(() => this.state().flipped);
   readonly filterOnDrag = computed(() => this.state().filterOnDrag);
+  readonly dragAnywhere = computed(() => this.state().dragAnywhere);
   readonly demandFilters = computed(() => this.state().demand.filters);
   readonly demandSort = computed(() => this.state().demand.sort);
   readonly supplyFilters = computed(() => this.state().supply.filters);
@@ -99,6 +110,14 @@ export class MatchingPreferences {
    */
   toggleFilterOnDrag(): void {
     this.commit({ ...this.state(), filterOnDrag: !this.state().filterOnDrag });
+  }
+
+  /**
+   * Switches the middle region's drag on or off. Set from the top bar beside "Filter on drag", and
+   * for the same reason: it governs both columns, so it belongs to neither column's filter row.
+   */
+  toggleDragAnywhere(): void {
+    this.commit({ ...this.state(), dragAnywhere: !this.state().dragAnywhere });
   }
 
   /**
@@ -187,6 +206,7 @@ function readStored(): MatchingViewPreferences {
   return {
     flipped: boolean(raw['flipped'], DEFAULTS.flipped),
     filterOnDrag: boolean(raw['filterOnDrag'], DEFAULTS.filterOnDrag),
+    dragAnywhere: boolean(raw['dragAnywhere'], DEFAULTS.dragAnywhere),
     demand: {
       filters: readDemandFilters(record(demand['filters'])),
       sort: readSort(record(demand['sort']), DEFAULT_DEMAND_SORT, knownDemandSortFields),

@@ -57,13 +57,14 @@ service: confirm, re-seed, clear preferences, reload) and `reset-demo-data.*` (t
 decides nothing and closes true or false, like every other dialog in the application). It reuses
 `matching/record/debug-ribbon.ts` rather than growing a second debug treatment.
 
-**The top bar carries two controls now**, and only one of them is scaffolding: `Reset demo data`, and
-from 2026-09-09 the `Filter on drag` toggle beside it, which reads and writes
-`MatchingPreferences.filterOnDrag` (root-provided, which is exactly why the shell may reach it — as
-`DemoReset` already does to clear the stored preferences). The two share one SCSS selector for their
-shape; what separates them is the toggle's filled ON state. The toggle carries **no** demo-data
-marking: it is a real feature of the matching screen, and `# DEMO DATA TOOL #` means something
-specific here.
+**The top bar carries three controls now**, and only one of them is scaffolding: `Reset demo data`,
+and from 2026-09-09 the `Filter on drag` and `Drag anywhere` toggles beside it, which read and write
+`MatchingPreferences.filterOnDrag` / `.dragAnywhere` (root-provided, which is exactly why the shell may
+reach them — as `DemoReset` already does to clear the stored preferences). All three share one SCSS
+selector (`.pref-toggle`, plus `.demo-reset`) for their shape; what separates the toggles from the
+reset is their filled ON state, and the two toggles are independent of each other. Neither toggle
+carries any demo-data marking: both are real features of the matching screen, and `# DEMO DATA TOOL #`
+means something specific here.
 
 ### Wiring
 
@@ -127,7 +128,10 @@ drag/drag-state.ts        root DragStore — the card in flight, Escape cancel, 
 drag/card-drag.ts         acceptsFrom (same-column silent reject) + pairFromDrop (both directions → one pair)
 drag/column-auto-scroll.ts  [columnAutoScroll] on each .list; CDK's own auto-scroll is disabled
 drag/drag-narrowing.ts    root DragNarrowing — "Filter on drag" (2026-09-09). Narrows the FAR column
-                          to compatible stock classes on the grip's pointerdown, restores on pointerup
+                          to compatible stock classes on the pointer move that STARTS the drag (it
+                          watches from the press; a click narrows nothing), restores on pointerup
+drag/card-press.ts        [cardPress] — "Drag anywhere" (2026-09-09). The click-or-drag recogniser on
+                          the card's middle region, plus DRAG_SLOP (8) and CARD_DRAG_CONFIG
 drag/stock-class-affinity.ts  the pure half: do two records' stockClassGroups intersect
 drag/nothing-compatible.ts    the third empty state — narrowed to nothing (Alliance Group's Deer)
 match/record-patches.ts   root RecordPatches — THE write stream. Every writer publishes; the screen
@@ -232,13 +236,19 @@ from petrol to muted grey, which is a downgrade under the pointer. It uses `$lms
 `$lms-surface` a closed grip uses, because `#FAFAFA` punches a grey hole in the column exactly where
 the pointer is.
 
+**A cancelled record takes the stroke down with it.** `cancelled-card` greyscales `.card` and
+nothing else, which left a greyed grip three pixels above a full-strength blue rail, so the rail and
+the continued spine take the same `grayscale(1)` / `.62` under `:host(.cancelled)` on the expansion.
+The drawer's content stays at full strength: it is the most interactive region on the card, and
+everything that recedes on this screen recedes because it is read-only.
+
 **The notch and the sheet's own shadow are untouched.** An earlier cut of this change deleted both:
 it had built idea 1, the frame swallowing the row, instead of idea 3. That was the wrong pair and is
 reverted.
 
 Verified in the running app, not only in the lab: `gripRuleX` and `railRuleX` both 1133, `nameX` and
 the sheet's first label both 1142, every card 52px open or closed, and Pending's 45° hatch carries
-through the seam with no phase break. `Documents/browser-checklist.md` carries the five rows.
+through the seam with no phase break. `Documents/browser-checklist.md` carries the six rows.
 
 **The expanded card's sums strip (2026-09-08).** Three parts in the drawer still, sums first — what
 changed is what is in them. The strip's two sums are **fractions** now (`29 of 77`, `59 of 77 · 30
@@ -316,10 +326,10 @@ preferences, cleared by `Reset demo data`. Five things are worth knowing before 
   it is the one that matters.
 - **The release is on `pointerup`, not `cdkDragEnded`** — a grip pressed and let go without a drag
   emits nothing from CDK, and would leave the far column narrowed with no drag to explain it.
-- **`filterOnDrag` was added to `apg.matching.preferences.v2` without bumping the version**, because
-  the reader falls back field by field: an older stored object simply has no such key and gets the
-  default. It sits beside `flipped` rather than in either column's filters — one switch governs both
-  directions, and it is set from the shell.
+- **`filterOnDrag` was added to `apg.matching.preferences.v2` without bumping the version** (and so
+  was `dragAnywhere`, the same day), because the reader falls back field by field: an older stored
+  object simply has no such key and gets the default. Both sit beside `flipped` rather than in either
+  column's filters — one switch governs both directions, and both are set from the shell.
 
 The narrowed column says so in its header, in the `Filtered` chip's place (`Lamb only`), and a column
 narrowed to nothing draws its own state (`drag/nothing-compatible.ts`) rather than the filtered-empty
@@ -365,10 +375,11 @@ design-system.md §10.2 is the spec.
 
 **The grip and the clickable body (2026-09-07).** A card has **two pointer paths and they no longer
 overlap**. A full-height **30px grip** is the **first cell in the row**, carrying Material's
-`drag_indicator`, always visible, and it is the **only `cdkDragHandle` on the card**; the rest of the
-row is `cursor: pointer` and **a click anywhere in `.cbody` toggles the expansion**. Before this the
-whole body was the handle, so every card offered a grab cursor across 508px of a row whose commonest
-action is expanding it, and expanding meant hitting the 24px chevron in the far corner.
+`drag_indicator`, always visible; the rest of the row is `cursor: pointer` and **a click anywhere in
+`.cbody` toggles the expansion**. Before this the whole body was the handle, so every card offered a
+grab cursor across 508px of a row whose commonest action is expanding it, and expanding meant hitting
+the 24px chevron in the far corner. **The grip was the only `cdkDragHandle` until 2026-09-09 — see
+"Drag anywhere" below — and it is still the only unconditional one.**
 
 **The status spine is now an overlay, not a cell** — `.card > .spine { position: absolute; left: 0 }`
 inside `card-shell`, with the grip reserving 6px of padding for it. That is not tidying: the spine is
@@ -384,14 +395,48 @@ Three more things follow, and all three are the kind that break quietly:
   column — the only one that flexes. Leave the term out and every heading on line 1 sits 30px off its
   own values. **`$leading-offset` is gone**: the strip was its only reader, and re-adding it would
   double-count the spine's 6px.
-- **The match-count button stops its click.** It is inside the body, and the body toggles.
+- **The match-count button stops `mousedown`.** It is inside the body, and since 2026-09-09 the body
+  is a drag handle again while `Drag anywhere` is on, so a wobble on the label would otherwise lift
+  the card. **The event matters**: CDK binds `mousedown`, not `pointerdown`, on the drag root, so the
+  pre-2026-09-07 code that stopped `pointerdown` for this same purpose would not work today. It no
+  longer needs to stop `click` — the body has no click handler at all any more.
 - **The chevron stays.** It is the focusable control and the one carrying `aria-expanded`; the body
   gets no `role` or `tabindex`, because a second tab stop on the same row saying the same thing is only
   one more thing to tab past. The grip is `aria-hidden` — there is no keyboard drag path
   (resolved question 14).
 
-`card/card-grip.spec.ts` holds all of it, over both cards in one loop: the grip is the only handle, the
-body expands and collapses, the chevron still works, and the match count opens the card **once**.
+`card/card-grip.spec.ts` holds all of it, over both cards in one loop: the grip always drags, the body
+drags only while `Drag anywhere` is on, the chevron never does, the body expands and collapses, and
+the match count opens the card **once**. It asks the `CdkDragHandle` *instances* whether they are
+disabled rather than counting the `cdk-drag-handle` class — CDK stamps that class on a disabled handle
+too, so counting it cannot tell the two states apart and would pass if the toggle did nothing.
+
+**Drag anywhere (2026-09-09).** A second top-bar toggle, beside `Filter on drag` and independent of
+it, that gives the card's **middle region** a drag without taking away its click. The row now has
+**three** pointer regions: the 30px grip drags and only drags (**always**, whatever the preference
+says — it is the guaranteed fallback), the 24px chevron clicks and only clicks, and the ~478px between
+them does both while the toggle is on. Off by default; off, the row is exactly what 2026-09-07 made
+it. Six things are worth knowing:
+
+- **The chevron needs no attribute to stay out of it.** It is a *sibling* of `.cbody`, not a
+  descendant, and CDK arms a drag only from a handle that `contains` the event's target.
+- **`DRAG_SLOP` is 8px**, up from CDK's default 5, in `drag/card-press.ts`. The rule has **no dead
+  zone and no timer**: a press that never crosses 8px is a click *however long it is held*, and one
+  that crosses it is a drag and never also a click. That threshold is the entire answer to the hazard
+  that took whole-body dragging off the card in the first place — a click that drifted lifted the row.
+- **The card asks CDK which it was**, through the `(cdkDragStarted)` binding it already had, rather
+  than re-deriving the threshold in TypeScript. A second implementation of CDK's own rule would
+  disagree with it the first time page and client coordinates parted company.
+- **`CARD_DRAG_CONFIG` is provided at the application root** (`app.config.ts`), not on the two card
+  components, and that placement is load-bearing: `DragNarrowing` is root-provided and reads
+  `dragStartThreshold` off the same token. Provided lower down, CDK would see 8 and the narrowing 5.
+- **`.cbody` has no `(click)` binding any more.** A drag released back over its own card fires an
+  ordinary `click` on the way out, so a click event cannot tell the two gestures apart;
+  `drag/card-press.ts` reports the pointer sequence instead and the card judges it.
+- **Two costs are accepted while it is on**, both because CDK stamps `touch-action: none` and
+  `user-select: none` on every handle: touch and pen cannot scroll a column by dragging a card body,
+  and the card's text is not selectable. A mouse is assumed available at all times (resolved question
+  14), the wheel and the scrollbar are unaffected, and the toggle is the way back.
 
 Two tests were the phase's own guards. `card/stock-class-coverage.spec.ts` read both vocabularies out
 of `SeedConfig.cs` and failed naming any stock class without an explicit tile — **deleted 2026-09-08

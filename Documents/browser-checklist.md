@@ -176,8 +176,9 @@ it is a claim about every dialog rather than one screen.
 - [ ] **The match label on line 2 opens the card.** `2 matches · 1 draft` is a button; `no matches` is
       not. Since 2026-09-07 the body around it opens the card too, so what to watch for here is the
       *opposite* failure: the label must open the card and leave it open, not toggle twice and look
-      like it did nothing. Try clicking it with a slight wobble as well — the body no longer drags, so
-      a wobble must not lift the card either.
+      like it did nothing. Try clicking it with a slight wobble as well. With `Drag anywhere` **off**
+      a wobble cannot lift the card at all; with it **on**, a wobble under 8px must still open the
+      card, and the label's own `mousedown` guard must keep a wobble *on the label* from lifting it.
 - [ ] **No text overlaps anything else.** The first pass found `mat-hint` text painting over the notes
       below it and over the footer, because Material's subscript wrapper is a fixed height and a hint
       that wraps overflows rather than pushing down. Hints in this modal are now capped at one line of
@@ -389,6 +390,8 @@ Do not report these. Each is a decision with a reason recorded.
 | Dropping inside one column **does nothing at all** | By specification. An error for a gesture that does not apply teaches an operator to fear the screen. (§10.) |
 | A card's DOM node **flashes** into the target list mid-drag | CDK moves the preview's sibling; change detection restores it. (Phase 5, "Deviations".) |
 | The card shows a **hand cursor, not a grab cursor**, and there is no six-dot glyph in the right gutter | Both went on 2026-09-07. The two gestures are separated: the always-visible 24px `drag_indicator` grip at the *left* of the row drags, the rest of the row expands, and each carries its own cursor. The grip is a real cell, so the strip's leading pad is 38px rather than 14px. (§10, §16.12.) The trailing edge went from 32px to 40px on the same date, for an unrelated reason: it was misaligned with its own header and had been since Phase 3 — see section A. |
+| The card shows a **hand cursor even with `Drag anywhere` on**, over a region that does drag | Deliberate (§16.13). The click is the commoner of that region's two gestures, and a grab cursor across 508px of a row whose usual action is expanding it is the exact complaint that separated the two in the first place. The grip advertises the drag; the cursor turns `grabbing` the moment one actually starts. |
+| With `Drag anywhere` on, **a card's text cannot be selected and touch cannot scroll the list** by dragging a row | Accepted, not a bug. CDK stamps `touch-action: none` and `user-select: none` on every drag handle, and the middle of the row becomes one. A mouse is assumed available at all times (resolved question 14); the wheel, the trackpad and the scrollbar are unaffected, and the toggle is the way back. |
 | **Nothing responds to the keyboard** for dragging | Resolved question 14: a mouse is assumed at all times. Its absence is a decision. |
 | The first week is **all ANZCO** | Chance, not arithmetic — the mix is 70/20/10 shuffled. The aliasing bug that caused it was fixed after Phase 4. |
 | A cancelled record's **matches are still there**, on both cards | The rule this whole phase exists to show. Cancelling a record never cascades — it lets APG arrange alternatives before anyone is notified. Cancel them separately. (Phase 7, 5.2.) |
@@ -459,6 +462,7 @@ the grip column filled through, and the status spine continued.
 | The filled rail did **not** move the grip's rule | `gripRuleX` and `railRuleX` both **1133**; `nameX` and the sheet's first label both **1142**. Written as a 29px box with a border it lands a pixel left — the lab does exactly that and is wrong | ✔ |
 | Nothing about the open state changes a dimension | every card's `.card` height is **52px** with a drawer open and 52px without, measured across the whole column before and after the click, identical | ✔ |
 | The status spine runs the whole open object | `app-card-expansion > .spine` height equals the host's height less the row's 52px, exactly; open `.card` `border-bottom-color: rgba(0,0,0,0)`. Checked on Pending, whose 45° hatch is the one that would show a phase break at the seam: none | ✔ |
+| A cancelled record's stroke recedes with its row | Ticked `Cancelled` into the demand status filter and opened one: rail `filter: grayscale(1)`, `opacity: 0.62`, matching the row's grip; the sums, the match table and the actions stay at full strength. Before the fix the grip was grey and the rail three pixels below it was full-strength blue | ✔ |
 | The grip still answers the pointer when the card is open | ground `rgb(245,249,251)` = `$lms-hover`, glyph stays `rgb(0,86,126)`. Both rules it has to out-weigh were checked by removing this one: the tint swallows `.grip:hover`, and `.card:hover .grip` drops the glyph to muted grey | ✔ |
 | The sums are type on white, at 20px | no ground on `.sums`; `$lms-expansion-head` and `$lms-expansion-head-rule` no longer exist in the stylesheet | ✔ |
 | One drawer per column | two demand cards clicked in turn → `app-space-card app-card-expansion` count stays **1** | ✔ |
@@ -535,9 +539,10 @@ the toggle not working.
 | Claim | Where it comes from | How to check |
 | --- | --- | --- |
 | **A drop after narrowing lands on the card under the pointer** | §10.2's timing rule. Each card is its own `cdkDropList` and CDK measures every one of them inside the handler that crosses the drag threshold; the narrowing runs in that same handler, one listener earlier, and anything later would leave every surviving card somewhere CDK does not believe it is | Toggle on. Grab a **Lamb** availability record — the demand column should drop to 8 booked spaces — and drop it on the **last** lamb space in the list, i.e. the one that moved furthest up when the column shrank. The quantity prompt must name **that** space. Repeat dropping on the first: both ends of the list matter, and the far end is where a stale rect shows |
-| Every lit-row treatment still works in the narrowed column | §10's hot/dim/blocked states are keyed off CDK's own `entered` / `exited` | With the same drag, sweep down the narrowed column. Exactly one row lights at a time, the others recede, and a full space still shows the `block` glyph |
+| Every lit-row treatment still works in the narrowed column | §10.3's hot/blocked states are keyed off CDK's own `entered` / `exited` | With the same drag, sweep down the narrowed column. Exactly one row lights at a time; **the rest stay at full strength** (the target-side scrim went on 2026-09-09), and a full space still shows the `block` glyph |
+| **The far column is as readable in flight as it is at rest** | §10.3 — the target-side scrim is deleted (drag-lab-2 idea 1); only the source column recedes | Grab a record and hold it over the far column. Read three rows the pointer is **not** on: their meters, unmatched figures and status words must be exactly as legible as before the pickup. Sweep up and down the column — nothing but the row under the pointer may change. The **source** column must still be at 55% with its dotted origin ring |
 | A **click** on a grip narrows nothing at all | the fault the 2026-09-09 rework fixed: it used to narrow on `pointerdown` | Click a grip sharply, ten times, at both ends of a column. The far column must not so much as flicker. Then press, hold **still**, and confirm it is still full |
-| The column narrows on the move that **starts** the drag, and nothing changes after | `DragNarrowing.onMove` at CDK's own 5px threshold, ticking synchronously | Press a Lamb record's grip and edge the pointer away slowly. The demand column must shorten within the first few pixels — as the card leaves the row, not before it and not on entering the far column — and which cards are present must not change again for the rest of the drag |
+| The column narrows on the move that **starts** the drag, and nothing changes after | `DragNarrowing.onMove` at CDK's own threshold — **8px since 2026-09-09**, read off `CDK_DRAG_CONFIG` so the two cannot disagree — ticking synchronously | Press a Lamb record's grip and edge the pointer away slowly. The demand column must shorten within the first few pixels — as the card leaves the row, not before it and not on entering the far column — and which cards are present must not change again for the rest of the drag |
 | A drag abandoned outside either column restores it | the release is on `pointerup`, not `cdkDragEnded` | Drag a card into the gutter, the top bar, the sidebar, then off the window entirely and release. The far column must come back every time, with no stale `Lamb only` chip |
 | Escape restores it while the button is still down | `DragNarrowing` listens for Escape as `DragStore` does | Grab a card, move into the far column, press Escape **without releasing**. Preview, highlights *and* the full column all return together; then release over a card — nothing is created |
 | The header chip replaces `Filtered`, and the header does not reflow | §10.2, and the 596px header already carries title, count, chip, `+ Add` and `?` | Filter the demand column first (so `Filtered` + `Reset` are showing), then grab a supply record. `Lamb only` must appear **in their place**, and `+ Add` must not move by a pixel |
@@ -547,6 +552,29 @@ the toggle not working.
 | Auto-scroll still works in a short column | `columnAutoScroll` measures live, unlike CDK's cache | Grab a card whose narrowed target column is shorter than the viewport. The 48px veils must not appear at all, and the pointer must not scroll a list with nothing to scroll |
 | The toggle reads as on from across the room | §10.2 — a toggle whose only ON cue is its wording is a state nobody notices | Look at the top bar from 2m in both states. Also confirm the ON state does not collide with the yellow dev flag beside it |
 | Nothing is blocked | the aid hides and never refuses | With the aid **on**, turn it off mid-session and match a Lamb record into a **Mutton** space. It must go through with no warning of any kind |
+
+## Drag anywhere (2026-09-09) — unrun, and the whole point is the boundary
+
+The top-bar toggle that gives a card's middle region a drag without taking away its click
+(design-system.md §16.13). `card-press.spec.ts` pins the recogniser and `card-grip.spec.ts` pins what
+each region does, but **jsdom cannot say how a real hand behaves**: whether eight pixels is actually
+generous enough for a trackpad click, and whether a drag started mid-row still lands where it is
+aimed, are both questions only a pointer can answer.
+
+Turn the toggle **on** for all of this unless a row says otherwise. It is off by default.
+
+| Claim | Where it comes from | How to check |
+| --- | --- | --- |
+| **A click in the middle of a row expands it, every time** | `DRAG_SLOP` is 8px, up from CDK's 5, and the release is judged on whether CDK started a drag | Expand and collapse twenty rows in a row, fast, clicking wherever the pointer happens to land. Not one may lift instead. Then do ten more *deliberately sloppily* — click while the hand is still moving. This is the item the whole feature turns on |
+| A drag started mid-row lands on the card under the pointer | the drag is CDK's whichever handle began it; the 232px chip is pinned to the pointer either way | Drag from the middle of a demand card onto a supply card near the **bottom** of a long column. The quantity prompt must name that record. Repeat from the grip and confirm the chip looks identical — same size, same position under the pointer |
+| A drag released back over its **own** card does nothing at all | the card asks CDK whether a drag began; a `click` still fires on the way out | Press the middle of a row, drag 100px, come back, release over the same row. Nothing must expand and nothing must be created |
+| Escape mid-drag does not expand the card either | the same flag; an Escape-cancelled drag is still a drag | Press the middle, drag into the far column, press Escape, then release. The card must stay closed |
+| The chevron never drags | it is a sibling of the body, not a descendant | Press the chevron and drag 200px. Nothing may lift; on release the card expands or collapses as usual |
+| The grip drags with the toggle **off** | it is the unconditional handle, and it is the fallback the toggle exists to leave in place | Turn the toggle off. The grip must still drag, the middle must still expand, and a 200px drag from the middle must expand the card on release rather than lifting it |
+| The match count opens the card and never lifts it | its guard is on `mousedown`, because that is what CDK binds | Press `2 matches · 1 draft` and wobble hard before releasing. The card must open, once, and never lift |
+| The cursor turns `grabbing` while a card is in flight | `apg-dragging` on `document.body` | Drag from the middle and watch the cursor cross the gutter: `pointer` at rest, `grabbing` once moving, `no-drop` over the source column, `not-allowed` over a full target. The last two must still win |
+| Both toggles are independent | separate fields on one stored object | Turn on `Filter on drag` only, then `Drag anywhere` only, then both. Reload between each: each state must come back as it was left |
+| An older browser profile is not disturbed | `dragAnywhere` was added to `apg.matching.preferences.v2` without a version bump, because the reader falls back field by field | With filters already set from before today, reload. The filters must survive and the new toggle must read **off** |
 
 ## Recording the result
 

@@ -170,7 +170,7 @@ describe('Drag store', () => {
     });
   });
 
-  describe('the two spotlights', () => {
+  describe('the one spotlight', () => {
     it('dims every card in the source column except the one that was picked up', () => {
       const drag = store();
 
@@ -184,31 +184,36 @@ describe('Drag store', () => {
       expect(drag.isDimmed('demand', 12345)).toBe(true);
     });
 
-    it('dims every card in the target column except the hot one, once the pointer is in it', () => {
+    /**
+     * The 2026-09-09 change (drag-lab-2 idea 1), and the one most likely to be undone by a later hand
+     * reaching for "a bit more feedback on the far side". Choosing a target means comparing those
+     * rows against one another, and a scrim over all of them is the one device in this gesture that
+     * takes reading away rather than adding a mark. The hot card is marked; nothing else is.
+     */
+    it('never dims the target column, hot card or not', () => {
       const drag = armedDrag();
+
+      expect(drag.isDimmed('supply', 12345)).toBe(false);
+      expect(drag.isColumnDimmed('supply')).toBe(false);
 
       drag.enter(supply);
 
       expect(drag.isDimmed('supply', supply.availability.id)).toBe(false);
-      expect(drag.isDimmed('supply', 12345)).toBe(true);
+      // The card three rows below the pointer reads exactly as it did before the drag began.
+      expect(drag.isDimmed('supply', 12345)).toBe(false);
+      expect(drag.isColumnDimmed('supply')).toBe(false);
     });
 
-    /**
-     * Leaving the column gives it back. The operator has stopped choosing a target and is reading the
-     * backlog again — which is the thing the column exists to show and the thing a scrim hides.
-     */
-    it('gives the target column back when the pointer leaves it', () => {
+    it(`keeps the source column's scrim wherever the pointer goes`, () => {
       const drag = armedDrag();
 
       drag.enter(supply);
       moveTo(100);
 
-      expect(drag.isDimmed('supply', 12345)).toBe(false);
-      expect(drag.isColumnDimmed('supply')).toBe(false);
-
-      // The source column keeps its scrim: the origin is still the origin.
+      // The origin is still the origin, and it is still marked by subtraction.
       expect(drag.isDimmed('demand', 12345)).toBe(true);
       expect(drag.isColumnDimmed('demand')).toBe(true);
+      expect(drag.isDimmed('demand', demand.space.id)).toBe(false);
     });
 
     it('dims nothing at all when no drag is in flight', () => {
