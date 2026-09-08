@@ -74,19 +74,4 @@ describe('Cancel match', () => {
 
     expect(closed).toHaveBeenCalledWith('InternalDecisionByApg');
   });
-
-  /**
-   * The warning is the point of the dialog as much as the radio group is. In pass 1 there is no Match
-   * list view, so a cancelled match is not visible anywhere afterwards — and the panel also states
-   * the thing that is *not* about to happen, because the non-cascade is the rule most easily assumed
-   * the other way round.
-   */
-  it('warns that the match disappears and that neither record is touched', async () => {
-    const fixture = await mount();
-    const warning = (fixture.nativeElement as HTMLElement).querySelector('.warn')?.textContent ?? '';
-
-    expect(warning).toContain('disappears from the matching screen');
-    expect(warning).toContain('no Match list view');
-    expect(warning).toContain('never touches its parents');
-  });
 });

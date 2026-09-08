@@ -211,7 +211,7 @@ it is a claim about every dialog rather than one screen.
 - [ ] **Change quantity and transport together on a Confirmed match**: **both** consequences are named
       in the one sentence. (Fixed in Phase 6's review; the write applies both fields.)
 - [ ] **Change only the price on a Confirmed match**: **no prompt.**
-- [ ] **`Undo match` appears only on a draft; `Cancel match…` only past one. Never both.** Space
+- [ ] **`Cancel match` appears only on a draft; `Cancel match…` only past one. Never both, and the ellipsis is the only difference in the label.** Space
       **#1** shows all of it from one card: match **#3** and **#4** are drafts, match **#2** is
       confirmed. (Resolved question 3.)
 - [ ] **Cancel a match.** The reason list offers exactly three, nothing is preselected, the action is
@@ -255,8 +255,11 @@ behaviour. Those are decisions, not defects.
       a negative numeral, and the literal word `Over-filled`. (§4.2.)
 - [ ] **Nothing is pink.** No availability record is over-committed, and pink is a bug flag. If you see
       it, stop and report it. (§4.3.)
-- [ ] **Stock-class tiles carry shape, not colour**: circle sheep, square cattle, diamond deer, grey
-      monogram. The CSV's hex colours are deliberately unused. (§7, resolved question 16.)
+- [ ] **No stock class is abbreviated anywhere** — the monogram tile is out of the application
+      (2026-09-08, §7). Every class reads in words: card line 1, both dialogs' sub-lines, the filter
+      menus, both forms. The drag chip is down to two fields, the name and the head count. Hue is
+      still nowhere near stock class — the CSV's hex colours are deliberately unused (resolved
+      question 16).
 - [ ] **Type is Roboto throughout and there is no serif anywhere.** (§1.)
 
 ---
@@ -409,7 +412,9 @@ Both changes are geometry and colour, which is exactly what jsdom cannot check.
 | The legend fits at **1366×768** without the dialog scrolling awkwardly | 720px wide, four sections. If it needs a scroll it should be a clean one, not a clipped last row. |
 | Line 1's **name column is wider** than before, and line 2's meta starts on the same vertical | The tile's 20px plus its 8px gap went to the name, which truncates. The alignment of the two lines is a side effect, not a goal. |
 | The header strip's cells still sit **exactly over** the card's | The `.s-tile` spacer came out with the tile. If the strip is 28px out of step, only one of the three was changed. (§16.10.) |
-| The tile is **still** in the drag chip, and **nowhere else** | It came off the card rows and header strip in §16.10 and off both match dialogs on 2026-09-07. The chip keeps it because it has three fields in 200px and no room to spell a class out; the dialogs spell theirs out in words. |
+| The chip names the **slot**, not the processor: `ANZCO Kokiri` | Pick up any ANZCO space — most of the column is ANZCO's, which is the whole reason. A space with no plant reads `ANZCO` with no trailing space. (§10.1.) |
+| The chip is **232px** and the longest name does not clip | Worst cases: `Alliance Group Dannevirke` against `1180 head` on demand, `Spring Creek Agriculture` on supply. **Verified 2026-09-08 in headless Chrome against a CSS replica of `.chip`** — 150.2px of name cell against 142.8px of text, ~7px of slack in the worst case — but *not* yet in the running app, where the real font stack and the CDK transform are in play. Re-check with `.cname`'s `getBoundingClientRect()` against a detached probe span; **`scrollWidth` cannot see this clip**, because on a flexed cell it reports `max(clientWidth, content)`. |
+| The tile is **gone from the drag chip too**, which was its last surface | Off the card rows and header strip in §16.10, off both match dialogs on 2026-09-07, off the chip on 2026-09-08. The argument for keeping it — 200px with no room for a class name — lost to the plainer fact that a two-letter code over twenty-two classes is a puzzle mid-drag. The chip is the name and the head count, and `app-stock-class-tile` no longer exists. (§7.) |
 
 ## The two match dialogs — RUN 2026-09-07, all passed (re-run after the title and badge change)
 
@@ -421,11 +426,11 @@ Kept here because the claims are geometric and jsdom cannot see any of them.
 | --- | --- | --- |
 | The drop prompt's title names the act and the slot | `Draft match: ANZCO Rangitikei`, and no head count | ✔ |
 | The modal's title names the act and the slot | `Confirm match: ANZCO Rangitikei` on a Drafted match; `Edit match: ANZCO Rangitikei` on a Confirmed one, whose footer offers `Cancel match…` and no `Confirm match` | ✔ both |
-| Neither dialog carries a monogram tile | `app-stock-class-tile` absent from both; each name line starts at the block's own padding | ✔ |
+| Neither dialog carries a monogram tile | `app-stock-class-tile` absent from both; each name line starts at the block's own padding | ✔ — and vacuous since 2026-09-08: the component is deleted, so check the name lines' padding and nothing else |
 | The modal stacks its parents | Livestock Availability, arrow, Processor Space — the drop prompt's order, `.rec + .flow + .rec` | ✔ |
 | Each block spans the dialog | 512px inside the 640px dialog, both equal | ✔ |
 | Nothing in either block truncates | `scrollWidth <= clientWidth` on all four names and sub-lines — the thing the 300px side-by-side halves could not manage | ✔ |
-| No stock-class commentary | `.note` absent, and both classes still legible in the tiles and sub-lines | ✔ |
+| No stock-class commentary | `.note` absent, and both classes still legible in the sub-lines — which are now the only place either one is stated | ✔ |
 | The wrapping hints still push the footer down | The ceiling sentence runs to four lines and the price hint to three; the footer sits below both, not under them | ✔ |
 
 ## M. The expanded card, round two — RUN 2026-09-07, all passed
@@ -455,18 +460,52 @@ Two more, checked in the same pass:
 | The **last** card in a band opens correctly | Opened the last space in `WEEK OF 30 AUG`: notch under its chevron, rail unbroken, and the drawer's 1px foot meets the next band's 2px petrol rule directly. The frame's bottom edge is quiet against that rule, which is right — the band rule is what closes a band | ✔ |
 | The **no-matches** drawer still reads | The table placeholder and the actions row are unchanged | ✔ |
 
-**One thing to watch, found in that same shot and not a defect.** On a record with no matches the two
-sums are `0` and `0`, and at 20px they are now the loudest thing in the drawer — a large, emphatic
-pair of zeros above the sentence that explains there is nothing to total yet. It is honest and it is
-not wrong, but it is the one case where idea 3's anchor anchors nothing. If it grates in the demo, the
-cheapest answer is to render the sums at the card-figure size when `matchedInclDraft` is 0, and the
-next cheapest is to drop the pair entirely on a record with no live matches — the field row already
-carries `Quantity required` and `Quantity unmatched`, which are the only two figures that mean
-anything in that state.
+**One thing to watch, found in that same shot and not a defect — and since answered.** On a record
+with no matches the two sums were `0` and `0`, and at 20px they were the loudest thing in the drawer:
+a large, emphatic pair of zeros above the sentence explaining there is nothing to total yet. The
+2026-09-08 change makes them `0 of 77` and `0 of 77`, which says something — none of this space is
+spoken for — where a bare `0` said nothing twice. **Look at this case again anyway**: whether a
+denominator is enough, or whether the pair should still step down to the card-figure size when
+`matchedInclDraft` is 0, is a judgement a person has to make in front of it.
+
+## The sums strip (2026-09-08) — unrun
+
+The two sums became fractions, the drafted figure joined the incl-Draft one, `Quantity unmatched`
+moved up out of the field row, and the field row lost every quantity it had. jsdom holds the content
+and the structure (`card-expansion.spec.ts`); none of the following.
+
+| Claim | Where it comes from | How to check |
+| --- | --- | --- |
+| `Quantity unmatched` ends on the same x as the meter numeral above it | design-system.md §6.2 item 1 — the one reason that cell is right-aligned when the other two are not | Expand a demand card. Its value's right edge should be **40px in from the card's outer edge** (`.sums` spends `8 + 8 + 24 - 1` = 39 inside the sheet's 1px frame). This is the same class of claim that was **wrong for five phases** in §16.10, so measure it rather than eyeballing it |
+| The strip is ~48px, down from the 105px the strip and its field row spent between them | removing the duplicated pair was the whole of the win available; two attempts at spending width instead are recorded in §6.2 | Measure `.sums` and `.fields` on a demand card with one line of notes |
+| Three cells fit the strip with the unmatched one clear of them | two labels at ~120px over two lines, plus 26px gaps, plus the unmatched cell pushed right | Expand a demand card at 1920, 1366 and 1280 and watch for the unmatched cell colliding with `incl. Draft` |
+| `59 of 77 · 30 drafted` reads as one figure with two annotations, not as three things | the middot is `.sum .sep::before`; the drafted count is the only figure on the strip with no label of its own | Look at it. If the drafted count reads as a separate statistic it wants a label, and a label means a fourth cell |
+| `-24 Over-filled` fits the unmatched cell without wrapping | `.sum` is `white-space: nowrap`, so it will push instead of wrapping | Find the over-filled space and expand it |
+| A long note does not disturb the strip | the strip and the field row are separate flex rows now, so it should not — worth confirming | Edit a record's notes to ~200 characters and expand it |
+
+**The API must be restarted** before any of this: `draftedQuantity` is a new DTO field and a server
+started before 2026-09-08 will not send it, which renders `· drafted` with no number in front of it.
 
 **Still open:** whether the 20px sums outweigh the collapsed row's own 15px meter numeral when the eye
 sweeps a column (§5.1 has no step above 15px anywhere else on this screen, and this is the first).
 That one needs a person looking at it, not a measurement.
+
+## The record forms' grid (2026-09-08) — unrun
+
+Both debug dialogs (`+ Add` and `Edit`, either column) were relaid out as a two-column grid.
+design-system.md §14.2 has the reasoning; jsdom holds the fields and the validation
+(`space-form.spec.ts`, `availability-form.spec.ts`) and none of the following.
+
+| Claim | Where it comes from | How to check |
+| --- | --- | --- |
+| **Two columns at the full 640px dialog, not three** | §14.2 item 1 — the fault that made every earlier screenshot of these forms misleading, since a clipped 80vw dialog showed two either way | Open `+ Add record` in a window **wider than 800px** so the dialog gets its full 640. `Availability details` and `Notes` must each run the whole width; `Stock class`/`Quantity available`, `Location`/`Available from` must pair; `Transaction type` sits alone in the left column with the right column empty, and that hole is intended |
+| **No field's ground is taller than its own control** | §14.2 item 2 | `+ Add processor space`, touch nothing. `Processor` and `Stock class` grounds must end on the same y — `Stock class` carries `Choose a processor first` below its border and `Processor` must **not** grow to meet it. Same for `Plant`/`Quantity required` and `Delivery date`/`Delivery time`. On the supply form, `Transaction type` must not stretch to the height of the textarea opposite |
+| The gap between rows is 14px everywhere, hint or no hint | §14.2 item 3 | Measure ground-bottom to ground-top on the supply form between `Stock class`→`Location` (no hint) and `Availability details`→`Notes` (a hint that wraps to two lines). Both should be 14 |
+| A hint reads as belonging to the field above it | the whole point of dropping the 18px reserve | Look at `Optional, free text` under `Delivery time`. If it reads as floating between two rows, the row gap is too small relative to the hint's own offset |
+| `.fixed` is exactly a field's height and its value sits on a field's x | §14.2, and it now reads `--mat-form-field-container-height` | `Edit processor space` on any record: `Processor`'s ground and `Plant`'s must be the same height (52 at the dialogs' relaxed density -1), and `ANZCO` must start on the same x as `Rangitikei` below it. The label/value pair is **centred** in the cell rather than reproducing Material's 22px/6px padding — measured as landing within ~2px, which is the claim to falsify here |
+| The ribbon's 16px clears the first row of fields | `debug-ribbon.scss`, `margin: -4px 0 16px` | It was 12 and read as tight against the grid |
+| Nothing wraps or clips at the narrow end | §14.2 item 1's 560px stack | Open either form at ~700px viewport (the dialog clips to 80vw = 560) and again at ~520px. At the second the grid must be **one column**, not two 230px ones |
+| The over-fill / over-commit caption still clears the field above it | the original subscript fix, half of which (`min-height`) is gone | Edit a matched record and drop its quantity below `matchedInclDraft`. The red sentence must sit clear of `Notes`, wrapping included — this is the exact overlap the `min-height` was added for, so it is the one item here with a known way to fail |
 
 ## Recording the result
 

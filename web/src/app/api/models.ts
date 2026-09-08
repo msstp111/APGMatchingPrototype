@@ -224,8 +224,22 @@ export interface ProcessorSpaceDto {
   readonly matchedInclDraft: number;
   /** Sum excluding drafts. What a processor would be shown, labelled simply "Quantity Matched". */
   readonly matchedExclDraft: number;
+  /**
+   * The two sums' difference — the quantity held by Drafted matches alone. Rendered beside the
+   * incl-Draft figure in the expanded card. It arrives computed because working it out here would be
+   * `matchedInclDraft - matchedExclDraft`, which `no-domain-arithmetic.spec.ts` forbids.
+   */
+  readonly draftedQuantity: number;
   /** Required minus incl-Draft matched. Negative when over-filled, which is permitted here. */
   readonly unmatched: number;
+  /**
+   * The unmatched figure as it is **printed**: its magnitude, no sign. Over-filled is already stated
+   * by the ramp's ink, by `quantityStateLabel` and by the meter's over-run cap, so the minus was a
+   * fourth statement of it spending a character in the narrowest column on the screen. **Render this,
+   * never `unmatched`** — `Math.abs(dto.unmatched)` in a template is the same class of mistake as
+   * recomputing a sum, and this figure is printed on six surfaces.
+   */
+  readonly unmatchedLabel: string;
   readonly quantityState: QuantityState;
   /** "Under-filled" / "Filled" / "Over-filled". */
   readonly quantityStateLabel: string;
@@ -281,8 +295,22 @@ export interface LivestockAvailabilityDto {
   readonly status: LivestockAvailabilityStatus;
   readonly matchedInclDraft: number;
   readonly matchedExclDraft: number;
+  /**
+   * The two sums' difference — the quantity held by Drafted matches alone. Rendered beside the
+   * incl-Draft figure in the expanded card. It arrives computed because working it out here would be
+   * `matchedInclDraft - matchedExclDraft`, which `no-domain-arithmetic.spec.ts` forbids.
+   */
+  readonly draftedQuantity: number;
   /** Available minus incl-Draft matched. Should never be negative; `Over` flags a bug. */
   readonly unmatched: number;
+  /**
+   * The unmatched figure as it is **printed**: its magnitude, no sign. Over-filled is already stated
+   * by the ramp's ink, by `quantityStateLabel` and by the meter's over-run cap, so the minus was a
+   * fourth statement of it spending a character in the narrowest column on the screen. **Render this,
+   * never `unmatched`** — `Math.abs(dto.unmatched)` in a template is the same class of mistake as
+   * recomputing a sum, and this figure is printed on six surfaces.
+   */
+  readonly unmatchedLabel: string;
   readonly quantityState: QuantityState;
   /** "Under-committed" / "Fully committed" / "Over-committed". */
   readonly quantityStateLabel: string;

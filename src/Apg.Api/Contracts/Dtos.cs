@@ -67,8 +67,25 @@ public sealed record ProcessorSpaceDto
     /// <summary>Sum excluding drafts. What a processor would be shown, as "Quantity Matched".</summary>
     public required int MatchedExclDraft { get; init; }
 
+    /// <summary>
+    /// The difference between the two sums — the quantity held by Drafted matches alone. The expanded
+    /// card names it beside the incl-Draft figure, and it is the number the space's confirm gate turns
+    /// on. On the wire rather than composed client-side because that would be arithmetic on two DTO
+    /// quantity fields.
+    /// </summary>
+    public required int DraftedQuantity { get; init; }
+
     /// <summary>Required minus incl-Draft matched. Negative when over-filled, which is permitted.</summary>
     public required int Unmatched { get; init; }
+
+    /// <summary>
+    /// The unmatched figure as it is <b>printed</b>: its magnitude, no sign. Over-filled is stated by
+    /// the ramp's ink, by <see cref="QuantityStateLabel"/> and by the meter's over-run cap, so the
+    /// minus was a fourth statement of it spending a character in the narrowest column on the screen.
+    /// Every surface that prints this figure renders this field; <see cref="Unmatched"/> stays signed
+    /// for the rules and for the meter's hover string.
+    /// </summary>
+    public required string UnmatchedLabel { get; init; }
 
     public required QuantityState QuantityState { get; init; }
 
@@ -168,10 +185,27 @@ public sealed record LivestockAvailabilityDto
     public required int MatchedExclDraft { get; init; }
 
     /// <summary>
+    /// The difference between the two sums — the quantity held by Drafted matches alone. The expanded
+    /// card names it beside the incl-Draft figure, so how much of this record's commitment is still
+    /// provisional is stated rather than added up off the match table. On the wire rather than
+    /// composed client-side because that would be arithmetic on two DTO quantity fields.
+    /// </summary>
+    public required int DraftedQuantity { get; init; }
+
+    /// <summary>
     /// Available minus incl-Draft matched. Should never be negative — a match is hard-capped at
     /// remaining supply — and the Over state exists to make it visible if it ever is.
     /// </summary>
     public required int Unmatched { get; init; }
+
+    /// <summary>
+    /// The unmatched figure as it is <b>printed</b>: its magnitude, no sign. Over-filled is stated by
+    /// the ramp's ink, by <see cref="QuantityStateLabel"/> and by the meter's over-run cap, so the
+    /// minus was a fourth statement of it spending a character in the narrowest column on the screen.
+    /// Every surface that prints this figure renders this field; <see cref="Unmatched"/> stays signed
+    /// for the rules and for the meter's hover string.
+    /// </summary>
+    public required string UnmatchedLabel { get; init; }
 
     public required QuantityState QuantityState { get; init; }
 

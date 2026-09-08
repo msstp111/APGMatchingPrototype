@@ -116,7 +116,7 @@ describe('No domain arithmetic in the matching screen', () => {
     const innocent = [
       '[matchedInclDraft]="space().matchedInclDraft"',
       '<td class="num">{{ m.quantityMatched }}</td>',
-      '<app-stock-class-tile [stockClass]="record().stockClass" />',
+      '<span class="sclass" [title]="record().stockClass">{{ record().stockClass }}</span>',
       '{{ band().meta.spaceCount === 1 ? \'space\' : \'spaces\' }}',
     ];
 

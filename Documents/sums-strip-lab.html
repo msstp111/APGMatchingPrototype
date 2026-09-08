@@ -1,0 +1,1538 @@
+<!doctype html>
+<html lang="en-NZ">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>APG matching — the sums strip, ten ideas</title>
+<!--
+  ============================================================================================
+  THROWAWAY. Not part of the Angular application, not routed, not imported anywhere.
+  One self-contained file: no build step, no framework, no CDN, no network. Opens over file://.
+  Same pattern as drag-lab.html, expansion-lab.html and expansion-lab-2.html, and for the same
+  reason — a layout argument is settled by looking at the alternatives beside each other, and a
+  branch of the real app shows one at a time.
+
+  THE SUBJECT IS ONE WIDGET: the expanded card's sums strip. Everything else on these boards —
+  the 52px row, the notes band, the match table, the actions row — is context, drawn so the strip
+  is judged where it lives rather than in isolation. Do not "improve" the context.
+
+  WHAT SHIPS TODAY (the left board, and the baseline in the contact sheet)
+      29 of 77            59 of 77 · 30 drafted            18 Under-filled
+      QUANTITY MATCHED    QUANTITY MATCHED                 QUANTITY UNMATCHED
+      EXCL. DRAFT         INCL. DRAFT
+  Three cells, figure over label, the first two on the leading edge and the third on the card's
+  own 40px trailing run so its figure lands under the meter numeral above it.
+
+  THE COMPLAINT
+  The two left labels wrap to two lines and the right one does not, so the block is lopsided and
+  its height is set by the longest caption rather than by anything being read. Two further things
+  fall out of the same cause once you look:
+    1. THE REPEATED WORDS ARE THE LENGTH. "QUANTITY MATCHED" is printed twice and "QUANTITY" three
+       times. Nothing in the strip is about anything but this record's quantity, so the word earns
+       its keep once at most.
+    2. `30 drafted` HAS NO CAPTION. It is the only figure on the strip with no label of its own,
+       and it is the figure the `Confirm space` gate below actually turns on.
+
+  WHAT CAME BEFORE THIS FILE, so nobody re-proposes it
+    * 2026-09-08, attempt 1: ONE ROW, prose leading and all four figures trailing, to spend the
+      drawer's unused width instead of its height. It WRAPPED — four micro-cap labels of this
+      length plus a line of notes exceed the column, so the figures dropped below the notes and
+      the drawer opened on a note instead of on its numbers.
+    * 2026-09-08, attempt 2: TWO BLOCKS with all four figures grouped on the trailing edge. It did
+      not wrap, and the alignment against the collapsed row's Req'd and Unmatched columns was
+      real, but a strip whose content all sits at one end reads as the fragment of a row rather
+      than as the drawer's head — and the eye enters the sheet from the leading edge, where the
+      card's own name is.
+    The lesson both point at: the strip's HEIGHT was never the problem. Removing the duplicated
+    `Quantity required` / `Quantity unmatched` pair took ~35px out of the drawer and that was the
+    whole of the win available. These ten are about symmetry and readability, not about px.
+
+  Geometry and colour are copied from the real screen, so the alternatives are judged against the
+  thing the designer already knows:
+      web/src/styles/_lms-tokens.scss                     every colour below
+      web/src/app/matching/_card-geometry.scss            every dimension, and card-shell
+      web/src/app/matching/card/card-expansion.scss       THE BASELINE
+      web/src/app/matching/card/space-card.html           the 52px row's grid, grip, spine overlay
+      web/src/app/matching/card/fill-meter.scss           the meter
+
+  Material Symbols is deliberately not used — the icon font would not load offline, so every
+  glyph here is inline SVG.
+
+  HOW TO READ IT
+  The ten ideas are LAYOUTS and mostly exclusive, so the idea selector is a radio, not a set: one
+  at a time on the right board, with `Ships today` as the eleventh choice. What composes with them
+  are the five MODIFIERS — they are the orthogonal decisions, and each applies to every idea it
+  can (a note says where one is inert). The record picker swaps the figures for the cases that
+  break a layout: nothing matched, over-filled, four digits, and a supply record with three prose
+  fields instead of one.
+
+  Under the boards is a CONTACT SHEET: all eleven strips at once, in the current record and the
+  current modifiers, so the set can be scanned without clicking through it. That is the view to
+  screenshot into a chat.
+
+  Keys: 1-9 and 0 pick an idea, B picks the baseline, 6 pressed again gives 6b, R A F D E toggle the
+  five modifiers, [ and ] step the record, Q cycles the quantity state. The hash carries everything.
+
+  THE QUANTITY STATE is the second axis and it is the one to reach for first: it swaps the four
+  figures, the state word, the ramp colour and the match list while keeping the record's identity, so
+  Under / Exact / Over show what the strip does on a card that is under-filled, perfectly matched and
+  over matched WITHOUT changing six other things at the same time. Note that Over is blue on a
+  Processor Space, where it is permitted, and PINK on a Livestock Availability record, where it is a
+  bug flag — design-system.md §4.1.
+
+  6b is the one entry that is a VARIANT rather than an idea of its own: idea 6's flip to
+  label-over-value with the word `Matched` struck off the two left captions. It is listed separately
+  because the flip and the cut are only judgeable together — a flip with long captions still reads
+  ragged, and short captions under their figures are hard to tell apart — so neither half of it can
+  be assessed from 6 or from 4 alone.
+  ============================================================================================
+-->
+<style>
+:root {
+  /* --- LMS tokens, copied verbatim from _lms-tokens.scss --- */
+  --lms-petrol: #00567e;
+  --lms-surface: #fafafa;
+  --lms-divider: #e0e0e0;
+  --lms-text: #212121;
+  --lms-text-muted: #757575;
+  --lms-card: #ffffff;
+  --lms-card-zebra: #f5f5f5;
+  --lms-band: #f0f0f0;
+  --lms-petrol-tint: #e8f1f6;
+  --lms-hover: #f5f9fb;
+  --lms-rule-strong: #bdbdbd;
+  --lms-rule-soft: #efefef;
+  --lms-faint: #9e9e9e;
+  --lms-error: #ba1a1a;
+  --q-under-bar: #e8820c;
+  --q-under-ink: #a85b00;
+  --q-exact-bar: #2e7d32;
+  --q-exact-ink: #1b5e20;
+  --q-over-bar: #1565c0;
+  --q-over-ink: #0d47a1;
+  --q-pink-bar: #c2185b;
+  --q-pink-ink: #880e4f;
+  --q-track: #e0e0e0;
+  --lms-expansion-th: #eceff1;
+  --lms-expansion-rule: #d5d9dd;
+
+  /* --- geometry, from _card-geometry.scss --- */
+  --card-h: 52px;
+  --strip-h: 28px;
+  --band-h: 30px;
+  --spine: 6px;
+  --spine-booked: 3px;
+  --col-gap: 8px;
+  --col-grip: 30px;
+  --col-sclass: 96px;
+  --col-date: 50px;
+  --col-month: 26px;
+  --col-qty: 40px;
+  --col-meter: 112px;
+  --col-chev: 24px;
+  --meter-track: 66px;
+  --meter-numeral: 40px;
+  --card-edge: 8px;
+  /* 29px, NOT --col-grip's 30. The card is edge-to-edge, so its grip paints a border-right INSIDE
+     its own 30px box: the rule is the pixel at x=29, and the sheet's rail is positioned inside a
+     1px frame. See card-expansion.scss, which carries the same number and the same note. */
+  --rail: 29px;
+  /* the card's own trailing run, less the sheet's 1px frame: 8 + 8 + 24 - 1. Modifier E turns this
+     on and off against the 10px the drawer's other edges keep. */
+  --trail-pad: 39px;
+}
+
+* { box-sizing: border-box; }
+html, body { height: 100%; margin: 0; }
+
+body {
+  display: flex;
+  background: var(--lms-surface);
+  color: var(--lms-text);
+  font-family: Roboto, "Segoe UI", "Helvetica Neue", Arial, sans-serif;
+  font-size: 13px;
+  overflow: hidden;
+}
+
+/* ============================================================================================
+   page frame: lab left, notes pinned right
+   ============================================================================================ */
+.lab { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; height: 100%; }
+
+.intro {
+  flex: 0 0 auto;
+  padding: 11px 14px 9px;
+  background: #fff;
+  border-bottom: 1px solid var(--lms-divider);
+}
+.intro h1 { margin: 0 0 3px; font-size: 15px; font-weight: 600; }
+.intro p { margin: 0; max-width: 108ch; font-size: 12.5px; line-height: 17px; color: #3d4144; }
+.intro b { font-weight: 600; }
+.intro code {
+  font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  font-size: 11.5px;
+  background: var(--lms-surface);
+  border: 1px solid var(--lms-divider);
+  padding: 0 3px;
+}
+
+.bar {
+  flex: 0 0 auto;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 14px;
+  background: #fff;
+  border-bottom: 1px solid var(--lms-divider);
+}
+.bar + .bar { border-top: 0; }
+
+.plabel {
+  font-size: 10.5px;
+  font-weight: 500;
+  letter-spacing: 0.7px;
+  text-transform: uppercase;
+  color: var(--lms-text-muted);
+  margin-right: 2px;
+}
+
+.bar button {
+  height: 26px;
+  padding: 0 9px;
+  border: 1px solid var(--lms-rule-strong);
+  border-radius: 13px;
+  background: #fff;
+  font-family: inherit;
+  font-size: 11.5px;
+  color: var(--lms-text);
+  cursor: pointer;
+  white-space: nowrap;
+}
+.bar button:hover { background: var(--lms-hover); }
+.bar button.on {
+  background: var(--lms-petrol);
+  border-color: var(--lms-petrol);
+  color: #fff;
+}
+.bar button.sq { border-radius: 3px; min-width: 26px; padding: 0 7px; font-variant-numeric: tabular-nums; }
+.bar .sep { width: 1px; height: 20px; background: var(--lms-divider); margin: 0 3px; }
+.bar .active {
+  margin-left: auto;
+  font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  font-size: 11px;
+  color: var(--lms-text-muted);
+}
+
+/* --- the stage --- */
+.scroll { flex: 1 1 auto; min-height: 0; overflow: auto; padding: 14px; }
+
+.stage { display: flex; gap: 16px; align-items: flex-start; }
+.stage.solo .stack.base { display: none; }
+
+.stack { flex: 1 1 0; min-width: 0; max-width: 900px; display: flex; flex-direction: column; }
+/* 860px is about what one matching column measures at 1080p with the sidebar out, which is the
+   width the wrapping questions actually turn on. Side-by-side halves that and is for comparing
+   the two treatments, not for judging whether one fits. */
+.stage.solo .stack.prop { flex: 0 0 860px; max-width: 860px; }
+
+.cap {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  margin-bottom: 6px;
+  font-size: 10.5px;
+  font-weight: 600;
+  letter-spacing: 0.7px;
+  text-transform: uppercase;
+  color: var(--lms-text-muted);
+}
+.cap .what { font-weight: 400; letter-spacing: 0; text-transform: none; font-size: 11.5px; color: var(--lms-faint); }
+.stack.prop .cap { color: var(--lms-petrol); }
+
+.column {
+  background: var(--lms-card);
+  border: 1px solid var(--lms-divider);
+}
+
+/* ============================================================================================
+   THE REAL SCREEN, REPRODUCED. Its whole job is to be the thing the alternatives are measured
+   against; nothing between here and THE TEN IDEAS is up for discussion in this file.
+   ============================================================================================ */
+
+/* the 28px micro-cap strip. Leading padding is --col-grip + 8px, spine included. */
+.hstrip {
+  display: flex; align-items: center; gap: var(--col-gap);
+  height: var(--strip-h);
+  padding: 0 8px 0 calc(var(--col-grip) + 8px);
+  background: var(--lms-surface);
+  border-bottom: 1px solid var(--lms-divider);
+  font-size: 10.5px; font-weight: 500; line-height: 12px;
+  letter-spacing: 0.7px; text-transform: uppercase; color: var(--lms-text-muted);
+}
+.s-name { flex: 1 1 auto; min-width: 0; }
+.s-sclass { flex: 0 0 var(--col-sclass); }
+.s-date { flex: 0 0 var(--col-date); }
+.s-qty { flex: 0 0 var(--col-qty); text-align: right; }
+.s-meter { flex: 0 0 var(--col-meter); text-align: right; }
+.s-chev { flex: 0 0 var(--col-chev); }
+
+/* --- the 52px card row: card-shell in _card-geometry.scss --- */
+.card {
+  position: relative;
+  display: flex;
+  height: var(--card-h);
+  background: var(--lms-card);
+  border-bottom: 1px solid var(--lms-divider);
+}
+/* The spine is an OVERLAY, not a cell — it paints over the grip's leading 3-6px, which is what
+   keeps every grip glyph at one x whatever the status. */
+.card > .spine { position: absolute; left: 0; top: 0; bottom: 0; z-index: 1; }
+.sp-booked { width: var(--spine-booked); background: var(--lms-divider); }
+.sp-pending { width: var(--spine); background: repeating-linear-gradient(45deg, var(--lms-rule-strong) 0 2px, #fff 2px 4px); }
+.sp-confirmed { width: var(--spine); background: var(--lms-petrol); }
+
+.grip {
+  flex: 0 0 var(--col-grip); align-self: stretch;
+  display: flex; align-items: center; justify-content: center;
+  width: var(--col-grip); padding-left: var(--spine);
+  color: var(--lms-faint);
+  border-right: 1px solid var(--lms-divider);
+}
+
+.cbody {
+  flex: 1 1 auto; min-width: 0;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) var(--col-sclass) var(--col-date) var(--col-qty) var(--col-meter);
+  grid-template-rows: 17px 14px;
+  column-gap: var(--col-gap);
+  row-gap: 3px;
+  align-content: center; align-items: center;
+  padding: 0 var(--card-edge);
+}
+.cbody > * { min-width: 0; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+.card { padding-right: var(--card-edge); }
+
+.name { grid-area: 1 / 1; font-size: 13px; font-weight: 500; line-height: 16px; }
+.sclass { grid-area: 1 / 2; font-size: 13px; font-weight: 500; line-height: 16px; color: var(--lms-text-muted); }
+.day { grid-area: 1 / 3; font-size: 13px; font-weight: 600; line-height: 16px; font-variant-numeric: tabular-nums; }
+.qty { grid-area: 1 / 4; font-size: 13px; font-weight: 500; line-height: 16px; text-align: right; font-variant-numeric: tabular-nums; }
+.meter { grid-area: 1 / 5; }
+.meta { grid-area: 2 / 1; font-size: 11.5px; line-height: 14px; color: var(--lms-text-muted); }
+.month {
+  grid-area: 2 / 3; justify-self: start; width: var(--col-month);
+  font-size: 9px; font-weight: 600; line-height: 12px;
+  letter-spacing: 0.7px; text-transform: uppercase; color: var(--lms-text-muted);
+}
+.trail {
+  grid-area: 2 / 3 / 3 / 6; justify-self: end;
+  max-width: calc(100% - (var(--col-month) + var(--col-gap)));
+  display: flex; align-items: center; gap: var(--col-gap);
+  overflow: hidden;
+  font-size: 11.5px; line-height: 14px; color: var(--lms-text-muted);
+}
+.mcount {
+  flex: 0 1 auto; min-width: 0; overflow: hidden; white-space: nowrap; text-overflow: ellipsis;
+  text-decoration-line: underline; text-decoration-style: dotted; text-underline-offset: 2px;
+}
+.status { flex: 0 0 auto; display: inline-flex; align-items: center; gap: 3px; white-space: nowrap; }
+
+.chev {
+  flex: 0 0 var(--col-chev); align-self: center;
+  display: inline-flex; align-items: center; justify-content: center;
+  width: var(--col-chev); height: var(--col-chev);
+  color: var(--lms-text-muted);
+}
+
+/* --- the fill meter --- */
+.meter { display: flex; align-items: center; gap: 6px; }
+.track {
+  position: relative;
+  flex: 0 0 var(--meter-track); width: var(--meter-track); height: 8px;
+  border-radius: 1px; background: var(--q-track); overflow: hidden;
+}
+.seg { position: absolute; top: 0; left: 0; height: 100%; border-radius: 1px; }
+.seg.incl { opacity: 0.45; }
+.numeral {
+  flex: 0 0 var(--meter-numeral); width: var(--meter-numeral);
+  font-size: 15px; font-weight: 600; line-height: 16px;
+  text-align: right; font-variant-numeric: tabular-nums;
+}
+.meter.isover .track { overflow: visible; box-shadow: inset 0 0 0 1px currentcolor; }
+.over-run { position: absolute; top: -2px; right: -6px; width: 3px; height: 12px; border-radius: 1px; background: currentcolor; }
+
+.q-under { color: var(--q-under-bar); }
+.q-under .seg { background: var(--q-under-bar); }
+.q-under .numeral { color: var(--q-under-ink); }
+.q-exact { color: var(--q-exact-bar); }
+.q-exact .seg { background: var(--q-exact-bar); }
+.q-exact .numeral { color: var(--q-exact-ink); }
+.q-over { color: var(--q-over-bar); }
+.q-over .seg { background: var(--q-over-bar); }
+.q-over .numeral { color: var(--q-over-ink); }
+.q-pink { color: var(--q-pink-bar); }
+.q-pink .seg { background: var(--q-pink-bar); }
+.q-pink .numeral { color: var(--q-pink-ink); }
+
+/* the ramp INK, the quantity-ink mixin's four classes */
+.i-under { color: var(--q-under-ink); }
+.i-exact { color: var(--q-exact-ink); }
+.i-over { color: var(--q-over-ink); }
+.i-pink { color: var(--q-pink-ink); }
+
+/* ============================================================================================
+   THE DRAWER, as card-expansion.scss ships it. The strip inside is what changes.
+   ============================================================================================ */
+.exphost { position: relative; }
+
+.expansion {
+  position: relative;
+  background: var(--lms-card);
+  border: 1px solid var(--lms-rule-strong);
+  box-shadow: 0 3px 8px -3px rgb(0 0 0 / 30%);
+  padding-left: var(--rail);
+}
+/* the rail: the grip's own hairline, continued down the sheet's leading edge */
+.expansion::before {
+  content: ''; position: absolute; top: 0; bottom: 0;
+  left: calc(var(--rail) - 1px); width: 1px; background: var(--lms-divider);
+}
+/* the notch, pointing at the chevron that opened the drawer */
+.expansion::after {
+  content: ''; position: absolute; top: -1px;
+  right: calc(var(--card-edge) + (var(--col-chev) / 2) - 1px);
+  width: 11px; height: 11px;
+  background: var(--lms-card);
+  border-top: 1px solid var(--lms-rule-strong);
+  border-left: 1px solid var(--lms-rule-strong);
+  transform: translate(50%, -50%) rotate(45deg);
+}
+
+/* --- the prose band, unchanged by every idea in this file --- */
+.fields {
+  display: flex; flex-wrap: wrap; gap: 4px 24px;
+  padding: 8px var(--trail-pad) 6px var(--card-edge);
+  border-bottom: 1px solid var(--lms-rule-soft);
+}
+.field { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.field.grow { flex: 1 1 auto; }
+.label { font-size: 10.5px; font-weight: 500; line-height: 12px; letter-spacing: 0.7px; text-transform: uppercase; color: var(--lms-text-muted); }
+.value { font-size: 12.5px; line-height: 16px; color: var(--lms-text); }
+
+/* --- the match table --- */
+.table-wrap { overflow-x: auto; }
+.matches { width: 100%; border-collapse: collapse; font-size: 12.5px; text-align: left; }
+.matches th {
+  height: 26px; padding: 0 8px;
+  background: var(--lms-expansion-th);
+  border-bottom: 1px solid var(--lms-divider);
+  white-space: nowrap;
+  font-size: 10.5px; font-weight: 500; line-height: 12px;
+  letter-spacing: 0.7px; text-transform: uppercase; color: var(--lms-text-muted);
+}
+.matches td {
+  height: 30px; padding: 0 8px;
+  border-bottom: 1px solid var(--lms-rule-soft);
+  color: var(--lms-text); vertical-align: middle;
+}
+.matches th:first-child, .matches td:first-child { padding-left: var(--card-edge); }
+.matches th + th, .matches td + td { border-left: 1px solid var(--lms-rule-soft); }
+.matches th + th { border-left-color: var(--lms-expansion-rule); }
+.matches .num { text-align: right; font-variant-numeric: tabular-nums; }
+.sub { margin-left: 6px; color: var(--lms-text-muted); }
+.muted { color: var(--lms-text-muted); }
+.faint { color: var(--lms-faint); }
+.mstat { color: var(--lms-text-muted); display: inline-flex; vertical-align: -3px; }
+.empty { color: var(--lms-faint); font-size: 12px; }
+
+.actions { display: flex; align-items: center; gap: 8px; padding: 10px 10px 8px var(--card-edge); }
+.btn-outlined {
+  height: 30px; padding: 0 14px;
+  border: 1px solid var(--lms-rule-strong); border-radius: 4px; background: none;
+  font-family: inherit; font-size: 13px; color: var(--lms-faint);
+}
+.btn-text { border: 0; background: none; font-family: inherit; font-size: 12px; color: var(--lms-text-muted); padding: 0 6px; }
+.btn-text.danger { color: var(--lms-error); }
+.why { font-size: 11.5px; color: var(--lms-text-muted); }
+
+/* ============================================================================================
+   THE SUMS STRIP — the baseline, then the ten ideas.
+
+   Everything shared lives on `.sums`; each idea adds ONE class, `st0`..`st10`, and only what it
+   actually changes. `st0` is what ships. The five modifiers are classes on the same element:
+     m-rule    the 1px rule under the strip        (default ON)
+     m-right   the unmatched cell on the trailing edge (default ON)
+     m-frac    the `of 77` denominators            (default ON)
+     m-draft   the drafted figure shown at all     (default ON)
+     m-edge    the trailing pad at the card's 39px (default ON; off = the drawer's own 10px)
+   ============================================================================================ */
+.sums {
+  display: flex;
+  align-items: flex-start;
+  gap: 26px;
+  padding: 8px 10px 6px var(--card-edge);
+}
+.sums.m-edge { padding-right: var(--trail-pad); }
+.sums.m-rule { border-bottom: 1px solid var(--lms-rule-soft); }
+
+.sums .field { gap: 1px; }
+.sums .field.right { margin-left: 0; text-align: right; }
+.sums.m-right .field.right { margin-left: auto; }
+.sums .label { white-space: nowrap; }
+.sums .l2 { display: block; }
+
+/* 20px tabular: the one place on the screen where a quantity is set larger than a card's own
+   figures. Everything hung off one of those figures rides at 12.5px/400 muted, so the figure keeps
+   the size to itself. */
+.sum {
+  font-size: 20px; font-weight: 600; line-height: 22px;
+  white-space: nowrap; font-variant-numeric: tabular-nums;
+}
+.sum .of, .sum .state, .sum .dr {
+  font-size: 12.5px; font-weight: 400; color: var(--lms-text-muted);
+}
+.sum .state { margin-left: 6px; }
+.sum .sep::before { content: '\00b7'; margin: 0 5px; }
+
+/* --- 1 · grid, not flex ------------------------------------------------------------------
+   Labels and figures become two GRID ROWS, so a two-line caption sets the row height for all
+   three instead of making its own cell taller. Wording untouched; the fix is purely structural,
+   and it is the only idea here that changes nothing an operator can read. */
+.sums.st1 {
+  display: grid;
+  grid-template-columns: max-content max-content minmax(0, 1fr);
+  grid-template-rows: auto auto;
+  column-gap: 26px;
+  row-gap: 1px;
+}
+.sums.st1 .field { display: contents; }
+.sums.st1 .field:nth-of-type(1) .sum   { grid-area: 1 / 1; }
+.sums.st1 .field:nth-of-type(1) .label { grid-area: 2 / 1; }
+.sums.st1 .field:nth-of-type(2) .sum   { grid-area: 1 / 2; }
+.sums.st1 .field:nth-of-type(2) .label { grid-area: 2 / 2; }
+.sums.st1 .field:nth-of-type(3) .sum   { grid-area: 1 / 3; }
+.sums.st1 .field:nth-of-type(3) .label { grid-area: 2 / 3; }
+.sums.st1.m-right .field:nth-of-type(3) .sum,
+.sums.st1.m-right .field:nth-of-type(3) .label { justify-self: end; }
+
+/* --- 2 · every label two lines -------------------------------------------------------------
+   Symmetry by levelling DOWN. Keeps the requirements' field titles verbatim, which is its whole
+   argument: no wording decision to defend. */
+.sums.st2 { }
+
+/* --- 3 · drop the word QUANTITY ------------------------------------------------------------ */
+.sums.st3 { }
+
+/* --- 4 · the distinguishing words only ----------------------------------------------------- */
+.sums.st4 { }
+
+/* --- 5 · the shared prefix, stated once ---------------------------------------------------
+   A caption spanning the two sums, with a sub-label under each. The only idea that removes the
+   repetition rather than abbreviating around it — and the only one that adds a device this screen
+   does not already have. */
+.sums.st5 { flex-wrap: wrap; align-items: flex-start; gap: 0 26px; }
+.sums.st5 .spanhead {
+  flex: 0 0 100%;
+  margin-bottom: 3px;
+  font-size: 10.5px; font-weight: 500; line-height: 12px;
+  letter-spacing: 0.7px; text-transform: uppercase; color: var(--lms-text-muted);
+}
+.sums.st5.m-right .spanhead .un { float: right; }
+.sums.st5:not(.m-right) .spanhead .un { margin-left: 26px; }
+
+/* --- 6 and 6b · label over value ---------------------------------------------------------
+   The other way round from the baseline, and the same way round as the prose band directly
+   beneath it: all three labels on one top line, all three figures on one baseline.
+
+   6b is 6 with `Matched` struck off the two left captions, so the three read
+   EXCL. DRAFT / INCL. DRAFT / UNMATCHED. It is the shortest set of captions in the file, and it is
+   here as its own entry rather than as a modifier because the flip and the cut are only worth
+   judging together: label-over-value puts all three captions on one line, and that line is the only
+   place where three words of unequal length are directly comparable. */
+.sums.st6 .field,
+.sums.st6b .field { flex-direction: column-reverse; }
+
+/* 6 and 6b carry the DRAFTED FIGURE INSIDE THE CAPTION — `EXCL. 30 DRAFT` / `INCL. 30 DRAFT` —
+   rather than as a rider on the incl-Draft numeral. Three things fall out of that and all three are
+   why it is worth trying:
+     * the figure is stated ONCE and explains BOTH sums, which is what it actually does: 29 is the
+       sum excluding those 30, 59 is the sum including them;
+     * the two captions become the same length, which is the symmetry complaint answered from the
+       other end — not by shortening the words but by giving both the same shape;
+     * nothing hangs off a 20px numeral any more, so the figures line up on one baseline with
+       nothing trailing either of them.
+   The numeral is lifted out of the caption's muted grey to $lms-text at 700, because a number
+   hidden inside a 10.5px micro-cap is a number nobody reads. That is the one risk here: a caption
+   that carries data stops being purely a caption. */
+.sums.st6 .label .dq,
+.sums.st6b .label .dq { font-weight: 700; color: var(--lms-text); }
+
+/* --- 7 · one sentence --------------------------------------------------------------------
+   No label blocks at all, so there is nothing to align. The figures stay 20px inline. */
+.sums.st7 { display: block; padding-top: 10px; padding-bottom: 9px; }
+.sums.st7 .sentence {
+  font-size: 13px; line-height: 24px; color: var(--lms-text);
+}
+.sums.st7 .sentence .sum { margin: 0 1px; }
+.sums.st7 .sentence .div { margin: 0 8px; color: var(--lms-divider); }
+
+/* --- 8 · one headline plus a breakdown --------------------------------------------------- */
+.sums.st8 { display: block; }
+.sums.st8 .head { display: flex; align-items: flex-start; gap: 8px; }
+.sums.st8 .head .label { margin-top: 6px; }
+.sums.st8 .l2 { display: inline; }
+.sums.st8 .bd {
+  margin-top: 2px;
+  font-size: 12px; line-height: 16px; color: var(--lms-text-muted);
+  font-variant-numeric: tabular-nums;
+}
+.sums.st8 .bd b { font-weight: 600; color: var(--lms-text); }
+.sums.st8 .bd .div { margin: 0 7px; color: var(--lms-divider); }
+
+/* --- 9 · inline labels, hairline separators ----------------------------------------------- */
+.sums.st9 { align-items: stretch; gap: 0; }
+.sums.st9 .cellin {
+  display: flex; align-items: baseline; gap: 6px;
+  padding: 0 14px;
+  font-size: 11.5px; color: var(--lms-text-muted);
+}
+.sums.st9 .cellin:first-child { padding-left: 0; }
+.sums.st9 .cellin + .cellin { border-left: 1px solid var(--lms-rule-soft); }
+.sums.st9 .cellin.last { padding-right: 0; }
+.sums.st9.m-right .cellin.last { margin-left: auto; }
+
+/* --- 10 · four cells that sum ------------------------------------------------------------- */
+.sums.st10 { gap: 22px; }
+.sums.st10 .field.right { margin-left: 0; }
+.sums.st10.m-right .field.right { margin-left: auto; }
+
+/* ============================================================================================
+   contact sheet — all eleven at once, in the current record and modifiers
+   ============================================================================================ */
+.sheet { margin-top: 22px; }
+.sheet > h2 {
+  margin: 0 0 4px;
+  font-size: 10.5px; font-weight: 600; letter-spacing: 0.7px; text-transform: uppercase;
+  color: var(--lms-text-muted);
+}
+.sheet > p { margin: 0 0 12px; max-width: 108ch; font-size: 12px; line-height: 17px; color: #3d4144; }
+
+.contact { display: flex; flex-direction: column; gap: 14px; }
+.tile { max-width: 900px; }
+.tile > .tcap {
+  display: flex; align-items: baseline; gap: 8px;
+  margin-bottom: 4px;
+  font-size: 11.5px;
+}
+.tile > .tcap .k {
+  display: inline-flex; align-items: center; justify-content: center;
+  min-width: 17px; height: 17px; padding: 0 4px;
+  border-radius: 2px; background: var(--lms-divider);
+  font-family: ui-monospace, Menlo, Consolas, monospace; font-size: 10.5px; color: #3d4144;
+}
+.tile > .tcap .nm { font-weight: 600; }
+.tile > .tcap .h { font-weight: 400; color: var(--lms-text-muted); }
+.tile.sel > .tcap .k { background: var(--lms-petrol); color: #fff; }
+.tile.sel > .tcap .nm { color: var(--lms-petrol); }
+/* the tile shows the strip and the prose band only: the match table below is identical in every
+   idea, and eleven copies of it is eleven times nothing. */
+.tile .column { border: 0; }
+.tile .expansion { padding-left: var(--rail); }
+.tile .expansion::after { display: none; }
+.tile .fields { border-bottom: 0; }
+
+/* ============================================================================================
+   notes panel
+   ============================================================================================ */
+.notes {
+  flex: 0 0 316px;
+  height: 100%;
+  overflow-y: auto;
+  padding: 12px 12px 40px;
+  background: #fff;
+  border-left: 1px solid var(--lms-divider);
+}
+.notes h2 {
+  margin: 0 0 8px;
+  font-size: 10.5px; font-weight: 600; letter-spacing: 0.7px; text-transform: uppercase;
+  color: var(--lms-text-muted);
+}
+.notes h2 + h2 { margin-top: 16px; }
+.diag {
+  margin: 0 0 14px; padding: 8px 9px;
+  background: var(--lms-surface); border: 1px solid var(--lms-divider);
+  font-size: 11.5px; line-height: 16px; color: #3d4144;
+}
+.diag b { font-weight: 600; }
+.diag ol { margin: 5px 0 0; padding-left: 16px; }
+.diag li { margin-bottom: 3px; }
+
+.note {
+  display: block; width: 100%; text-align: left;
+  margin-bottom: 6px; padding: 7px 8px;
+  border: 1px solid var(--lms-divider); border-left: 3px solid var(--lms-divider);
+  border-radius: 2px; background: #fff;
+  font-family: inherit; cursor: pointer;
+}
+.note:hover { background: var(--lms-hover); }
+.note.on { border-color: var(--lms-petrol); border-left-color: var(--lms-petrol); background: var(--lms-petrol-tint); }
+.note .n { font-size: 12px; font-weight: 600; }
+.note .n .k {
+  display: inline-block; width: 15px;
+  font-family: ui-monospace, Menlo, Consolas, monospace; font-size: 10.5px;
+  color: var(--lms-faint);
+}
+.note.on .n .k { color: var(--lms-petrol); }
+.note .d { margin: 3px 0 0; font-size: 11.5px; line-height: 15px; color: #3d4144; }
+.note .r { margin: 4px 0 0; font-size: 11px; line-height: 15px; color: var(--lms-text-muted); }
+.note .r b { font-weight: 600; color: #3d4144; }
+.foot { margin-top: 14px; font-size: 11px; line-height: 16px; color: var(--lms-faint); }
+</style>
+</head>
+<body>
+
+<div class="lab">
+  <div class="intro">
+    <h1>The sums strip — ten ideas against what ships today</h1>
+    <p>
+      The subject is the block at the top of the expanded card and nothing else; the row above it and
+      the bands below are context, so the strip is judged where it lives. <b>The complaint:</b> the
+      two left labels wrap to two lines and the right one does not, so the block is lopsided and its
+      height is set by the longest caption rather than by anything being read. The repeated words are
+      what make those captions long — <code>QUANTITY MATCHED</code> is printed twice and
+      <code>QUANTITY</code> three times — and <code>30 drafted</code> is the only figure up there with
+      no caption of its own, while being the one the <b>Confirm space</b> gate turns on.
+      <b>The ideas are layouts, so one at a time;</b> the five modifiers compose with all of them.
+      Keys <code>1</code>–<code>9</code> <code>0</code> pick an idea, <code>B</code> the baseline,
+      <code>6</code> pressed again gives <b>6b</b>, <code>R A F D E</code> toggle the modifiers,
+      <code>[</code> <code>]</code> step the record and <code>Q</code> cycles the quantity state —
+      under, <b>exact</b>, <b>over</b> — which is what the strip looks like on a card that is
+      perfectly matched or over matched.
+    </p>
+  </div>
+
+  <div class="bar">
+    <span class="plabel">Idea</span>
+    <span id="ideabtns"></span>
+    <span class="active" id="hashout"></span>
+  </div>
+
+  <div class="bar">
+    <span class="plabel">Modifiers</span>
+    <span id="modbtns"></span>
+    <span class="sep"></span>
+    <span class="plabel">Record</span>
+    <span id="recbtns"></span>
+    <span class="sep"></span>
+    <span class="plabel">State</span>
+    <span id="qbtns"></span>
+    <span class="sep"></span>
+    <span class="plabel">Compare</span>
+    <span id="cmpbtns"></span>
+  </div>
+
+  <div class="scroll">
+    <div class="stage" id="stage">
+      <div class="stack base">
+        <div class="cap">Ships today <span class="what">card-expansion.scss as it stands — frozen, the modifier buttons do not touch it</span></div>
+        <div id="board-base"></div>
+      </div>
+      <div class="stack prop">
+        <div class="cap">Proposed <span class="what" id="propwhat"></span></div>
+        <div id="board-prop"></div>
+      </div>
+    </div>
+
+    <div class="sheet">
+      <h2>Contact sheet — all eleven, this record, these modifiers</h2>
+      <p>
+        The match table and the actions row are cut from these tiles: they are identical under every
+        idea, and eleven copies of them is eleven times nothing. What is left is the strip and the
+        prose band beneath it, which is where the symmetry either works or does not. Click a caption
+        to put that idea on the board above.
+      </p>
+      <div class="contact" id="contact"></div>
+    </div>
+  </div>
+</div>
+
+<div class="notes">
+  <h2>The diagnosis</h2>
+  <div class="diag">
+    <ol>
+      <li><b>The lopsidedness is the symptom.</b> Two two-line labels beside a one-line label, so the
+          strip's height comes from its longest caption.</li>
+      <li><b>The repeated words are the cause.</b> Nothing in the strip is about anything but this
+          record's quantity, so <code>QUANTITY</code> earns its keep once at most — and
+          <code>QUANTITY MATCHED</code> is what makes the two left captions too long for one line.</li>
+      <li><b>One figure has no caption.</b> <code>30 drafted</code> rides on the incl-Draft numeral,
+          and it is the figure the confirm gate turns on.</li>
+      <li><b>Height is not the problem.</b> Two attempts on 2026-09-08 spent the drawer's width
+          instead and both were worse — see the foot of this panel.</li>
+    </ol>
+  </div>
+
+  <h2>A · Fix the alignment, keep the words</h2>
+  <div id="group-a"></div>
+  <h2>B · Shorten the words</h2>
+  <div id="group-b"></div>
+  <h2>C · Change the shape</h2>
+  <div id="group-c"></div>
+  <h2>D · Change what is shown</h2>
+  <div id="group-d"></div>
+
+  <h2>Modifiers</h2>
+  <div id="group-m"></div>
+
+  <h2>The three states</h2>
+  <div class="diag">
+    <b>State</b> in the bar swaps the four figures, the state word, the ramp colour and the match
+    list, and keeps the record's identity — so the strip is the only thing that changes.
+    <ol>
+      <li><b>Under</b> — a positive remainder in the ramp's orange. The ordinary case, and the one
+          every layout here was drawn against.</li>
+      <li><b>Exact</b> — <code>0</code> in green, and <code>77 of 77</code> on both sums. This is the
+          case the fraction earns its keep on: a bare <code>77</code> said nothing about being
+          finished, and <code>77 of 77</code> says it without a word.</li>
+      <li><b>Over</b> — a <b>negative</b> figure, and the sums exceed their own denominator
+          (<code>86 of 77</code>). On a <b>space</b> it is blue: over-filling is permitted and
+          expected. On an <b>availability record</b> it is <b>pink</b> — over-committing supply should
+          be impossible, so the colour is a bug flag rather than a description. Switch to the Supply
+          record with the same state on to see the two side by side.</li>
+    </ol>
+    The meter above the drawer moves too: past 100% it cannot grow, so both segments pin at the
+    track's end and an over-run cap appears past its right edge (design-system.md §4.2).
+  </div>
+
+  <p class="foot">
+    Two layouts were tried and rejected on 2026-09-08, both recorded in
+    <code>design-system.md</code> §6.2 item 1: <b>one row</b> with the prose leading, which wrapped
+    and dropped the figures below the notes; and <b>all four figures on the trailing edge</b>, which
+    read as the fragment of a row rather than as the drawer's head. Neither is repeated here.
+  </p>
+</div>
+
+<script>
+/* ============================================================================================
+   glyphs — inline SVG, because the icon font would not load over file://
+   ============================================================================================ */
+const SVG = {
+  grip: '<svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><circle cx="9" cy="5.5" r="1.5"/><circle cx="15" cy="5.5" r="1.5"/><circle cx="9" cy="12" r="1.5"/><circle cx="15" cy="12" r="1.5"/><circle cx="9" cy="18.5" r="1.5"/><circle cx="15" cy="18.5" r="1.5"/></svg>',
+  chevUp: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M6 15l6-6 6 6"/></svg>',
+  booked: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="12" cy="12" r="9"/></svg>',
+  pending: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M8 12h8"/></svg>',
+  confirmed: '<svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 3a9 9 0 100 18 9 9 0 000-18zm-1 13l-4-4 1.4-1.4L11 13.2l4.6-4.6L17 10z"/></svg>',
+  drafted: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7.5V12l3 2"/></svg>'
+};
+const MSTAT = { Confirmed: SVG.confirmed, Drafted: SVG.drafted };
+
+/* ============================================================================================
+   the records.
+
+   Nothing here is computed: every sum, every unmatched figure, every state label and the drafted
+   figure are written out, exactly as the DTO delivers them. `drafted` is NOT re-derived from
+   incl - excl anywhere in this file, for the same reason the app does not — one rule, one
+   implementation. Where a record's figures do not balance, that is deliberate: the client's job is
+   to print what it is given.
+
+   Six records, chosen for what they break:
+     screenshot  the case in the chat — three matches, one confirmed, two drafted
+     nomatch     0 of 300, and the strip anchoring nothing
+     overfill    -40 Over-filled: a negative figure and the ramp's blue ink
+     filled      0 unmatched, everything firm, no drafted figure to show
+     wide        four-digit figures on both sums and the denominator
+     supply      the OTHER column: `of 144`, pink over-commit vocabulary, three prose fields
+   ============================================================================================ */
+const RECORDS = [
+  { key: 'screenshot', pick: 'Screenshot',
+    what: 'the case in the chat — 3 matches, 1 confirmed, 2 drafted',
+    side: 'demand',
+    processor: 'ANZCO', plant: 'Rangitikei', time: 'Second shift',
+    sclass: 'Cows', day: '4', month: 'Sep', status: 'Booked', spine: 'sp-booked',
+    orig: 77, excl: 29, incl: 59, drafted: 30, unmatched: 18,
+    state: 'Under-filled', ramp: 'q-under', ink: 'i-under',
+    mcount: '3 matches · 2 drafts',
+    notes: 'Prefer even lines, no stragglers.',
+    canConfirm: false, why: 'Needs at least one confirmed match and no drafts',
+    matches: [
+      { qty: 29, farmer: 'Hinemoa McKenzie', loc: 'Star Worth Holdings', sclass: 'GFNB premium', status: 'Confirmed', price: '6.09', transport: 'Otago Peninsula Haulage' },
+      { qty: 27, farmer: 'Rangi Manaia', loc: 'Tui Bay Flats', sclass: 'Cow', status: 'Drafted', price: '6.09', transport: 'Waikato Stock Movers' },
+      { qty: 3, farmer: 'Rhys Aldridge', loc: 'Star Burn Crossing', sclass: 'Sire Bull', status: 'Drafted', price: '6.09', transport: 'Coastal Stock Transport' }
+    ]},
+
+  { key: 'nomatch', pick: 'No matches',
+    what: 'nothing matched — the case where a 20px figure anchors nothing',
+    side: 'demand',
+    processor: 'ANZCO', plant: 'Kokiri', time: 'AM kill',
+    sclass: 'Bulls', day: '21', month: 'Sep', status: 'Booked', spine: 'sp-booked',
+    orig: 300, excl: 0, incl: 0, drafted: 0, unmatched: 300,
+    state: 'Under-filled', ramp: 'q-under', ink: 'i-under',
+    mcount: 'no matches',
+    notes: null,
+    canConfirm: false, why: 'Needs at least one confirmed match and no drafts',
+    matches: []},
+
+  { key: 'overfill', pick: 'Over-filled',
+    what: 'a negative figure and the ramp’s blue ink — permitted on a space',
+    side: 'demand',
+    processor: 'Alliance Group', plant: 'Lorneville', time: 'Yard by 6:30am',
+    sclass: 'Mutton', day: '23', month: 'Sep', status: 'Booked', spine: 'sp-booked',
+    orig: 610, excl: 650, incl: 650, drafted: 0, unmatched: -40,
+    state: 'Over-filled', ramp: 'q-over', ink: 'i-over',
+    mcount: '2 matches · confirmed',
+    notes: 'Overbooked at the processor’s request; do not trim without calling Dave.',
+    canConfirm: true, why: null,
+    matches: [
+      { qty: 400, farmer: 'Marcus Struthers', loc: 'Briar Pine Springs', sclass: 'Mutton', status: 'Confirmed', price: '7.31', transport: 'Southern Cross Livestock' },
+      { qty: 250, farmer: 'Tania Kingi', loc: 'Lower Mount Pastures', sclass: 'Mutton', status: 'Confirmed', price: '7.31', transport: 'Kahurangi Carriers' }
+    ]},
+
+  { key: 'filled', pick: 'Filled',
+    what: 'nothing drafted and nothing unmatched — three cells, one of them zero',
+    side: 'demand',
+    processor: 'ANZCO', plant: 'Rangitikei', time: 'AM kill',
+    sclass: 'Prime', day: '9', month: 'Sep', status: 'Confirmed', spine: 'sp-confirmed',
+    orig: 240, excl: 240, incl: 240, drafted: 0, unmatched: 0,
+    state: 'Filled', ramp: 'q-exact', ink: 'i-exact',
+    mcount: '3 matches · confirmed',
+    notes: null,
+    canConfirm: false, why: 'Already confirmed',
+    matches: [
+      { qty: 120, farmer: 'Hamish Thornton', loc: 'Ridgeway Downs', sclass: 'Prime', status: 'Confirmed', price: '7.28', transport: 'Tussock Transport' },
+      { qty: 80, farmer: 'Moana Kereopa', loc: 'Waipuna Station', sclass: 'Prime', status: 'Confirmed', price: '7.28', transport: 'Tussock Transport' },
+      { qty: 40, farmer: 'Ngaire Hape', loc: 'Tokanui Flats', sclass: 'Mixed Cattle', status: 'Confirmed', price: '7.28', transport: 'Alpine Freight Lines' }
+    ]},
+
+  { key: 'wide', pick: 'Four digits',
+    what: 'four-digit figures on both sums and the denominator',
+    side: 'demand',
+    processor: 'ANZCO', plant: 'Rakaia', time: 'PM kill',
+    sclass: 'Lamb', day: '22', month: 'Sep', status: 'Booked', spine: 'sp-pending',
+    orig: 1000, excl: 620, incl: 1720, drafted: 1100, unmatched: -720,
+    state: 'Over-filled', ramp: 'q-over', ink: 'i-over',
+    mcount: '5 matches · 2 drafts',
+    notes: 'Two lines still to come off Dovedale.',
+    canConfirm: false, why: 'Needs at least one confirmed match and no drafts',
+    matches: [
+      { qty: 620, farmer: 'Hamish Thornton', loc: 'Ridgeway Downs', sclass: 'Lamb', status: 'Confirmed', price: '7.28', transport: 'Tussock Transport' },
+      { qty: 1100, farmer: 'Rhys Osborne', loc: 'Kowhai Bend', sclass: 'Lamb', status: 'Drafted', price: null, transport: null }
+    ]},
+
+  { key: 'supply', pick: 'Supply record',
+    what: 'the other column — `of 144`, over-COMMITTED vocabulary, three prose fields',
+    side: 'supply',
+    processor: 'Totara Kauri Trust', plant: 'Hinemoa Bishop', time: 'Grazing Stock',
+    sclass: 'GFNB premium', day: '9', month: 'Sep', status: 'Pending', spine: 'sp-pending',
+    orig: 144, excl: 90, incl: 120, drafted: 30, unmatched: 24,
+    state: 'Under-committed', ramp: 'q-under', ink: 'i-under',
+    mcount: '2 matches · 1 draft',
+    details: 'Pickup any weekday; farmer away 14–16 Sep.',
+    txn: 'Grazing Stock',
+    notes: 'Yard is on the north boundary, not at the house.',
+    canConfirm: null, why: null,
+    matches: [
+      { qty: 90, farmer: 'ANZCO', loc: 'Rangitikei', sclass: 'Cows', status: 'Confirmed', price: '6.09', transport: 'Otago Peninsula Haulage' },
+      { qty: 30, farmer: 'SFF', loc: 'Belfast', sclass: 'Cows', status: 'Drafted', price: '6.09', transport: null }
+    ]}
+];
+
+/* ============================================================================================
+   the three quantity states, authored per side.
+
+   The `State` control swaps a record's QUANTITY BLOCK — the four figures, the state word, the ramp
+   and the match list — while keeping its identity: same processor, plant, delivery, stock class and
+   notes. That is the comparison the question asks for ("what does this area look like when the card
+   is perfectly matched, or over matched"), and swapping whole records instead would change six other
+   things at the same time.
+
+   Every figure below is a LITERAL, like the records above, and the match lists add up to the sums
+   beside them. Nothing here is derived from anything else: a generator that computed `unmatched` as
+   `orig - incl` would be doing in this file exactly what `no-domain-arithmetic.spec.ts` forbids in
+   the app, and the point of writing them out is that the strip has to print what it is handed.
+
+   The two sides differ in more than wording. `Over` is PERMITTED on a Processor Space and is drawn in
+   the ramp's blue; on a Livestock Availability record it is a BUG FLAG and is drawn in pink, because
+   a match is hard-capped at remaining supply and the state exists to make a breach visible rather
+   than to describe a normal one. design-system.md §4.1 carries the table.
+   ============================================================================================ */
+const STATES = {
+  demand: {
+    under: {
+      orig: 77, excl: 29, incl: 59, drafted: 30, unmatched: 18,
+      state: 'Under-filled', ramp: 'q-under', ink: 'i-under',
+      mcount: '3 matches · 2 drafts',
+      canConfirm: false, why: 'Needs at least one confirmed match and no drafts',
+      matches: [
+        { qty: 29, farmer: 'Hinemoa McKenzie', loc: 'Star Worth Holdings', sclass: 'GFNB premium', status: 'Confirmed', price: '6.09', transport: 'Otago Peninsula Haulage' },
+        { qty: 27, farmer: 'Rangi Manaia', loc: 'Tui Bay Flats', sclass: 'Cow', status: 'Drafted', price: '6.09', transport: 'Waikato Stock Movers' },
+        { qty: 3, farmer: 'Rhys Aldridge', loc: 'Star Burn Crossing', sclass: 'Sire Bull', status: 'Drafted', price: '6.09', transport: 'Coastal Stock Transport' }
+      ]
+    },
+    /* 77 of 77 on BOTH sums, nothing drafted, and a green 0. The case the fraction flatters least
+       and explains most: `77 of 77` says filled in a way a bare `77` never did. */
+    exact: {
+      orig: 77, excl: 77, incl: 77, drafted: 0, unmatched: 0,
+      state: 'Filled', ramp: 'q-exact', ink: 'i-exact',
+      mcount: '3 matches · confirmed',
+      canConfirm: true, why: null,
+      matches: [
+        { qty: 40, farmer: 'Hinemoa McKenzie', loc: 'Star Worth Holdings', sclass: 'GFNB premium', status: 'Confirmed', price: '6.09', transport: 'Otago Peninsula Haulage' },
+        { qty: 27, farmer: 'Rangi Manaia', loc: 'Tui Bay Flats', sclass: 'Cow', status: 'Confirmed', price: '6.09', transport: 'Waikato Stock Movers' },
+        { qty: 10, farmer: 'Rhys Aldridge', loc: 'Star Burn Crossing', sclass: 'Sire Bull', status: 'Confirmed', price: '6.09', transport: 'Coastal Stock Transport' }
+      ]
+    },
+    /* 86 against 77 required: nine over, drawn in the ramp's BLUE because over-filling a space is
+       permitted and expected. Note the incl-Draft sum exceeds its own denominator — `86 of 77` — and
+       that the meter above pins both segments at 100% and grows an over-run cap instead. */
+    over: {
+      orig: 77, excl: 62, incl: 86, drafted: 24, unmatched: -9,
+      state: 'Over-filled', ramp: 'q-over', ink: 'i-over',
+      mcount: '4 matches · 1 draft',
+      canConfirm: false, why: 'Needs at least one confirmed match and no drafts',
+      matches: [
+        { qty: 29, farmer: 'Hinemoa McKenzie', loc: 'Star Worth Holdings', sclass: 'GFNB premium', status: 'Confirmed', price: '6.09', transport: 'Otago Peninsula Haulage' },
+        { qty: 27, farmer: 'Rangi Manaia', loc: 'Tui Bay Flats', sclass: 'Cow', status: 'Confirmed', price: '6.09', transport: 'Waikato Stock Movers' },
+        { qty: 6, farmer: 'Rhys Aldridge', loc: 'Star Burn Crossing', sclass: 'Sire Bull', status: 'Confirmed', price: '6.09', transport: 'Coastal Stock Transport' },
+        { qty: 24, farmer: 'Bruce Doolan', loc: 'Hawk Holly Hills', sclass: 'Prime', status: 'Drafted', price: '6.09', transport: null }
+      ]
+    }
+  },
+
+  supply: {
+    under: {
+      orig: 144, excl: 90, incl: 120, drafted: 30, unmatched: 24,
+      state: 'Under-committed', ramp: 'q-under', ink: 'i-under',
+      mcount: '2 matches · 1 draft',
+      canConfirm: null, why: null,
+      matches: [
+        { qty: 90, farmer: 'ANZCO', loc: 'Rangitikei', sclass: 'Cows', status: 'Confirmed', price: '6.09', transport: 'Otago Peninsula Haulage' },
+        { qty: 30, farmer: 'SFF', loc: 'Belfast', sclass: 'Cows', status: 'Drafted', price: '6.09', transport: null }
+      ]
+    },
+    exact: {
+      orig: 144, excl: 144, incl: 144, drafted: 0, unmatched: 0,
+      state: 'Fully committed', ramp: 'q-exact', ink: 'i-exact',
+      mcount: '2 matches · confirmed',
+      canConfirm: null, why: null,
+      matches: [
+        { qty: 104, farmer: 'ANZCO', loc: 'Rangitikei', sclass: 'Cows', status: 'Confirmed', price: '6.09', transport: 'Otago Peninsula Haulage' },
+        { qty: 40, farmer: 'SFF', loc: 'Belfast', sclass: 'Cows', status: 'Confirmed', price: '6.09', transport: 'Kahurangi Carriers' }
+      ]
+    },
+    /* PINK, and the only place in the file where the ramp's fourth colour appears. Over-committing
+       supply should be impossible — a match is capped at remaining supply — so this state is a bug
+       flag rather than a description, which is why it does not share Over-filled's blue. It is
+       reachable in the real app by EDITING a record's quantity below what is already matched
+       (design-system.md §4.3), which the form warns about and does not refuse. */
+    over: {
+      orig: 144, excl: 132, incl: 161, drafted: 29, unmatched: -17,
+      state: 'Over-committed', ramp: 'q-pink', ink: 'i-pink',
+      mcount: '3 matches · 1 draft',
+      canConfirm: null, why: null,
+      matches: [
+        { qty: 104, farmer: 'ANZCO', loc: 'Rangitikei', sclass: 'Cows', status: 'Confirmed', price: '6.09', transport: 'Otago Peninsula Haulage' },
+        { qty: 28, farmer: 'SFF', loc: 'Belfast', sclass: 'Cows', status: 'Confirmed', price: '6.09', transport: 'Kahurangi Carriers' },
+        { qty: 29, farmer: 'Alliance Group', loc: 'Mataura', sclass: 'Cattle', status: 'Drafted', price: '6.09', transport: null }
+      ]
+    }
+  }
+};
+
+const QSTATES = [
+  { k: 'auth', pick: 'As authored', what: 'the record’s own figures' },
+  { k: 'under', pick: 'Under', what: 'orange, a positive remainder' },
+  { k: 'exact', pick: 'Exact', what: 'green, a zero, and 77 of 77 on both sums' },
+  { k: 'over', pick: 'Over', what: 'blue on a space, PINK on an availability record' }
+];
+
+/* ============================================================================================
+   the eleven strips.
+
+   Each builder returns the INNER html of `.sums`, and the class `st<n>` carries whatever CSS the
+   idea needs. They are written out one by one rather than parameterised, because half of them have
+   a different DOM shape and a single template with ten branches would be harder to read than ten
+   templates — and this file is read far more than it is edited.
+   ============================================================================================ */
+
+/* `29` or `29 of 77`, per modifier F. */
+function frac(n, r, M) {
+  return n + (M.frac ? '<span class="of"> of ' + r.orig + '</span>' : '');
+}
+/* the drafted rider, per modifier D. */
+function rider(r, M) {
+  return M.draft ? '<span class="of sep">' + r.drafted + ' drafted</span>' : '';
+}
+
+/* The 6/6b caption, with the drafted figure inside it: `Matched excl. 30 Draft`.
+   With NOTHING drafted it falls back to the plain wording rather than printing `excl. 0 Draft`,
+   which reads as a mistake. Check it on the Filled record and on the Exact state — those are the
+   two places the fallback fires, and they are ordinary states rather than edge cases. */
+function draftedCap(prefix, io, r, M) {
+  const n = (M.draft && r.drafted > 0) ? '<span class="dq">' + r.drafted + '</span> ' : '';
+  return prefix + io + '. ' + n + 'Draft';
+}
+/* the unmatched figure and its state word, in the ramp's ink. */
+function unm(r) {
+  return '<span class="ink ' + r.ink + '">' + r.unmatched + '</span>' +
+         '<span class="state">' + r.state + '</span>';
+}
+/* An empty label emits NO element, rather than an empty one: a blank <span class="label"> is still
+   12px of line box, and idea 5 — whose third cell has its caption in the spanning head — would sit
+   12px higher than the two beside it for no reason a reader could see. */
+function cell(valueHtml, labelHtml, right) {
+  return '<div class="field' + (right ? ' right' : '') + '">' +
+           '<span class="sum">' + valueHtml + '</span>' +
+           (labelHtml ? '<span class="label">' + labelHtml + '</span>' : '') +
+         '</div>';
+}
+
+const STRIPS = {
+  /* --- 0 · ships today ------------------------------------------------------------------- */
+  0: (r, M) =>
+    cell(frac(r.excl, r, M), 'Quantity Matched <span class="l2">excl. Draft</span>') +
+    cell(frac(r.incl, r, M) + rider(r, M), 'Quantity Matched <span class="l2">incl. Draft</span>') +
+    cell(unm(r), 'Quantity unmatched', true),
+
+  /* --- 1 · grid, not flex. Same words, same order; the rows do the aligning. -------------- */
+  1: (r, M) =>
+    cell(frac(r.excl, r, M), 'Quantity Matched <span class="l2">excl. Draft</span>') +
+    cell(frac(r.incl, r, M) + rider(r, M), 'Quantity Matched <span class="l2">incl. Draft</span>') +
+    cell(unm(r), 'Quantity unmatched', true),
+
+  /* --- 2 · every label two lines --------------------------------------------------------- */
+  2: (r, M) =>
+    cell(frac(r.excl, r, M), 'Quantity Matched <span class="l2">excl. Draft</span>') +
+    cell(frac(r.incl, r, M) + rider(r, M), 'Quantity Matched <span class="l2">incl. Draft</span>') +
+    cell(unm(r), 'Quantity <span class="l2">unmatched</span>', true),
+
+  /* --- 3 · drop QUANTITY ----------------------------------------------------------------- */
+  3: (r, M) =>
+    cell(frac(r.excl, r, M), 'Matched excl. Draft') +
+    cell(frac(r.incl, r, M) + rider(r, M), 'Matched incl. Draft') +
+    cell(unm(r), 'Unmatched', true),
+
+  /* --- 4 · the distinguishing words only ------------------------------------------------- */
+  4: (r, M) =>
+    cell(frac(r.excl, r, M), 'excl. Draft') +
+    cell(frac(r.incl, r, M) + rider(r, M), 'incl. Draft') +
+    cell(unm(r), 'Unmatched', true),
+
+  /* --- 5 · the shared prefix, stated once ------------------------------------------------ */
+  5: (r, M) =>
+    '<div class="spanhead">Quantity matched' +
+      '<span class="un">Quantity unmatched</span>' +
+    '</div>' +
+    cell(frac(r.excl, r, M), 'excl. Draft') +
+    cell(frac(r.incl, r, M) + rider(r, M), 'incl. Draft') +
+    cell(unm(r), '', true),
+
+  /* --- 6 · label over value, drafted figure in the caption -------------------------------- */
+  6: (r, M) =>
+    cell(frac(r.excl, r, M), draftedCap('Matched ', 'excl', r, M)) +
+    cell(frac(r.incl, r, M), draftedCap('Matched ', 'incl', r, M)) +
+    cell(unm(r), 'Unmatched', true),
+
+  /* --- 6b · 6, with `Matched` struck off the two left captions --------------------------- */
+  '6b': (r, M) =>
+    cell(frac(r.excl, r, M), draftedCap('', 'excl', r, M)) +
+    cell(frac(r.incl, r, M), draftedCap('', 'incl', r, M)) +
+    cell(unm(r), 'Unmatched', true),
+
+  /* --- 7 · one sentence ------------------------------------------------------------------ */
+  7: (r, M) => '<div class="sentence">' +
+      '<span class="sum">' + r.excl + '</span> of ' + r.orig + ' matched excluding drafts' +
+      '<span class="div">|</span>' +
+      '<span class="sum">' + r.incl + '</span> including ' +
+        (M.draft ? r.drafted + ' drafted' : 'drafts') +
+      '<span class="div">|</span>' +
+      '<span class="sum"><span class="ink ' + r.ink + '">' + r.unmatched + '</span></span> ' +
+      (r.unmatched < 0 ? 'over' : 'unmatched') + ', ' + r.state.toLowerCase() +
+    '</div>',
+
+  /* --- 8 · one headline plus a breakdown ------------------------------------------------- */
+  8: (r, M) =>
+    '<div class="head">' +
+      '<span class="sum">' + frac(r.incl, r, M) + '</span>' +
+      '<span class="label">Quantity Matched <span class="l2">incl. Draft</span></span>' +
+    '</div>' +
+    '<div class="bd">' +
+      '<b>' + r.excl + '</b> excl. draft' +
+      (M.draft ? '<span class="div">|</span><b>' + r.drafted + '</b> drafted' : '') +
+      '<span class="div">|</span>' +
+      '<b class="' + r.ink + '">' + r.unmatched + '</b> unmatched, ' + r.state.toLowerCase() +
+    '</div>',
+
+  /* --- 9 · inline labels, hairline separators -------------------------------------------- */
+  9: (r, M) =>
+    '<div class="cellin"><span class="sum">' + frac(r.excl, r, M) + '</span> matched excl. draft</div>' +
+    '<div class="cellin"><span class="sum">' + frac(r.incl, r, M) + '</span> incl. ' +
+      (M.draft ? r.drafted + ' drafted' : 'draft') + '</div>' +
+    '<div class="cellin last"><span class="sum"><span class="ink ' + r.ink + '">' + r.unmatched +
+      '</span></span> unmatched, ' + r.state.toLowerCase() + '</div>',
+
+  /* --- 10 · four cells that sum ---------------------------------------------------------- */
+  10: (r, M) =>
+    cell(String(r.orig), r.side === 'supply' ? 'Available' : 'Required') +
+    cell(String(r.excl), 'Matched excl. Draft') +
+    cell(String(r.drafted), 'Drafted') +
+    cell(unm(r), 'Unmatched', true)
+};
+
+/* ============================================================================================
+   the ten ideas, as the notes panel states them
+   ============================================================================================ */
+/* `id` is the strip key and the CSS suffix; `key` is what to press. They are separate because idea
+   10 is pressed with 0, the baseline is pressed with B, and 6b has no digit of its own — it is
+   reached by pressing 6 again. */
+const IDEAS = [
+  { id: '1', key: '1', group: 'a', name: 'Grid, not flex',
+    d: 'Labels and figures become two grid rows, so a two-line caption sets the row height for all three instead of making its own cell taller. Every figure lands on one baseline.',
+    r: '<b>Cost: five declarations, no wording change.</b> The only idea here an operator cannot read — which is its whole argument, and also the objection: it fixes the alignment and leaves "QUANTITY MATCHED" printed twice.' },
+  { id: '2', key: '2', group: 'a', name: 'Every label two lines',
+    d: 'Break the third caption too: QUANTITY / UNMATCHED. Symmetry by levelling down, and the requirements’ field titles survive verbatim.',
+    r: '<b>Cost: one span.</b> Risk: 12px of height the right cell does not need, and the break point is arbitrary — nothing about "quantity unmatched" wants to be two lines.' },
+
+  { id: '3', key: '3', group: 'b', name: 'Drop the word QUANTITY',
+    d: 'MATCHED EXCL. DRAFT / MATCHED INCL. DRAFT / UNMATCHED. One line each, ~140px each, symmetric. The drawer’s whole subject is one record’s quantity, so the word does no work three times.',
+    r: '<b>Cost: three strings.</b> Risk: it departs from the requirements’ field titles, which §15 permits in one file — but those titles are also what a processor sees on their own screens, so the two vocabularies drift by one word.' },
+  { id: '4', key: '4', group: 'b', name: 'The distinguishing words only',
+    d: 'EXCL. DRAFT / INCL. DRAFT / UNMATCHED. The shortest captions that still separate the three, on the argument that "matched" is carried by the `of 77` format and by the meter directly above.',
+    r: '<b>Cost: three strings.</b> Risk: an operator new to the screen has to infer what EXCL. DRAFT is excluding drafts <i>from</i>. Judge it on the No-matches record, where the meter above says least. See also 6b, which is this wording with the labels on top.' },
+  { id: '5', key: '5', group: 'b', name: 'The shared prefix, once',
+    d: 'A QUANTITY MATCHED caption spanning the two sums, each with its own sub-label, and QUANTITY UNMATCHED standing alone at the far end. Removes the repetition instead of abbreviating around it.',
+    r: '<b>Cost: one spanning element and a float.</b> Risk: a spanning caption exists nowhere else on this screen, so it is a new device for one block — and it puts three rows of type where there were two.' },
+
+  { id: '6', key: '6', group: 'c', name: 'Label over value, drafted in the caption',
+    d: 'Captions on top, figures beneath — the same way round as the prose band directly below, so all three captions sit on one line and all three figures on one baseline. And the drafted count moves OFF the incl-Draft numeral and INTO both captions: MATCHED EXCL. 30 DRAFT / MATCHED INCL. 30 DRAFT / UNMATCHED.',
+    r: '<b>Cost: one declaration, three strings and a span.</b> The figure is stated once and explains both sums, which is what it does — 29 excludes those 30, 59 includes them — and with nothing riding on a numeral the two captions come out the same length. Risks: the figure stops being the first thing read, which is what the 20px was for; and a caption carrying data stops being purely a caption. <b>Press 6 again for 6b.</b>' },
+  { id: '6b', key: '6', group: 'c', name: 'Same, with “Matched” struck off',
+    d: '6 with the word gone from the two left captions: EXCL. 30 DRAFT / INCL. 30 DRAFT / UNMATCHED, over their figures. The shortest captions in the file, and the only layout where all three sit on one line at a length the eye can compare.',
+    r: '<b>Cost: one declaration and three strings.</b> The two decisions are only judgeable together — a flip with long captions still reads ragged, and short captions under their figures are hard to tell apart. Risk is 4’s: nothing on the strip says what is being excluded <i>from</i>, so the block leans entirely on the meter above it. With nothing drafted both captions fall back to EXCL. DRAFT / INCL. DRAFT — see the Filled record.' },
+  { id: '7', key: '7', group: 'c', name: 'One sentence',
+    d: 'No label blocks at all, so there is nothing to align: one line of 13px prose with the three figures at 20px inline, separated by hairlines.',
+    r: '<b>Cost: a rewrite of the block.</b> Risk: prose is read once and a stat block is scanned every time — and this is a screen an operator sweeps. Also the longest thing here at four digits; check the Four-digits record.' },
+  { id: '9', key: '9', group: 'c', name: 'Inline labels, hairlines',
+    d: 'Each figure keeps a caption but wears it beside itself rather than under it, at body size, with vertical rules between the three. Symmetry is automatic; the strip drops to ~22px of type.',
+    r: '<b>Cost: a rewrite of the block.</b> Risk: captions stop being micro-caps, which is this screen’s one convention for what a caption looks like — and vertical rules are spent on the match table, where they are what says "table".' },
+
+  { id: '8', key: '8', group: 'd', name: 'One headline, one breakdown',
+    d: 'Only incl-Draft gets the 20px treatment — it is the operative sum, the one `unmatched` is computed from — with excl. draft, drafted and unmatched as a muted 12px line beneath it.',
+    r: '<b>Cost: a rewrite of the block.</b> Nothing to align, smallest footprint of the ten. Risk: it demotes excl-Draft, which the requirements treat as co-equal and which is the only sum a processor ever sees.' },
+  { id: '10', key: '0', group: 'd', name: 'Four cells that sum',
+    d: 'Required, excl. Draft, Drafted, Unmatched — one short caption each, and the numbers add up, so the strip reads as a decomposition. Drafted finally gets a label of its own.',
+    r: '<b>Cost: one more cell.</b> Risk: it brings `required` back as a figure, and it is already on the collapsed row 40px above — the exact duplication removed on 2026-09-08. The one idea that undoes a decision rather than refining it.' }
+];
+
+const MODS = [
+  { k: 'rule', key: 'R', name: 'Rule under the strip',
+    d: 'The 1px $lms-rule-soft that separates the strip from the prose band. Off, the two run together into one tall block with no structure in it.' },
+  { k: 'right', key: 'A', name: 'Unmatched on the trailing edge',
+    d: 'Off, the unmatched cell sits in line with the other two. It is the one figure the collapsed row also ends with, which is the argument for pushing it right. Inert on ideas 7 and 8.' },
+  { k: 'frac', key: 'F', name: 'The `of 77` denominators',
+    d: 'Off, the sums are bare numerals — which is what shipped through Phase 8, and what sent the eye back up to the collapsed row for the total. Turn it off to see the problem the fraction solved.' },
+  { k: 'draft', key: 'D', name: 'The drafted figure',
+    d: 'Off, the strip says nothing about how much of the incl-Draft sum is provisional — which is the figure the Confirm space gate turns on. Idea 0 gives it a caption; everywhere else it rides on a numeral.' },
+  { k: 'edge', key: 'E', name: 'Trailing pad at the card’s 39px',
+    d: 'On, the strip’s right edge is the card’s own 40px run less the sheet’s frame, so a right-aligned figure lands under the meter numeral above. Off, it is the 10px the drawer’s other edges keep.' }
+];
+
+/* ============================================================================================
+   state
+   ============================================================================================ */
+let idea = '1';                  /* the recommendation, so the file opens on something arguable */
+let mods = { rule: true, right: true, frac: true, draft: true, edge: true };
+
+/* The LEFT board never moves: it is what ships, and a baseline that follows the modifier buttons is
+   not a baseline. The contact sheet's `B` tile DOES follow them, because eleven strips are only
+   comparable under one set. */
+const SHIPPED = Object.freeze({ rule: true, right: true, frac: true, draft: true, edge: true });
+let recIx = 0;
+let qstate = 'auth';
+let solo = false;
+
+/* baseline first, then the notes' own order. Ids are strings throughout: 6b is not a number. */
+const ORDER = ['0', '1', '2', '3', '4', '5', '6', '6b', '7', '9', '8', '10'];
+const NAME = { '0': 'Ships today' };
+IDEAS.forEach(i => { NAME[i.id] = i.name; });
+
+/* The record as the boards see it: its identity, with the selected state's quantity block over the
+   top. `auth` leaves it exactly as the RECORDS table wrote it. */
+function activeRecord() {
+  const r = RECORDS[recIx];
+  if (qstate === 'auth') return r;
+  return Object.assign({}, r, STATES[r.side][qstate]);
+}
+
+function ideaName(n) { return NAME[n] || ('Idea ' + n); }
+function ideaMeta(n) { return IDEAS.find(i => i.id === n) || null; }
+/* what the button and the tile badge print: B for the baseline, otherwise the key to press. */
+function ideaBadge(n) { return n === '0' ? 'B' : (ideaMeta(n) ? ideaMeta(n).key : n) + (n === '6b' ? 'b' : ''); }
+
+/* ============================================================================================
+   the context around the strip — the 52px row and everything under the strip
+   ============================================================================================ */
+function meterHtml(r) {
+  const solid = Math.max(0, Math.min(100, (r.excl / r.orig) * 100));
+  const draft = Math.max(0, Math.min(100, (r.incl / r.orig) * 100));
+  const over = r.unmatched < 0;
+  return '<div class="meter ' + r.ramp + (over ? ' isover' : '') + '">' +
+    '<div class="track">' +
+      '<div class="seg incl" style="width:' + (over ? 100 : draft) + '%"></div>' +
+      '<div class="seg" style="width:' + (over ? 100 : solid) + '%"></div>' +
+      (over ? '<div class="over-run"></div>' : '') +
+    '</div>' +
+    '<div class="numeral">' + r.unmatched + '</div>' +
+  '</div>';
+}
+
+function cardRow(r) {
+  const st = r.status === 'Confirmed' ? SVG.confirmed : r.status === 'Pending' ? SVG.pending : SVG.booked;
+  return '<div class="card">' +
+    '<div class="spine ' + r.spine + '"></div>' +
+    '<div class="grip">' + SVG.grip + '</div>' +
+    '<div class="cbody">' +
+      '<div class="name">' + r.processor + '</div>' +
+      '<div class="sclass">' + r.sclass + '</div>' +
+      '<div class="day">' + r.day + '</div>' +
+      '<div class="qty">' + r.orig + '</div>' +
+      meterHtml(r) +
+      '<div class="meta">' + r.plant + (r.time ? ' · ' + r.time : '') + '</div>' +
+      '<div class="month">' + r.month + '</div>' +
+      '<div class="trail">' +
+        '<span class="mcount">' + r.mcount + '</span>' +
+        '<span class="status">' + st + r.status + '</span>' +
+      '</div>' +
+    '</div>' +
+    '<div class="chev">' + SVG.chevUp + '</div>' +
+  '</div>';
+}
+
+function headerStrip(r) {
+  const demand = r.side === 'demand';
+  return '<div class="hstrip">' +
+    '<span class="s-name">' + (demand ? 'Processor' : 'Location') + '</span>' +
+    '<span class="s-sclass">Stock class</span>' +
+    '<span class="s-date">' + (demand ? 'Date' : 'From') + '</span>' +
+    '<span class="s-qty">' + (demand ? 'Req' : 'Avail') + '</span>' +
+    '<span class="s-meter">Unmatched</span>' +
+    '<span class="s-chev"></span>' +
+  '</div>';
+}
+
+/* the prose band: one field on demand, three on supply. No quantities — see design-system §6.2. */
+function proseBand(r) {
+  let inner = '';
+  if (r.side === 'supply') {
+    inner += '<div class="field grow"><span class="label">Availability details</span>' +
+             '<span class="value">' + (r.details || '-') + '</span></div>';
+    inner += '<div class="field"><span class="label">Transaction type</span>' +
+             '<span class="value">' + (r.txn || '-') + '</span></div>';
+  }
+  inner += '<div class="field grow"><span class="label">Notes</span>' +
+           '<span class="value">' + (r.notes || '-') + '</span></div>';
+  return '<div class="fields">' + inner + '</div>';
+}
+
+function matchTable(r) {
+  const demand = r.side === 'demand';
+  const cols = demand
+    ? ['Qty', 'Farmer &amp; location', 'Stock class', 'Match status', '$/kg', 'Transport']
+    : ['Qty', 'Processor &amp; plant', 'Stock class', 'Match status', '$/kg', 'Transport'];
+  const head = '<tr>' + cols.map((c, i) =>
+    '<th' + (i === 0 || i === 4 ? ' class="num"' : '') + '>' + c + '</th>').join('') + '</tr>';
+
+  const body = r.matches.length
+    ? r.matches.map(m =>
+        '<tr>' +
+          '<td class="num">' + m.qty + '</td>' +
+          '<td>' + m.farmer + '<span class="sub">' + m.loc + '</span></td>' +
+          '<td class="muted">' + m.sclass + '</td>' +
+          '<td><span class="mstat">' + MSTAT[m.status] + '</span> ' + m.status + '</td>' +
+          '<td class="num">' + (m.price ? '$' + m.price : '<span class="faint">no default price</span>') + '</td>' +
+          '<td>' + (m.transport || '-') + '</td>' +
+        '</tr>').join('')
+    : '<tr><td class="empty" colspan="6">No matches yet. ' +
+      (demand ? 'Drag a livestock availability record onto this space.' : 'Drag this record onto a processor space.') +
+      '</td></tr>';
+
+  return '<div class="table-wrap"><table class="matches"><thead>' + head + '</thead><tbody>' + body + '</tbody></table></div>';
+}
+
+function actionsRow(r) {
+  let html = '<div class="actions">';
+  if (r.side === 'demand') {
+    html += '<button class="btn-outlined" disabled>Confirm space</button>';
+  }
+  html += '<button class="btn-text">Edit</button><button class="btn-text danger">Cancel</button>';
+  if (r.why) html += '<span class="why">' + r.why + '</span>';
+  return html + '</div>';
+}
+
+/* ============================================================================================
+   the strip itself, and the two assemblies that use it
+   ============================================================================================ */
+function stripHtml(n, r, M) {
+  const cls = ['sums', 'st' + n];
+  if (M.rule) cls.push('m-rule');
+  if (M.right) cls.push('m-right');
+  if (M.edge) cls.push('m-edge');
+  return '<div class="' + cls.join(' ') + '">' + STRIPS[n](r, M) + '</div>';
+}
+
+/* the full drawer: what the boards show, so the strip is judged in context */
+function board(n, r, M) {
+  return '<div class="column">' +
+    headerStrip(r) +
+    cardRow(r) +
+    '<div class="exphost"><div class="expansion">' +
+      stripHtml(n, r, M) +
+      proseBand(r) +
+      matchTable(r) +
+      actionsRow(r) +
+    '</div></div>' +
+  '</div>';
+}
+
+/* the tile: strip plus prose band only. The table and actions are identical under every idea. */
+function tile(n, r, M) {
+  const meta = ideaMeta(n);
+  return '<div class="tile' + (n === idea ? ' sel' : '') + '" data-idea="' + n + '">' +
+    '<div class="tcap">' +
+      '<span class="k">' + ideaBadge(n) + '</span>' +
+      '<span class="nm">' + ideaName(n) + '</span>' +
+      '<span class="h">' + (meta ? meta.d.split('.')[0] + '.' : 'the strip as card-expansion.scss stands') + '</span>' +
+    '</div>' +
+    '<div class="column"><div class="exphost"><div class="expansion">' +
+      stripHtml(n, r, M) + proseBand(r) +
+    '</div></div></div>' +
+  '</div>';
+}
+
+/* ============================================================================================
+   render
+   ============================================================================================ */
+function render() {
+  const r = activeRecord();
+
+  document.getElementById('board-base').innerHTML = board('0', r, SHIPPED);
+  document.getElementById('board-prop').innerHTML = board(idea, r, mods);
+  document.getElementById('stage').className = 'stage' + (solo ? ' solo' : '');
+
+  const meta = ideaMeta(idea);
+  document.getElementById('propwhat').textContent =
+    idea === '0' ? 'the baseline — identical to the left'
+                 : ideaName(idea) + (meta ? ' — ' + meta.d.split('.')[0].toLowerCase() : '');
+
+  document.getElementById('contact').innerHTML = ORDER.map(n => tile(n, r, mods)).join('');
+
+  /* --- the control bar --- */
+  document.getElementById('ideabtns').innerHTML = ORDER.map(n =>
+    '<button class="sq' + (idea === n ? ' on' : '') + '" data-idea="' + n + '" title="' +
+    ideaName(n).replace(/"/g, '') + '">' + ideaBadge(n) + '</button>').join('');
+
+  document.getElementById('modbtns').innerHTML = MODS.map(m =>
+    '<button class="' + (mods[m.k] ? 'on' : '') + '" data-mod="' + m.k + '">' +
+    m.key + ' · ' + m.name + '</button>').join('');
+
+  document.getElementById('recbtns').innerHTML = RECORDS.map((rec, i) =>
+    '<button class="' + (i === recIx ? 'on' : '') + '" data-rec="' + i + '">' + rec.pick + '</button>').join('');
+
+  document.getElementById('qbtns').innerHTML = QSTATES.map(q =>
+    '<button class="' + (qstate === q.k ? 'on' : '') + '" data-q="' + q.k + '" title="' +
+    q.what + '">' + q.pick + '</button>').join('');
+
+  document.getElementById('cmpbtns').innerHTML =
+    '<button class="' + (solo ? '' : 'on') + '" data-solo="0">Side by side</button>' +
+    '<button class="' + (solo ? 'on' : '') + '" data-solo="1">Proposed only, at 860px</button>';
+
+  /* --- the notes --- */
+  ['a', 'b', 'c', 'd'].forEach(g => {
+    document.getElementById('group-' + g).innerHTML = IDEAS.filter(i => i.group === g).map(i =>
+      '<button class="note' + (idea === i.id ? ' on' : '') + '" data-idea="' + i.id + '">' +
+        '<span class="n"><span class="k">' + ideaBadge(i.id) + '</span>' + i.name + '</span>' +
+        '<p class="d">' + i.d + '</p>' +
+        '<p class="r">' + i.r + '</p>' +
+      '</button>').join('');
+  });
+
+  document.getElementById('group-m').innerHTML = MODS.map(m =>
+    '<button class="note' + (mods[m.k] ? ' on' : '') + '" data-mod="' + m.k + '">' +
+      '<span class="n"><span class="k">' + m.key + '</span>' + m.name + '</span>' +
+      '<p class="d">' + m.d + '</p>' +
+    '</button>').join('');
+
+  /* --- the hash, so a combination can be pasted back into a chat --- */
+  const flags = MODS.filter(m => mods[m.k]).map(m => m.k).join('+') || 'none';
+  const h = 'i=' + idea + '&m=' + flags + '&rec=' + RECORDS[recIx].key + '&q=' + qstate +
+            (solo ? '&solo' : '');
+  /* Best-effort. Some browsers refuse replaceState on a file:// URL, and a lab that throws on every
+     keystroke is worse than one whose address bar lags — the readout beside the buttons is the
+     copyable thing either way. */
+  try { history.replaceState(null, '', '#' + h); } catch (e) { /* file://, and it does not matter */ }
+  document.getElementById('hashout').textContent = '#' + h;
+}
+
+/* ============================================================================================
+   input
+   ============================================================================================ */
+document.addEventListener('click', e => {
+  const t = e.target.closest('[data-idea],[data-mod],[data-rec],[data-q],[data-solo]');
+  if (!t) return;
+  if (t.dataset.idea !== undefined) idea = t.dataset.idea;
+  else if (t.dataset.mod !== undefined) mods[t.dataset.mod] = !mods[t.dataset.mod];
+  else if (t.dataset.rec !== undefined) recIx = Number(t.dataset.rec);
+  else if (t.dataset.q !== undefined) qstate = t.dataset.q;
+  else if (t.dataset.solo !== undefined) solo = t.dataset.solo === '1';
+  render();
+});
+
+document.addEventListener('keydown', e => {
+  if (e.metaKey || e.ctrlKey || e.altKey) return;
+  const k = e.key.toLowerCase();
+  const byKey = MODS.find(m => m.key.toLowerCase() === k);
+
+  /* 6 CYCLES between 6 and 6b, because 6b has no digit of its own and is a variant of 6 rather
+     than an eleventh idea. Every other digit is the id it looks like, bar 0, which is idea 10. */
+  if (k === 'b') idea = '0';
+  else if (k === '6') idea = (idea === '6' ? '6b' : '6');
+  else if (k === '0') idea = '10';
+  else if (k >= '1' && k <= '9') idea = k;
+  else if (byKey) mods[byKey.k] = !mods[byKey.k];
+  else if (k === '[') recIx = (recIx + RECORDS.length - 1) % RECORDS.length;
+  else if (k === ']') recIx = (recIx + 1) % RECORDS.length;
+  /* Q cycles the quantity state rather than taking three keys of its own: the three are a sequence
+     (under, exact, over) and the interesting thing is watching one turn into the next. */
+  else if (k === 'q') {
+    const i = QSTATES.findIndex(q => q.k === qstate);
+    qstate = QSTATES[(i + 1) % QSTATES.length].k;
+  }
+  else if (k === 's') solo = !solo;
+  else return;
+
+  e.preventDefault();
+  render();
+});
+
+/* --- open on whatever the hash says, so a pasted link reproduces a view exactly --- */
+(function fromHash() {
+  const h = location.hash.replace(/^#/, '');
+  if (!h) return;
+  const p = new URLSearchParams(h.replace(/\+/g, '%2B'));
+  if (p.has('i')) idea = p.get('i');
+  if (p.has('m')) {
+    const set = new Set((p.get('m') || '').split('+'));
+    MODS.forEach(m => { mods[m.k] = set.has(m.k); });
+  }
+  if (p.has('rec')) {
+    const i = RECORDS.findIndex(r => r.key === p.get('rec'));
+    if (i >= 0) recIx = i;
+  }
+  if (p.has('q') && QSTATES.some(q => q.k === p.get('q'))) qstate = p.get('q');
+  solo = h.indexOf('solo') >= 0;
+})();
+
+render();
+</script>
+</body>
+</html>

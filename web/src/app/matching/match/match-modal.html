@@ -45,7 +45,7 @@
         <span class="fact">
           <span class="fk">Quantity unmatched</span>
           <span class="fv strong" [class]="availabilityUnmatchedInk">
-            {{ availability.unmatched }}
+            {{ availability.unmatchedLabel }}
             <!-- "Over-committed" when negative. It should be unreachable, and it is a bug flag. -->
             <span class="state">{{ availability.quantityStateLabel }}</span>
           </span>
@@ -94,7 +94,7 @@
         <span class="fact">
           <span class="fk">Quantity unmatched</span>
           <span class="fv strong" [class]="spaceUnmatchedInk">
-            {{ space.unmatched }}
+            {{ space.unmatchedLabel }}
             <!-- "Over-filled" when negative, and the wording is the DTO's. -->
             <span class="state">{{ space.quantityStateLabel }}</span>
           </span>
@@ -159,13 +159,16 @@
 <mat-dialog-actions class="footer">
   @if (canDelete) {
     <!--
-      No reason, no warning: a mis-drag is not a decision anyone has to account for. The word is
-      `Undo` rather than `Delete` because that is what the act is to the operator — the match has
-      been communicated to nobody, so taking it back leaves no trace to account for. It stays in the
+      No reason, no warning: a mis-drag is not a decision anyone has to account for. The verb is
+      `Cancel`, the same word the confirmed-match action below uses, because two labels for the one
+      thing an operator is trying to do (get rid of this match) is a distinction the operator does
+      not have and does not want — the two never appear together anyway, since `canDelete` is
+      Drafted-only and `canCancel` is everything past it. **The ellipsis is what separates them**:
+      this one acts on the press, `Cancel match…` opens the reason dialog first. It stays in the
       destructive red: the row really does go, and it does not come back.
     -->
     <button matButton class="destructive-text" type="button" (click)="delete()">
-      Undo match
+      Cancel match
     </button>
   }
 

@@ -42,6 +42,7 @@
       [matchedInclDraft]="record().matchedInclDraft"
       [matchedExclDraft]="record().matchedExclDraft"
       [unmatched]="record().unmatched"
+      [unmatchedLabel]="record().unmatchedLabel"
       [quantityState]="record().quantityState"
       [quantityStateLabel]="record().quantityStateLabel"
       side="supply"
@@ -176,7 +177,6 @@
     -->
     <ng-template cdkDragPreview>
       <app-drag-preview
-        [stockClass]="record().stockClass"
         [name]="record().locationName || '-'"
         [headCount]="record().quantityAvailable"
       />

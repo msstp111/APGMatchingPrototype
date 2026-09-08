@@ -51,67 +51,95 @@ export function weeks(currentIndex: number, count = 6): WeekBandDto[] {
   );
 }
 
+/**
+ * The server's own rule for `unmatchedLabel`, applied here so a spec that overrides `unmatched` and
+ * nothing else still gets a coherent record — which is what the API would have sent.
+ *
+ * This is the one place in `web/` allowed to work the figure out, and it is allowed because
+ * `no-domain-arithmetic.spec.ts` skips `testing/` by name: these builders exist to BUILD DTOs, not to
+ * render them. A spec that wants to prove the client renders the label rather than deriving it from
+ * the signed field overrides `unmatchedLabel` explicitly to something the arithmetic would not give.
+ */
+function labelled<T extends { unmatched: number; unmatchedLabel: string }>(
+  record: T,
+  overrides: Partial<T>,
+): T {
+  return 'unmatchedLabel' in overrides
+    ? record
+    : { ...record, unmatchedLabel: String(Math.abs(record.unmatched)) };
+}
+
 export function aSpace(overrides: Partial<ProcessorSpaceDto> = {}): ProcessorSpaceDto {
-  return {
-    id: 1,
-    processor: 'ANZCO',
-    plant: 'Rangitikei',
-    stockClass: 'Nat Beef - Premium',
-    quantityRequired: 100,
-    deliveryDate: '2026-08-27',
-    deliveryDateLabel: '27-08-26',
-    deliveryDayLabel: '27',
-    deliveryMonthLabel: 'Aug',
-    deliveryTime: 'Morning',
-    notes: null,
-    status: 'Booked',
-    matchedInclDraft: 0,
-    matchedExclDraft: 0,
-    unmatched: 100,
-    quantityState: 'Under',
-    quantityStateLabel: 'Under-filled',
-    weekCommencing: '2026-08-23',
-    weekCommencingLabel: '23-08-26',
-    canConfirm: false,
-    // Not null: the default space has no matches, so Confirm is blocked and has to say why. A fixture
-    // whose canConfirm and confirmBlockedReason disagreed would be a state the API cannot produce.
-    confirmBlockedReason: 'Needs at least one confirmed match and no drafts',
-    matches: [],
-    ...overrides,
-  };
+  return labelled(
+    {
+      id: 1,
+      processor: 'ANZCO',
+      plant: 'Rangitikei',
+      stockClass: 'Nat Beef - Premium',
+      quantityRequired: 100,
+      deliveryDate: '2026-08-27',
+      deliveryDateLabel: '27-08-26',
+      deliveryDayLabel: '27',
+      deliveryMonthLabel: 'Aug',
+      deliveryTime: 'Morning',
+      notes: null,
+      status: 'Booked',
+      matchedInclDraft: 0,
+      matchedExclDraft: 0,
+      draftedQuantity: 0,
+      unmatched: 100,
+      unmatchedLabel: '100',
+      quantityState: 'Under',
+      quantityStateLabel: 'Under-filled',
+      weekCommencing: '2026-08-23',
+      weekCommencingLabel: '23-08-26',
+      canConfirm: false,
+      // Not null: the default space has no matches, so Confirm is blocked and has to say why. A fixture
+      // whose canConfirm and confirmBlockedReason disagreed would be a state the API cannot produce.
+      confirmBlockedReason: 'Needs at least one confirmed match and no drafts',
+      matches: [],
+      ...overrides,
+    },
+    overrides,
+  );
 }
 
 export function anAvailability(
   overrides: Partial<LivestockAvailabilityDto> = {},
 ): LivestockAvailabilityDto {
-  return {
-    id: 1,
-    stockClass: 'Prime',
-    quantityAvailable: 90,
-    locationId: 7,
-    locationName: 'Alford Farms HQ',
-    farmerId: 42,
-    farmerName: 'Mark Dale',
-    farmerMobile: '021 555 0100',
-    availableFrom: '2026-08-24',
-    availableFromLabel: '24-08-26',
-    availableFromShortLabel: '24 Aug',
-    availableFromDayLabel: '24',
-    availableFromMonthLabel: 'Aug',
-    availabilityDetails: null,
-    transactionType: 'FinanceStock',
-    notes: null,
-    status: 'Booked',
-    matchedInclDraft: 0,
-    matchedExclDraft: 0,
-    unmatched: 90,
-    quantityState: 'Under',
-    quantityStateLabel: 'Under-committed',
-    weekCommencing: '2026-08-23',
-    weekCommencingLabel: '23-08-26',
-    matches: [],
-    ...overrides,
-  };
+  return labelled(
+    {
+      id: 1,
+      stockClass: 'Prime',
+      quantityAvailable: 90,
+      locationId: 7,
+      locationName: 'Alford Farms HQ',
+      farmerId: 42,
+      farmerName: 'Mark Dale',
+      farmerMobile: '021 555 0100',
+      availableFrom: '2026-08-24',
+      availableFromLabel: '24-08-26',
+      availableFromShortLabel: '24 Aug',
+      availableFromDayLabel: '24',
+      availableFromMonthLabel: 'Aug',
+      availabilityDetails: null,
+      transactionType: 'FinanceStock',
+      notes: null,
+      status: 'Booked',
+      matchedInclDraft: 0,
+      matchedExclDraft: 0,
+      draftedQuantity: 0,
+      unmatched: 90,
+      unmatchedLabel: '90',
+      quantityState: 'Under',
+      quantityStateLabel: 'Under-committed',
+      weekCommencing: '2026-08-23',
+      weekCommencingLabel: '23-08-26',
+      matches: [],
+      ...overrides,
+    },
+    overrides,
+  );
 }
 
 export function aMatch(overrides: Partial<MatchDto> = {}): MatchDto {

@@ -241,10 +241,31 @@ describe('The card’s drag chrome', () => {
   });
 
   describe('the preview chip', () => {
+    /**
+     * The chip carried `processor` alone until 2026-09-08, which named ~70% of the demand column
+     * identically. The composition is `card-chrome.spaceName`, the same one both dialog titles use.
+     */
+    it('labels a space with its plant as well as its processor', async () => {
+      const fixture = TestBed.createComponent(SpaceCard);
+
+      fixture.componentRef.setInput('space', aSpace({ processor: 'ANZCO', plant: 'Kokiri' }));
+      fixture.detectChanges();
+      await fixture.whenStable();
+
+      expect(fixture.componentInstance.dragName()).toBe('ANZCO Kokiri');
+
+      // A hand-built or partly filled record has no plant, and `ANZCO ` with a trailing space in a
+      // 232px chip is exactly the kind of thing nobody notices until a demo.
+      fixture.componentRef.setInput('space', aSpace({ processor: 'SFF', plant: '' }));
+      fixture.detectChanges();
+      await fixture.whenStable();
+
+      expect(fixture.componentInstance.dragName()).toBe('SFF');
+    });
+
     it('names the record and carries the outcome once the server has answered', async () => {
       const fixture = TestBed.createComponent(DragPreview);
 
-      fixture.componentRef.setInput('stockClass', 'Lamb');
       fixture.componentRef.setInput('name', 'Moss Gate Lodge');
       fixture.componentRef.setInput('headCount', 730);
       fixture.detectChanges();
@@ -275,7 +296,6 @@ describe('The card’s drag chrome', () => {
     it('withholds the outcome when it would only repeat the head count above it', async () => {
       const fixture = TestBed.createComponent(DragPreview);
 
-      fixture.componentRef.setInput('stockClass', 'Mixed Cattle');
       fixture.componentRef.setInput('name', 'Stone Stead Farming');
       // The chip's own figure, and what the server proposes for this pair: the same 33.
       fixture.componentRef.setInput('headCount', 33);

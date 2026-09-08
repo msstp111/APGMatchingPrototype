@@ -53,6 +53,41 @@ public class QuantityRuleTests
         Assert.NotEqual(tally.MatchedInclDraft, tally.MatchedExclDraft);
     }
 
+    /// <summary>
+    /// <see cref="QuantityTally.Drafted"/> is the gap between the two sums, and it exists so the
+    /// expanded card can state how much of a record's commitment is still provisional instead of
+    /// leaving the operator to add up the match table. Asserted against both sums rather than against
+    /// a literal, because the value only means anything as their difference.
+    /// </summary>
+    [Fact]
+    public void Drafted_is_the_gap_between_the_two_sums()
+    {
+        var space = Given.Space(quantityRequired: 100);
+        var matches = Given.Matches(
+            (30, MatchStatus.Drafted),
+            (12, MatchStatus.Drafted),
+            (45, MatchStatus.Confirmed),
+            (9, MatchStatus.Cancelled));
+
+        var tally = MatchQuantities.ForSpace(space, matches, CancelledRecords.None);
+
+        Assert.Equal(42, tally.Drafted);
+        Assert.Equal(tally.MatchedInclDraft - tally.MatchedExclDraft, tally.Drafted);
+    }
+
+    /// <summary>
+    /// And it is zero — not the confirmed sum, and not the required quantity — when nothing is
+    /// drafted. That is the case the expanded card prints beside a space that is ready to confirm.
+    /// </summary>
+    [Fact]
+    public void Drafted_is_zero_when_no_match_is_drafted()
+    {
+        var space = Given.Space(quantityRequired: 100);
+        var matches = Given.Matches((45, MatchStatus.Confirmed), (9, MatchStatus.Cancelled));
+
+        Assert.Equal(0, MatchQuantities.ForSpace(space, matches, CancelledRecords.None).Drafted);
+    }
+
     [Fact]
     public void Unmatched_is_taken_from_the_incl_Draft_sum_not_the_excl_Draft_one()
     {

@@ -131,13 +131,47 @@
   transform: translate(50%, -50%) rotate(45deg);
 }
 
-// --- 1. the field row ---
-// Left padding is $card-edge, not the 10px the other edges keep: added to the rail's 29 it puts the
-// first label at x=38, under the card's own name. Every block inside the sheet does the same.
+// --- 1. the sums strip, and 2. the prose beneath it ---
+//
+// Both blocks share one leading pad — $card-edge, not the 10px the drawer's other edges keep. Added
+// to the rail's 29 it puts the first label at x=38, under the card's own name, which every block
+// inside the sheet does.
+//
+// The TRAILING pad is the card's own 40px run (`$card-edge * 2 + $col-chevron`: `.card`'s padding,
+// `.cbody`'s padding, and the 24px chevron between them) less the sheet's 1px frame. Only the
+// unmatched cell reaches it, and reaching it is the point — that figure lands directly beneath the
+// meter numeral on the row above. §16.10 is the standing warning about writing this run as a literal:
+// it was 32 in the document and 40 in the code for five phases, and every review agreed with the code
+// because the document carried the same missing term.
+//
+// The strip keeps its own 1px $lms-rule-soft rule. The prose is a separate band, and without the rule
+// the two run together into one tall block with no structure in it — which is what removing the rule
+// looked like on 2026-09-08 and why it is back.
+//
+// TWO LAYOUTS WERE TRIED AND REJECTED that day; read this before proposing a third.
+//
+//   * ONE ROW, prose leading and all four figures trailing. It wrapped: four micro-cap labels of
+//     this length plus a line of notes exceed the column's width, so the figures dropped to a second
+//     line and the drawer opened on its notes instead of on its numbers.
+//   * TWO BLOCKS with all four figures grouped on the trailing edge, prose beneath. It did not wrap,
+//     and the alignment against the collapsed row's `Req'd` and `Unmatched` columns was real, but a
+//     strip whose content all sits at one end reads as the fragment of a row rather than as the
+//     drawer's head — and the eye enters the sheet from the leading edge, where the card's own name
+//     is. The unmatched figure stays right on its own, because it is the one figure the row above
+//     also ends with.
+.sums {
+  display: flex;
+  align-items: flex-start;
+  gap: 26px;
+  padding: 8px (geo.$card-edge * 2 + geo.$col-chevron - 1px) 6px geo.$card-edge;
+  border-bottom: 1px solid lms.$lms-rule-soft;
+}
+
 .fields {
   display: flex;
-  gap: 24px;
-  padding: 8px 10px 6px geo.$card-edge;
+  flex-wrap: wrap;
+  gap: 4px 24px;
+  padding: 8px (geo.$card-edge * 2 + geo.$col-chevron - 1px) 6px geo.$card-edge;
   border-bottom: 1px solid lms.$lms-rule-soft;
 }
 
@@ -159,6 +193,37 @@
   text-align: right;
 }
 
+// LABEL OVER VALUE, the same way round as the prose row below — so all three captions sit on one
+// line and all three figures on one baseline. Figure-over-label was tried first (2026-09-08) and put
+// the ragged edge at the bottom of the block: the captions are the things of unequal length, so the
+// captions are what have to share a line.
+.sums .field {
+  gap: 1px;
+}
+
+// One line each, and they must stay that way. `EXCL. 30 DRAFT` is ~110px in micro-caps against
+// `QUANTITY MATCHED EXCL. DRAFT`'s ~205, which is what made the old captions wrap and the block
+// lopsided. The `.l2` span that used to force a deliberate second line is gone with the wording that
+// needed it — if a caption here ever wants two lines again, the wording is the thing to reconsider.
+.sums .label {
+  white-space: nowrap;
+}
+
+// The drafted figure lives INSIDE the two left captions now — `EXCL. 30 DRAFT` — rather than riding
+// on the incl-Draft numeral. It is lifted out of the caption's muted grey to $lms-text at 700,
+// because a number inside a 10.5px micro-cap is a number nobody reads; the margins are em-based so
+// they track the caption's own size rather than the card's.
+//
+// That is the one thing to weigh if this is revisited: a caption carrying data stops being purely a
+// caption. It was accepted because the figure explains BOTH sums and belongs to neither — 29 excludes
+// those 30, 59 includes them — so hanging it off either numeral said less than putting it in the
+// words that distinguish them.
+.sums .dq {
+  margin: 0 0.3em;
+  font-weight: 700;
+  color: lms.$lms-text;
+}
+
 .label {
   @include geo.micro-caps;
 }
@@ -169,61 +234,47 @@
   color: lms.$lms-text;
 }
 
-.num {
-  @include geo.numerals;
-}
-
-// design-system.md 6.2: the unmatched value is in the ramp's *-ink at weight 500, with the DTO's
-// quantityStateLabel beside it at 400. The colour arrives from the shared mixin below — before
-// Phase 8 this element carried its ramp class and nothing painted it, so an over-committed record's
-// -24 read in ordinary body text on the one surface that spells the state out in words.
-.ink {
-  font-weight: 500;
-}
-
+// design-system.md 6.2: the unmatched figure is in the ramp's *-ink, with the DTO's
+// quantityStateLabel beside it. The figure takes its weight from `.sum`, so this class is the colour
+// hook alone. The colour arrives from the shared mixin — before Phase 8 this element carried its ramp
+// class and nothing painted it, so an over-committed record's -24 read in ordinary body text on the
+// one surface that spells the state out in words.
 @include geo.quantity-ink;
 
-.state {
-  margin-left: 6px;
-  font-weight: 400;
-  color: lms.$lms-text-muted;
-}
-
-// --- 1. the sums, as the drawer's ANCHOR ---
-//
-// They sit FIRST (the template moved them there), and they are what the drawer is for.
-//
-// This was a #DFE4E8 caption bar until 2026-09-07, and it is now type on white. The bar separated
-// the block by VALUE, and value is the one axis this screen has exhausted: eight named greys inside
-// ten L* points, so a ninth could not separate anything. The type scale, by contrast, was entirely
-// unspent — everything in the drawer sat between 10.5 and 13px, so the block had no focal point at
-// all and the eye drifted across grounds looking for one. The two figures now anchor it by size.
-//
-// Figure over label (`column-reverse`), because the figure is the thing being read and the label is
-// what explains it. The strip stays 30-ish px tall: a 20px numeral and a 12px micro-cap fit inside
-// the padding the bar was already spending.
-.sums {
-  display: flex;
-  align-items: flex-end;
-  gap: 26px;
-  padding: 8px 10px 6px geo.$card-edge;
-  border-bottom: 1px solid lms.$lms-rule-soft;
-}
-
-.sums .field {
-  flex-direction: column-reverse;
-  align-items: flex-start;
-  gap: 1px;
-}
-
-// 20px, from 13. The one place on this screen where a quantity is set larger than the card's own
-// figures, and it is deliberate: these two sums are the answer the drawer was opened for.
+// 20px, and it is the only place on this screen where a quantity is set larger than the card's own
+// figures. Deliberate: these are the answer the drawer was opened for, and until they were set at a
+// size that says so the block had no focal point at all — everything in it sat between 10.5 and
+// 13px, so the eye drifted across grounds looking for one. The type scale was the axis this screen
+// had never spent (§5.1 has no step above 15px); value was the axis it had spent eight times over,
+// eight named greys inside ten L* points, which is why the #DFE4E8 caption bar that used to head this
+// block is gone and its two tokens are deleted from _lms-tokens.scss.
 .sum {
   font-size: 20px;
   font-weight: 600;
   line-height: 22px;
+  white-space: nowrap;
   @include geo.numerals;
 }
+
+// Everything hung off one of those figures rides at the field row's 12.5px in muted ink, so the
+// figure keeps the size to itself: the denominator and the state word. The drafted figure used to be
+// a third such rider and is in the captions instead.
+//
+// `of 77` is why `Quantity required` could leave the field row. The requirements specify both matched
+// sums four times over — two list views and two record views — and every one says the same thing
+// about placement: "displayed as read-only beside the Quantity Required value". A sum printed without
+// the total it is a fraction of is what sent the eye back to the collapsed row.
+.sum .of,
+.sum .state {
+  font-size: 12.5px;
+  font-weight: 400;
+  color: lms.$lms-text-muted;
+}
+
+.sum .state {
+  margin-left: 6px;
+}
+
 
 // --- 3. the match table: an actual LMS table ---
 .table-wrap {

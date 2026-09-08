@@ -1,3 +1,5 @@
+using System.Globalization;
+
 namespace Apg.Domain.Matching;
 
 /// <summary>
@@ -40,6 +42,46 @@ public readonly record struct QuantityTally(int Original, int MatchedInclDraft, 
     /// rounded away.
     /// </summary>
     public int Unmatched => Original - MatchedInclDraft;
+
+    /// <summary>
+    /// The part of <see cref="MatchedInclDraft"/> that is still only drafted — the difference between
+    /// the two sums, which is exactly the quantity held by Drafted matches.
+    /// </summary>
+    /// <remarks>
+    /// It exists because it is the figure the Processor Space confirm gate turns on
+    /// (<see cref="ProcessorSpaceRules.CanConfirm"/> refuses while any match is Drafted) and the one
+    /// the expanded card had no way to state: the meter draws it as the alpha band's width and named
+    /// it nowhere, so an operator had to add up the match table by hand. Derived here rather than in
+    /// the client, where subtracting one DTO quantity from another is banned outright
+    /// (<c>no-domain-arithmetic.spec.ts</c>).
+    /// </remarks>
+    public int Drafted => MatchedInclDraft - MatchedExclDraft;
+
+    /// <summary>
+    /// <see cref="Unmatched"/> as it is <b>printed</b>: its magnitude, with no sign.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// The minus is dropped deliberately (2026-09-08). An over-run is already stated three times over
+    /// — the ramp's blue or pink ink, the word (<c>Over-filled</c> / <c>Over-committed</c>), and the
+    /// meter's over-run cap past the end of its track — and a fourth statement of it spends a
+    /// character in the narrowest numeral column on the screen. <c>9</c> beside <c>Over-filled</c>
+    /// says what <c>-9</c> said.
+    /// </para>
+    /// <para>
+    /// It is a string, and it is here rather than in TypeScript, for the reason every other label on
+    /// the wire is: the client must not derive a displayed figure from a domain value.
+    /// <c>Math.abs(dto.unmatched)</c> in a template is the same class of mistake as recomputing a sum,
+    /// and it would put the formatting rule in two languages the moment a second surface needed it —
+    /// which is exactly what happened: the two cards, both expansions, the match modal and the
+    /// quantity prompt all print this figure.
+    /// </para>
+    /// <para>
+    /// The signed <see cref="Unmatched"/> is still the value every rule reads, and still the one the
+    /// meter's hover string prints, where the sign is the truth and there is room to say it.
+    /// </para>
+    /// </remarks>
+    public string UnmatchedLabel => Math.Abs(Unmatched).ToString(CultureInfo.InvariantCulture);
 
     /// <summary>
     /// The fill state, read off the sign of <see cref="Unmatched"/> — so the number, the bar length

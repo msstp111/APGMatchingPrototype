@@ -181,10 +181,17 @@ describe('Absent values never render raw, and never render blank', () => {
   // because an empty string contains none of the four forbidden words.
   // -----------------------------------------------------------------------------------------------
 
-  it("renders a missing delivery time as '-' on the space card", async () => {
+  it('drops the separator entirely when the space has no delivery time', async () => {
     const card = await mount(SpaceCard, { space: emptySpace });
 
-    expect(card.querySelector('.meta')?.textContent?.trim()).toBe('Rangitikei · -');
+    // Line 2 is unlabelled, so an absent time takes its separator with it rather than dashing.
+    expect(card.querySelector('.meta')?.textContent?.trim()).toBe('ANZCO');
+  });
+
+  it('keeps the separator when the space does have a delivery time', async () => {
+    const card = await mount(SpaceCard, { space: aSpace({ deliveryTime: 'Morning' }) });
+
+    expect(card.querySelector('.meta')?.textContent?.trim()).toBe('ANZCO · Morning');
   });
 
   it("renders a missing farmer as '-' on the availability card", async () => {

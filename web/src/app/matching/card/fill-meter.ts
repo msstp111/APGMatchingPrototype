@@ -34,7 +34,18 @@ export class FillMeter {
   readonly original = input.required<number>();
   readonly matchedInclDraft = input.required<number>();
   readonly matchedExclDraft = input.required<number>();
+  /**
+   * The **signed** figure, and it is read in exactly one place: the hover string, where the sign is
+   * the truth and there is room to say it. The numeral prints {@link unmatchedLabel} instead.
+   */
   readonly unmatched = input.required<number>();
+  /**
+   * The DTO's `unmatchedLabel` — the magnitude, no sign (2026-09-08). An over-run is already stated
+   * by this component's own ink, by its over-run cap and by the word on the card's line 2, so a minus
+   * was a fourth statement of it inside a 40px column. Never `Math.abs(unmatched())`: the rule lives
+   * in `QuantityTally` and is printed on six surfaces.
+   */
+  readonly unmatchedLabel = input.required<string>();
   readonly quantityState = input.required<QuantityState>();
   /** The DTO's `quantityStateLabel`. Never composed here. */
   readonly quantityStateLabel = input.required<string>();
@@ -90,6 +101,10 @@ export class FillMeter {
   /**
    * The whole meter in one hover string, so a value the eye had to estimate off an 8px bar is always
    * recoverable exactly (design-system.md 16.2).
+   *
+   * This is the one place the **signed** figure is printed. The numeral above it shows the magnitude,
+   * which is unambiguous beside the ink and the word; a sentence has room for the minus and reads
+   * wrongly without it.
    */
   readonly hoverTitle = computed(
     () =>

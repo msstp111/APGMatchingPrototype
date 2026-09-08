@@ -136,16 +136,13 @@ filters/filtered-empty.ts     the no-results state, with Clear filters / Reset t
 column/matching-column.ts header (+ Filtered chip and Reset), filter row, sticky 28px strip, .list
 band/week-band.ts         sticky rail, band header, the band's cards, empty-band row
 card/space-card.ts, card/availability-card.ts     the 52px rows — each is a cdkDropList + cdkDrag
-card/card-expansion.ts    fields + both sums + the match table (every row opens its match), and the
+card/card-expansion.ts    ONE quantity row + the match table (every row opens its match), and the
                           demand side's Confirm space action with its stated reason. Both cards.
-card/fill-meter.ts, card/stock-class-tile.ts, card/stock-classes.ts, card/card-chrome.ts
-                          matchSummaryLabel / matchBreakdown are the Phase 6 entry point. The tile is
-                          NO LONGER on either card row or the header strip — line 1 spells the stock
-                          class out in full two cells along — and since 2026-09-07 it is off both match
-                          dialogs too, which spell theirs out in words. **The drag chip is the one place
-                          left**: three fields in 200px, no room for a class name, so the monogram is
-                          all that says what species is in hand. card-chrome's spaceName() composes
-                          `ANZCO Kokiri` for both dialog titles.
+card/fill-meter.ts, card/card-chrome.ts
+                          matchSummaryLabel / matchBreakdown are the Phase 6 entry point.
+                          card-chrome's spaceName() composes `ANZCO Kokiri` for both dialog titles.
+                          **`stock-class-tile.ts` and `stock-classes.ts` are DELETED** (2026-09-08) —
+                          see "No stock class is abbreviated anywhere" below.
 legend/status-legend.ts   the key to the board — the four status spines, the four ramp colours (both
                           over states side by side), the red cancelled-partner badge. Opened from a
                           borderless ? in whichever column header is currently on the RIGHT
@@ -188,6 +185,40 @@ ten L\* points, so **a ninth step could not separate anything** — every remain
 removal of a grey or a device that is not a value. Two numbers are measured, not derived, and their
 comments say so: `$expansion-rail` is **29px not 30** (the grip's rule is the pixel *inside* its own
 box; at 30 the rail lands 2px right of it) and the notch's offset carries a -1px for the frame.
+
+**The expanded card's sums strip (2026-09-08).** Three parts in the drawer still, sums first — what
+changed is what is in them. The strip's two sums are **fractions** now (`29 of 77`, `59 of 77 · 30
+drafted`), left-aligned, with `Quantity unmatched` alone on the trailing edge at the card's own 40px
+run so it lands under the meter numeral above it. The field row beneath holds **no quantities**: just
+`Notes` on demand, and availability details / transaction type / notes on supply.
+
+Two faults were fixed and both had survived every review:
+
+- **`Quantity required` / `Quantity available` and `Quantity unmatched` were printed twice** — a
+  right-aligned cell each in the field row, verbatim copies of two cells on the **collapsed row 40px
+  above**, same figures, same order, meter between them. `required` survives as each sum's
+  denominator; `unmatched` survives once, in the strip.
+- **The sums were printed bare.** The requirements specify them four times over — both list views and
+  both record views — and every one says *"displayed as read-only beside the Quantity Required
+  value"*. Worth knowing: the matching screen's own field list in `Matches – Create` includes
+  **neither** sum, so they were imported from the record views without the context those views give
+  them.
+
+`QuantityTally.Drafted` and `DraftedQuantity` on both record DTOs are new, because the drafted
+quantity is what the `Confirm space` gate turns on and `matchedInclDraft - matchedExclDraft` in
+TypeScript is banned. **Two other layouts were tried the same day and rejected** — one row with the
+prose leading (it wrapped, and the drawer opened on its notes), and all four figures grouped on the
+trailing edge (it read as the fragment of a row, not the drawer's head). design-system.md §6.2 item 1
+carries both, and `Documents/browser-checklist.md` carries the geometry claims, which are **unrun**.
+
+The strip is **still open**: the two left captions wrap to two lines and the right one does not, so
+the block is lopsided and its height comes from its longest caption. `Documents/sums-strip-lab.html`
+is the fourth lab in the series (after `drag-lab`, `expansion-lab` and `expansion-lab-2`) and draws
+ten answers against it plus one variant (6b), in six records — nothing-matched, over-filled,
+four-digit, filled, the screenshot and a supply record — with five composable modifiers and a
+quantity-state control that swaps Under / Exact / Over on either side, blue over on a space and pink
+on an availability record. Same conventions as the others: one
+self-contained file, no build, no network, opens over `file://`.
 
 **The card's trailing edge is 40px, and was 32px wrongly until 2026-09-07.** design-system.md §16.10
 item 10 said the card and the header strip both spend 32 and forgot that `.strip` is a flex row with
@@ -262,9 +293,10 @@ Three more things follow, and all three are the kind that break quietly:
 `card/card-grip.spec.ts` holds all of it, over both cards in one loop: the grip is the only handle, the
 body expands and collapses, the chevron still works, and the match count opens the card **once**.
 
-Two tests are the phase's own guards: `card/stock-class-coverage.spec.ts` reads both vocabularies out
-of `SeedConfig.cs` and fails naming any stock class without an explicit tile, and
-`nothing-renders-raw.spec.ts` sweeps every card, expansion and the match modal with every optional
+Two tests were the phase's own guards. `card/stock-class-coverage.spec.ts` read both vocabularies out
+of `SeedConfig.cs` and failed naming any stock class without an explicit tile — **deleted 2026-09-08
+with the tile it guarded**; nothing needs a per-class entry any more, because every class renders as
+its own name. `nothing-renders-raw.spec.ts` sweeps every card, expansion and the match modal with every optional
 field null. **Angular renders `null` as an empty string, not as the word**, so that spec's second half
 — asserting the `-` fallbacks themselves — is the half that can actually fail; verified by removing a
 guard and watching the first half pass.
@@ -295,7 +327,37 @@ and `$lms-error` is a semantic token that is no part of the quantity ramp. `canc
 `card/card-chrome.ts` counts them.
 
 **Hue is committed to the quantity meter and nothing else.**
- Status is carried by spine weight, pattern, icon and word; stock class by a monogram tile whose *shape* is the species. `Data/stock-class-configs.csv`'s colour column is deliberately unused (resolved question 16 overrides Phase 8 §3.1).
+ Status is carried by spine weight, pattern, icon and word. `Data/stock-class-configs.csv`'s colour column is deliberately unused (resolved question 16 overrides Phase 8 §3.1).
+
+**No stock class is abbreviated anywhere (2026-09-08).** The 20px monogram tile — `PR`, `LM`, `GU` on
+a grey square/circle/diamond whose *shape* was the species — is **out of the application**, and
+`stock-class-tile.*`, `stock-classes.ts`, `stock-classes.spec.ts`, `stock-class-coverage.spec.ts`,
+`$col-tile` and `$lms-tile-ink` are all deleted with it. It left in three steps and the reason was the
+same each time: wherever there was room for the badge there was room for the words. Off the card rows
+and header strip first (line 1 spells the class out two cells along), off both match dialogs on
+2026-09-07 (their sub-lines do), and off the **drag chip** last — the surface that had been the
+standing argument for keeping it, since 200px of chip has no room for `Nat Beef - Premium`. What
+settled the chip is that the code was not readable at speed: a two-letter abbreviation over
+twenty-two classes, half of them cattle grades differing in the second word, is a puzzle in the one
+place a drag cannot afford one, and three species shapes over those twenty-two only ever separated
+sheep from cattle. **`DragPreview` now takes `name` and `headCount` and nothing else.** If a surface
+is ever too tight for a class name, the surface is carrying too much — do not reintroduce a code.
+design-system.md §7 carries the full statement.
+
+**The drag chip names the slot, and its width is measured (2026-09-08).** The demand chip took
+`processor` alone, and ~70% of that column is ANZCO (`SeedConfig.ProcessorMix`; APG say the real share
+is higher), so it named most of the column in one word — the **plant** is what identifies the slot.
+`space-card.ts`'s `dragName()` calls `card-chrome.spaceName`, the same composition both dialog titles
+use, so a record with no plant yet cannot produce `ANZCO ` with a trailing space. **The card's own two
+names traded places later the same day** for the same reason: line 1 is the `plant` under a `Plant`
+heading (`-` when the record has none yet) and the `processor` moved to line 2, 17px below, where the
+plant used to be. The chip has no line 2, so it composes both.
+`$drag-chip-width` went 200px → **232px**, and the arithmetic is in the token's comment: 142.8px for
+`Alliance Group Dannevirke` (the longest name either column can produce — the supply side's longest
+was already clipping at 200px) + 6px gap + 55.8px for a tabular `1180 head` + 16px padding = 220.6,
+rounded up. Measured in headless Chrome at 12px/500 Roboto, not estimated. **Do not add a third field
+to the chip**: it works by being under half the card it is dragged over, and the next field comes out
+of the name. design-system.md §10.1 is the spec.
 
 **No domain code reads the real clock.** Take a `TimeProvider`. `DomainPurityTests.No_domain_source_file_reads_the_real_clock` scans `src/Apg.Domain/**/*.cs` and fails on `DateTime.Now`, `.Today`, `.UtcNow` or `TimeProvider.System`.
 
@@ -375,14 +437,16 @@ Compute both from the match set; never store a denormalised total. Colour semant
 
 `Documents/Requirements/APG Booking Module Requirements 2026-08-27.docx` is the authoritative spec (32 pages). Consult it before implementing any screen — this file is a summary, not a substitute.
 
-It is **misnamed**: despite the `.docx` extension it is a legacy OLE compound `.doc`, so unzip-based extraction fails. Extract it via Word COM:
+**It reads as ordinary OOXML now** (Mark removed its sensitivity label on 2026-09-08), so `unzip -p
+"<file>" word/document.xml` or `textutil -convert txt` both work, and reading `word/document.xml`
+directly is what preserves the **outline levels** — which matter, because the whole spec is a nested
+bullet list and a flat text dump loses which requirement a clause belongs to.
 
-```powershell
-$w = New-Object -ComObject Word.Application; $w.Visible = $false
-$d = $w.Documents.Open("<abs path to .docx>", $false, $true)
-$d.SaveAs([ref]"<abs path to out.txt>", [ref]7)   # 7 = wdFormatEncodedText
-$d.Close([ref]$false); $w.Quit()
-```
+Before that it was an **RMS/IRM-protected** package: a CFB container whose streams are
+`DRMEncryptedTransform` / `EncryptedPackage`, which is why unzip-based extraction failed and why
+CLAUDE.md used to prescribe a Word COM round-trip. Nothing but a licensed Word could open it. If a
+future copy arrives protected again, check for those stream names first — the symptom is a `d0cf11e0`
+magic number and a text conversion that returns binary noise.
 
 The spec contains unresolved questions in angle brackets (`<validate>`, `<Devs>`). Treat those as open, not as requirements.
 

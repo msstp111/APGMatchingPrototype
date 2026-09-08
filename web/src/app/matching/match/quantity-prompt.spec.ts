@@ -129,15 +129,14 @@ describe('Quantity prompt', () => {
   });
 
   /**
-   * The monogram badge came off the card rows as match noise, and a dialog that still carried one
-   * beside each name was the last place it read as meaningful. Both stock classes are still on
-   * screen — spelled out beside the name, which is what the card rows do too.
+   * The monogram badge came off the card rows as match noise, then off the dialogs, and in 2026-09-08
+   * off the drag chip and out of the application. Every stock class on screen is now spelled out in
+   * words, here as beside each card's name.
    */
-  it('carries no stock-class badge, and still names both classes', async () => {
+  it('names both stock classes in words', async () => {
     const fixture = await mount();
     const host = fixture.nativeElement as HTMLElement;
 
-    expect(host.querySelector('app-stock-class-tile')).toBeNull();
     expect(host.textContent).toContain('Cattle');
     expect(host.textContent).toContain('Bull');
   });

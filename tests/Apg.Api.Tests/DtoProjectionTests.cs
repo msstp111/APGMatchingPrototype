@@ -591,6 +591,7 @@ public class DtoProjectionTests
 
             Assert.Equal(tally.MatchedInclDraft, dto.MatchedInclDraft);
             Assert.Equal(tally.MatchedExclDraft, dto.MatchedExclDraft);
+            Assert.Equal(tally.Drafted, dto.DraftedQuantity);
             Assert.Equal(tally.Unmatched, dto.Unmatched);
             Assert.Equal(tally.State, dto.QuantityState);
             Assert.Equal(DayOfWeek.Sunday, dto.WeekCommencing.DayOfWeek);
@@ -602,6 +603,7 @@ public class DtoProjectionTests
             var availability = SeedFixture.Data.Availabilities.Single(a => a.Id == dto.Id);
             var tally = MatchQuantities.ForAvailability(availability, SeedFixture.Data.Matches, SeedFixture.Cancelled);
 
+            Assert.Equal(tally.Drafted, dto.DraftedQuantity);
             Assert.Equal(tally.Unmatched, dto.Unmatched);
             Assert.Equal(
                 AvailabilityStatus.Derive(availability, SeedFixture.Data.Matches, SeedFixture.Cancelled),

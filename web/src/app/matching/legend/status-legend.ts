@@ -26,6 +26,12 @@ interface MeterRow {
   readonly matchedInclDraft: number;
   readonly matchedExclDraft: number;
   readonly unmatched: number;
+  /**
+   * The DTO's `unmatchedLabel` for this row — the magnitude, quoted rather than composed, exactly as
+   * the state label above it is. The legend draws itself from real `app-fill-meter` instances, so a
+   * row that spelled the sign differently from the server would make the key disagree with the board.
+   */
+  readonly unmatchedLabel: string;
   readonly what: string;
 }
 
@@ -118,6 +124,7 @@ export class StatusLegend {
       matchedInclDraft: 45,
       matchedExclDraft: 30,
       unmatched: 75,
+      unmatchedLabel: '75',
       what:
         'Orange: still short. The solid bar is quantity matched; the paler extension is what drafts ' +
         'have already spoken for. The figure beside it is what is left.',
@@ -130,6 +137,7 @@ export class StatusLegend {
       matchedInclDraft: 120,
       matchedExclDraft: 120,
       unmatched: 0,
+      unmatchedLabel: '0',
       what: 'Green: exactly filled, nothing over and nothing left. This is what you are aiming at.',
     },
     {
@@ -140,10 +148,12 @@ export class StatusLegend {
       matchedInclDraft: 148,
       matchedExclDraft: 148,
       unmatched: -28,
+      unmatchedLabel: '28',
       what:
         'Blue, and only on a Processor Space. More head matched than the space asked for, permitted ' +
         'and expected. The bar cannot grow past its track, so it takes an outline and a cap ticking ' +
-        'past the right-hand end instead.',
+        'past the right-hand end instead. The figure is how many head OVER — it carries no minus, ' +
+        'because the colour, the cap and the word already say which direction it went.',
     },
     {
       side: 'supply',
@@ -153,6 +163,7 @@ export class StatusLegend {
       matchedInclDraft: 144,
       matchedExclDraft: 144,
       unmatched: -24,
+      unmatchedLabel: '24',
       what:
         'Pink, and only on a Livestock Availability record. It means more stock is matched than the ' +
         'farmer has, and it should never appear: the only route to it is editing the record ' +

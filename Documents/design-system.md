@@ -103,8 +103,7 @@ Everything else about the theme stays as Phase 0 left it.
 ### 1.2 Material components — the complete list this design uses
 
 There are **no bespoke controls** in this design. Anything that looks like one is a `<div>` with
-inline styles carrying no interaction (the fill meter, the status spine, the stock-class tile, the
-week rail) — those are ornament, not controls.
+inline styles carrying no interaction (the fill meter, the status spine, the week rail) — those are ornament, not controls.
 
 | Need | Component |
 | --- | --- |
@@ -156,7 +155,6 @@ $lms-expansion-rule:      #D5D9DD;  // the vertical rules between that header's 
 $lms-rule-strong:     #BDBDBD;  // form-field underline, Pending hatch stroke
 $lms-rule-soft:       #EFEFEF;  // rules inside an expanded card
 $lms-faint:           #9E9E9E;  // tertiary text, empty-state text, cancelled spine
-$lms-tile-ink:        #5C5F62;  // stock-class monogram
 $lms-supply-ink:      #37393C;  // the supply column's identity tone
 
 // --- quantity ramp: HUE LIVES HERE AND NOWHERE ELSE -----------------------
@@ -188,7 +186,7 @@ has, so a component can reach them without importing the partial:
   --lms-expansion-rule: #{$lms-expansion-rule};
   --lms-expansion-head-rule: #{$lms-expansion-head-rule};
   --lms-rule-strong: #{$lms-rule-strong};  --lms-rule-soft: #{$lms-rule-soft};
-  --lms-faint: #{$lms-faint};              --lms-tile-ink: #{$lms-tile-ink};
+  --lms-faint: #{$lms-faint};
   --lms-supply-ink: #{$lms-supply-ink};
   --q-under-bar: #{$q-under-bar};          --q-under-ink: #{$q-under-ink};
   --q-exact-bar: #{$q-exact-bar};          --q-exact-ink: #{$q-exact-ink};
@@ -405,7 +403,6 @@ Material's own 24px horizontal.
 | Element | Radius |
 | --- | --- |
 | Card, band, column, frame, filter panel | **0** |
-| Stock-class tile (cattle) | 2px |
 | Chip | 13px — a pill, half its 26px height |
 | Fill meter track and over-run cap | 1px |
 | Dialog / modal | **4px** (overriding M3's 28px — §1.1) |
@@ -467,8 +464,7 @@ spine│ line 1  (17px)   ← aligns to the micro-cap header strip    │ chev �
 
 | Column | Width | Demand content | Supply content |
 | --- | --- | --- | --- |
-| Stock-class tile | `0 0 20px` | tile | tile |
-| Name | `1 1 auto`, `min-width: 0` | `processor` | `locationName` |
+| Name | `1 1 auto`, `min-width: 0` | `plant` (`-` if blank) | `locationName` |
 | Stock class | `0 0 96px` | `stockClass` | `stockClass` |
 | Date | `0 0 50px` | `deliveryDateLabel` | `availableFromLabel` |
 | Quantity | `0 0 40px`, right | `quantityRequired` | `quantityAvailable` |
@@ -481,6 +477,15 @@ card width less the spine (6), the chevron (24) and its own 8px horizontal paddi
 518px card (§8.2) the name column gets **114px**, and at the artboards' conservative 508px it gets
 104px. Both are enough for `Alliance Group` and for most location names; longer values ellipse.
 
+**The demand card's two names traded places (2026-09-08).** Line 1 led with `processor` from Phase 3
+until then, and roughly 70% of the column is ANZCO (`SeedConfig.ProcessorMix`; APG say the real share
+is higher), so the cell the eye starts on named most of the column in one word while the **plant** —
+the thing that identifies the slot — sat on line 2. They are simply swapped: `plant` on line 1 under a
+`Plant` heading, `processor` on line 2 where the plant was, 17px below. Same finding as the drag chip,
+which stopped carrying `processor` alone the same day (§10.1); the chip has no line 2 and so composes
+both into `ANZCO Kokiri`. The plant can be blank on a hand-built record, so line 1 falls back to `-`
+rather than rendering an empty bold cell (§13).
+
 The name column truncates with `white-space: nowrap; overflow: hidden; text-overflow: ellipsis`. So
 does the stock-class column — `Nat Beef - Premium` is the longest value and fits 96px at 13px Roboto
 with a few pixels to spare; anything longer ellipses rather than wrapping. **Never let a card grow a
@@ -490,14 +495,14 @@ Header strip: 28px, `#FAFAFA`, 1px `#E0E0E0` bottom rule, `position: sticky; top
 column's scroll container, with a 54px leading pad (48px rail + 6px spine) so its cells sit over the
 card cells.
 
-Micro-cap header text: demand `Processor · Stock class · Delivery · Req'd · Unmatched`; supply
+Micro-cap header text: demand `Plant · Stock class · Delivery · Req'd · Unmatched`; supply
 `Location · Stock class · Avail fr · Avail · Unmatched`.
 
 **Line 2** is unlabelled meta, `gap: 8px`:
 
 | Position | Demand | Supply |
 | --- | --- | --- |
-| Left, flexes and truncates | `plant · deliveryTime` (`-` if null) | `farmerName · transactionType` |
+| Left, flexes and truncates | `processor · deliveryTime` (`-` if null) | `farmerName · transactionType` |
 | Then, only when over | `Over-filled` in `$q-over-ink`, weight 500 | `Over-committed` in `$q-pink-ink`, weight 500 |
 | Then | match count — `no matches` / `1 match` / `n matches` | same |
 | Right | status icon + status label (§3.1) | same |
@@ -612,31 +617,94 @@ opening must never close a demand one. Comparing two records on the *same* side 
 way. Guarded by `board/card-state.spec.ts`, whose real subject is the per-column half: clearing the
 whole set on open is shorter code and would pass any test that only ever opens one column.
 
-It has three parts in this order — **the sums come first**, which is a change from the original
-layout and is the reason the block reads top-down as answer-then-detail:
+It still has **three** parts in this order — **the sums come first**, and that is the reason the block
+reads top-down as answer-then-detail. What changed on 2026-09-08 is what is *in* the first two:
 
-1. **The sums, as the drawer's anchor** — `padding: 8px 10px 6px 8px`, **no ground**, 1px
-   `$lms-rule-soft` bottom rule, `gap: 26px`. **Figure over label** (`column-reverse`): the value at
-   **20px/600 tabular**, the micro-cap label beneath it. This is the one place on the screen where a
-   quantity is set larger than a card's own figures, and it is deliberate — these two sums are the
-   answer the drawer was opened for, and until they were set at a size that says so the block had no
-   focal point at all: everything in it sat between 10.5 and 13px, so the eye drifted across grounds
-   looking for one. The type scale was the axis that had never been spent (§5.1 has no step above
-   15px on this screen); value was the axis that had been spent eight times over.
-   - `Quantity Matched incl. Draft` → `matchedInclDraft`
-   - `Quantity Matched` → `matchedExclDraft`
+1. **The sums strip, as the drawer's anchor** — `padding: 8px 39px 6px $card-edge`, **no ground**, 1px
+   `$lms-rule-soft` bottom rule, `gap: 26px`. **Figure over label**: the value at **20px/600
+   tabular**, the micro-cap label beneath it, broken over two deliberate lines
+   (`Quantity Matched` / `excl. Draft`). Three cells, **left-aligned**, with `Quantity unmatched`
+   alone on the trailing edge.
 
-   **Those are the labels.** APG-facing wording, never the DTO field names, and the excl-draft sum is
-   labelled simply "Quantity Matched" because that is what a processor or farmer would see.
-2. **Field row** — `padding: 8px 10px 6px`, 1px `$lms-rule-soft` bottom rule, `gap: 24px`. Each field is a micro-cap label over a 12.5px value. Empty values render `-`.
-   - *Demand:* `Notes`, then right-aligned `Quantity required`, `Quantity unmatched`.
-   - *Supply:* `Availability details`, `Transaction type`, `Notes`, then right-aligned
-     `Quantity available`, `Quantity unmatched`.
-   - The `Quantity unmatched` value is in `*-ink` at weight 500, followed by the DTO's
-     `quantityStateLabel` at weight 400.
+   The 39 is the card's own 40px trailing run (`$card-edge * 2 + $col-chevron` — `.card`'s padding,
+   `.cbody`'s padding, and the 24px chevron between them) less the sheet's 1px frame, **not** the 10px
+   the drawer's other edges keep. Only the unmatched cell reaches it, and reaching it is the point:
+   that figure lands directly beneath the meter numeral on the row above. Write it as its terms;
+   §16.10 is the standing warning about spelling this run as a literal.
+
+   - `Quantity Matched excl. Draft` → `matchedExclDraft`, as a **fraction**: `29 of 77`.
+   - `Quantity Matched incl. Draft` → `matchedInclDraft`, likewise, with `· 30 drafted` after it.
+   - `Quantity unmatched` → `unmatched` in `*-ink`, followed by the DTO's `quantityStateLabel`.
+   - The denominator is `quantityRequired`, or `quantityAvailable` on the supply side. Everything hung
+     off a figure — the ` of 77`, the drafted count, the state word — rides at 12.5px/400 in
+     `$lms-text-muted`, so the figure keeps the size to itself.
+   - `30 drafted` is `draftedQuantity` off the DTO: the two sums' difference, **not** to be composed
+     client-side, and the figure the `Confirm space` gate below turns on.
+
+   20px is the one place on the screen where a quantity is set larger than a card's own figures, and
+   it is deliberate — these are the answer the drawer was opened for, and until they were set at a
+   size that says so the block had no focal point at all: everything in it sat between 10.5 and 13px,
+   so the eye drifted across grounds looking for one. The type scale was the axis that had never been
+   spent (§5.1 has no step above 15px on this screen); value was the axis that had been spent eight
+   times over.
+
+   **Those are the labels.** APG-facing wording, never the DTO field names — and **both** sums carry
+   their qualifier, which is a change. The excl-draft one used to read simply "Quantity Matched",
+   because that is what a processor or farmer would see; but they are the two roles that never see the
+   other sum, and on an APG-only screen an unqualified "Quantity Matched" sitting beside a larger
+   figure labelled "incl. Draft" read as the grand total when it is the subset.
+
+   Two faults were fixed here on 2026-09-08 and both are the kind that survive review:
+
+   - **`Quantity required` / `Quantity available` and `Quantity unmatched` were printed twice.** They
+     had a right-aligned cell each in the field row below, and they were verbatim copies of two cells
+     on the **collapsed row 40px above** — same figures, same order, with the meter between them.
+     Every review read past it because the eye does not compare a 12.5px caption to a 15px numeral it
+     has already accepted. `required` survives as each sum's denominator; `unmatched` survives once,
+     in this strip.
+   - **The sums were printed bare.** `59` and `29` with nothing to divide into send the eye back up to
+     the collapsed row for the 77. The requirements specify these two sums **four times** — both list
+     views and both record views — and every one says the same thing about placement: *"displayed as
+     read-only beside the Quantity Required value"*. So the fraction is not a flourish; the spec asked
+     for the denominator and Phase 3 dropped it. Note also that the matching screen's own field list
+     (`Matches – Create`) includes **neither** sum: they are imported from the record views, which is
+     exactly why they arrived without the context those views give them.
+
+   **Two other layouts were tried the same day and rejected.** Read these before proposing a third,
+   because both were defensible on paper:
+
+   - **One row**, prose leading and all four figures trailing, to spend the drawer's unused width
+     instead of its height. It **wrapped**: four micro-cap labels of this length plus a line of notes
+     exceed the column, so the figures dropped to a second line and the drawer opened on its notes
+     instead of on its numbers.
+   - **Two blocks with all four figures grouped on the trailing edge**, prose beneath. It did not
+     wrap, and the alignment against the collapsed row's `Req'd` and `Unmatched` columns was real —
+     but a strip whose content all sits at one end reads as the fragment of a row rather than as the
+     drawer's head, and the eye enters the sheet from the leading edge, where the card's own name is.
+     The unmatched figure stays right on its own account, because it is the one figure the row above
+     also ends with.
+
+   The lesson both attempts point at: **the strip's height was never the problem the drawer had.**
+   Removing the duplicated pair took ~35px out of it, and that was the whole of the win available.
+
+   **`Documents/sums-strip-lab.html` draws ten further ideas against this strip, plus one variant**
+   — the alignment fixes that keep the wording, the wording cuts that keep the layout, three changes
+   of shape and two changes of what is shown — each in six records including nothing-matched,
+   over-filled, four-digit and a supply record — and each under a **quantity-state** control that
+   swaps Under / Exact / Over while keeping the record's identity, so `0 Filled` in green and
+   `-9 Over-filled` in blue (and `Over-committed` in pink on the supply side) can be judged without
+   changing six other things at once. Read it before proposing an eleventh, and note what it is *not*
+   about: the two rejected layouts above are deliberately absent from it.
+2. **Field row** — `padding: 8px 39px 6px $card-edge`, 1px `$lms-rule-soft` bottom rule,
+   `gap: 4px 24px`. Each field is a micro-cap label over a 12.5px value — the other way round from
+   the strip above, where the figure leads because the figure is what is being read. Empty values
+   render `-`. **It holds no quantities**; see item 1.
+   - *Demand:* `Notes`.
+   - *Supply:* `Availability details`, `Transaction type`, `Notes`.
 3. **Match table** — an LMS table, and it must read as a table rather than as more rows.
-   `th`: 26px, micro-caps, ground `$lms-expansion-th` `#ECEFF1` (lighter than the caption bar above
-   it, so the table has a top of its own without competing with it), 1px `$lms-divider` bottom rule.
+   `th`: 26px, micro-caps, ground `$lms-expansion-th` `#ECEFF1` — the only ground left inside the
+   sheet, and with the caption bar gone it is simply the table's own head, 1px `$lms-divider` bottom
+   rule.
    `td`: 30px, 12.5px, 1px `$lms-rule-soft` bottom rule, hover `$lms-hover`. **No row zebra** — see
    §3.2. Columns are separated by **vertical rules** instead (`th + th` in `$lms-expansion-rule`,
    `td + td` in `$lms-rule-soft`): every other structure on this screen is horizontal, which is
@@ -699,7 +767,7 @@ meter:
    on supply. The title takes the same colour. This is the shell's own brand blue on a header, not a
    hue on a card, so it does not collide with §3.
 2. **Lead glyph** — a works/factory outline on demand, a location pin on supply, in the header.
-3. **Header strip labels** — `Processor / Delivery / Req'd` versus `Location / Avail fr / Avail`.
+3. **Header strip labels** — `Plant / Delivery / Req'd` versus `Location / Avail fr / Avail`.
 4. **Noun set, everywhere** — `Required`/`Filled`/`Over-filled` versus
    `Available`/`Committed`/`Over-committed`, on cards, in dialogs and in the DTO's own
    `quantityStateLabel`.
@@ -711,49 +779,45 @@ the title, pushed right) · the `Filtered` badge and `Reset` when away from defa
 
 ---
 
-## 7. Stock-class tiles
+## 7. Stock class carries no hue — and now no badge either
 
 **Stock class carries no hue.** `Data/stock-class-configs.csv` ships a hex colour per class, and
 Phase 8 §3.1 asks for it — but resolved question 16 commits hue exclusively to the quantity meter, and
 the roadmap's resolved questions outrank a phase document. Twenty-two saturated swatches on a screen
-whose entire scanning task is a three-colour quantity ramp would destroy the ramp.
+whose entire scanning task is a three-colour quantity ramp would destroy the ramp. The CSV's
+**`color`** column is therefore **not used on the matching screen**, and Phase 8 inherits that
+decision rather than re-deciding it.
 
-So: the CSV's **`icon`** column informs the species grouping; its **`color`** column is **not used on
-the matching screen**. Phase 8 inherits this decision rather than re-deciding it.
+**The 20px monogram tile that replaced the colour is gone too (2026-09-08, Mark's call), and with it
+the whole idea of abbreviating a stock class.** It was a `#EEEEEE` square, circle or diamond carrying
+two upper-case letters — `PR`, `LM`, `GU` — with the *shape* standing for the species, a channel
+neither status nor quantity used. It came off the screen in three steps, and the reason is the same
+one each time: **wherever there was room for the badge, there was room for the words.**
 
-Instead — a **20 × 20px monogram tile**: `#EEEEEE` fill, `#5C5F62` text at 11px/600,
-`letter-spacing: -.2px`, `line-height: 20px`, centred. **Shape carries species**, a channel neither
-status nor quantity uses:
+| When | Where it came off | Why |
+| --- | --- | --- |
+| §16.10 | both card rows, and the header strip | line 1 spells the class out in full two cells along, so the tile said it twice in the row's tightest 20px |
+| §11.1, §11.4 | the quantity prompt and the match modal | both dialogs name the class in each block's sub-line |
+| this section | the drag chip (§10) | the last surface, and the one with no room for a class name — see below |
 
-| Species | Shape |
-| --- | --- |
-| Sheep | circle (`border-radius: 50%`) |
-| Cattle | square (`border-radius: 2px`) |
-| Deer | diamond (`border-radius: 2px; transform: rotate(45deg)`, with the text counter-rotated) |
+**The chip is the case worth recording,** because for a day it was the argument for keeping the tile:
+200px holding three fields, no room to spell `Nat Beef - Premium` out, so the monogram was the only
+thing in the operator's hand saying what species it held. What settled it is that **nobody could read
+it.** A two-letter abbreviation of a vocabulary the operator meets a dozen times a day is legible; one
+of a vocabulary of twenty-two, half of them cattle grades that differ in the second word, is a puzzle
+mid-gesture — and a puzzle in the one place a drag cannot afford one. The species shape does not
+rescue it either: three shapes over twenty-two classes distinguishes sheep from cattle, which is
+rarely the question. **The chip is two fields now** — the name and the head count — and the record it
+came from is still on screen, unmoved, under the `origin` treatment.
 
-| Stock class | Vocabulary | Monogram | Shape |
-| --- | --- | --- | --- |
-| `Lamb` | both | `LM` | sheep |
-| `Mutton` | both | `MU` | sheep |
-| `Cows` | ANZCO, SFF | `CO` | cattle |
-| `Cow` | supply | `CO` | cattle |
-| `Prime` | ANZCO, SFF, supply | `PR` | cattle |
-| `Bulls` | ANZCO | `BU` | cattle |
-| `Bull` | supply | `BU` | cattle |
-| `Sire Bull` | supply | `SB` | cattle |
-| `Cattle` | Alliance | `CA` | cattle |
-| `Mixed Cattle` | supply | `MC` | cattle |
-| `Nat Beef - Ultra` | ANZCO | `NU` | cattle |
-| `Nat Beef - Premium` | ANZCO | `NP` | cattle |
-| `GFNB ultra` | supply | `GU` | cattle |
-| `GFNB premium` | supply | `GP` | cattle |
-| `Deer` | Alliance | `DE` | deer |
+**And note what happened to the "no room" argument hours later:** the chip grew to 232px to fit
+`ANZCO Kokiri`, so the room was there for the asking (§10.1). That is not a reason to reconsider the
+tile. The 20px bought back nothing that could be read; the 32px bought the plant, in words.
 
-**Fallback:** any class not in the table renders a **square** tile with the first two characters
-upper-cased. Nothing ever renders bare. The `title` attribute always carries the full class name.
-
-The mapping belongs in the Phase 0 config module (`SeedConfig.cs`'s client-side counterpart), not
-scattered through components (Phase 8 §3.3).
+**So: no abbreviation of a stock class exists anywhere in the application.** Every place a class
+appears — card line 1, both dialogs' sub-lines, the filter chips' menus, both record forms — it
+appears in words. If a surface is ever too tight for the words, that is a sign the surface is carrying
+too much, not that it needs a code.
 
 ---
 
@@ -1002,6 +1066,32 @@ that rule is the backlog.
 | **Disabled control** | Material's own disabled styling, **plus a stated reason** beside it wherever the reason is not obvious (see §6.2's Confirm). |
 | **Focus** | Material's own, exactly as it arrives. Do not remove it; do not build on it. |
 
+### 10.1 The drag chip
+
+**232 × 30px, `#FFFFFF`, 2px `#00567E`, 3px radius, `0 6px 14px rgba(0,0,0,.24)`.** Not a copy of the
+card: Phase 5's preview was the row at full 518px width, so the thing in the operator's hand covered
+the row they were aiming at. **Two fields, and the pill:**
+
+| Cell | Demand | Supply |
+| --- | --- | --- |
+| Name — `1 1 auto`, `min-width: 0`, ellipsis | **`processor` + `plant`** — `ANZCO Kokiri` | `locationName`, or `-` |
+| Head count — `0 0 auto`, `#757575`, tabular | `quantityRequired` | `quantityAvailable` |
+| Outcome pill — under the chip, right-aligned, petrol on white | `Match 8 head`, **only when it disagrees with the head count above it** (§11.2's sibling: a pill repeating the chip has cost a glance and said nothing, so its presence *means* the drop is partial) | same |
+
+**The demand name is the whole slot, not the processor (2026-09-08).** It was `processor` alone, and
+about 70% of the seeded column is ANZCO's — APG say the real share is higher still — so the chip
+named most of the column with one word. The plant is the part that identifies the slot. Card line 1
+gets away with the processor alone because line 2 carries the plant 17px below it; the chip has no
+line 2. One composition, `card-chrome.spaceName`, shared with both dialog titles, so a record with no
+plant yet cannot produce `ANZCO ` with a trailing space.
+
+**The 232px is measured, not chosen** (headless Chrome, 12px/500 Roboto): 142.8px for
+`Alliance Group Dannevirke` — the longest name either column can produce, against the supply side's
+130.1px `Spring Creek Agriculture`, which was already clipping at 200px — plus a 6px gap, 55.8px for
+a tabular `1180 head`, plus 8px of padding a side. 220.6px, rounded up for cushion. **Do not add a
+third field**: what makes the chip work is that it is under half the card it is dragged over, and the
+next field would come out of the name.
+
 **Nothing keyboard-driven is designed, on purpose.** A mouse is assumed available at all times
 (resolved question 14): no keyboard drag path, no "press space to lift" hint, no drag-handle focus
 ring, no screen-reader live region for the drag. Its absence is a decision, not an oversight to be
@@ -1054,9 +1144,9 @@ not a paragraph says so.
 **And no monogram tile either** (same day, same call). §16.10 took the tile off the card rows and the
 header strip as match noise; these two dialogs and the drag chip were the only places it survived, and
 a badge beside each name in a dialog that also spells the class out in words was the last place it
-read as meaningful. **The drag chip keeps its tile**, and that is not an oversight: the chip has three
-fields in 200px and no room to spell a stock class out, so the monogram is the only thing in it that
-says what species is in hand.
+read as meaningful. The drag chip kept its tile for one more day on the grounds that it had no room
+for the words — **and then lost it too (2026-09-08), which took the monogram out of the application
+altogether.** §7 carries why.
 
 **Actions:** `Cancel` (`mat-button`) · `Create match` (`mat-flat-button`, petrol).
 
@@ -1140,25 +1230,38 @@ warning that `Cows` on a space against `Cow` on an availability record looks lik
 The vocabularies still do not align — `Cattle` against `Mixed Cattle`, `Nat Beef - Ultra` against
 `GFNB ultra`, and neither side is validated against the other — but by the time a match exists the
 operator has already made that judgement at the prompt, and the paragraph only crowded the dialog.
-Both classes are still on screen, in each block's sub-line — which is now the only place they are,
-the monogram tile having come out the same day (see §11.1).
+Both classes are still on screen, in each block's sub-line — which is now the only place this dialog
+states them, the monogram tile having come out the same day (see §11.1) and off the whole screen the
+day after (§7).
 
 **Footer — destructive left, constructive right:**
 
 | Match status | Left | Right |
 | --- | --- | --- |
-| `Drafted` | `Undo match` (`mat-button`, `#BA1A1A`) | `Close` · `Save changes` · `Confirm match` (flat petrol) |
+| `Drafted` | `Cancel match` (`mat-button`, `#BA1A1A`) | `Close` · `Save changes` · `Confirm match` (flat petrol) |
 | `Confirmed` | `Cancel match…` (`mat-button`, `#BA1A1A`) | `Close` · `Save changes` |
 
 Delete is offered **only** at `Drafted`, needs no reason, and is not a cancellation (resolved
 question 3). Cancel-with-reason is offered only past `Drafted`.
 
-**The button reads `Undo match`, not `Delete draft`** (changed 2026-09-07, Mark's call). What the
-operator is taking back is the drag they just made, and a draft has been communicated to nobody — so
-`Undo` describes the act as they experience it, where `Delete` announced the mechanism. It keeps the
-`#BA1A1A` destructive treatment all the same: the row is gone for good, and there is no undoing the
-undo. The snack says `Match undone` for the same reason — a confirmation that reports a different verb
-from the one pressed makes an operator wonder whether something else happened.
+**Both buttons read `Cancel match`, and the ellipsis is the only difference** (changed 2026-09-08).
+The label went `Delete draft` → `Undo match` (2026-09-07, Mark's call) → `Cancel match`, and the last
+step is the one that matters: `Undo` and `Cancel` sat in the same footer slot, in the same red, for
+the same intent — getting rid of this match — and an operator who has just been shown one of them has
+no way to know the other exists, so the two words read as two mechanisms rather than one act at two
+stages of its life. They never appear together (`canDelete` is `Drafted`-only, `canCancel` is
+everything past it), so a shared verb costs nothing and the **ellipsis** carries the real
+distinction: `Cancel match` acts on the press, `Cancel match…` asks for a reason first — which is
+exactly what the ellipsis means everywhere else in the application. Resolved question 3's
+distinction is unchanged underneath: the draft is *removed*, the confirmed match is *kept with its
+reason*. That difference is record keeping, not intent, and the footer is not where it needs saying.
+
+It keeps the `#BA1A1A` destructive treatment: the row is gone for good. **The snack says
+`Match cancelled` in both cases** — a confirmation that reports a different verb from the one pressed
+makes an operator wonder whether something else happened.
+
+The snackbar `UNDO` action on the drop snack (§11.1) is untouched: that one *is* an undo, in the
+standard snackbar idiom, offered seconds after the drag and taking the same `DELETE` path.
 
 ### 11.5 Editing a Confirmed match — prompt first
 
@@ -1180,11 +1283,12 @@ edits prompt at `Confirmed`; nothing prompts at `Drafted`.
 - Change from Processor
 - Internal decision by APG
 
-Then a warning panel — `$lms-attention-bg` (`#F5F5F5`), a 3px `$lms-error` left border, warning glyph:
-
-> **A cancelled match disappears from the matching screen.** Pass 1 has no Match list view, so it
-> will not be visible anywhere afterwards. Both records keep their own status — cancelling a match
-> never touches its parents.
+**No warning panel** (removed 2026-09-08). It used to sit under the radio group — `$lms-attention-bg`
+behind a 3px `$lms-error` left border — spelling out that a cancelled match disappears from the
+matching screen, that pass 1 has no Match list view, and that neither parent record is touched. All
+three are still true; none of them is worth a paragraph in front of every cancellation, and the last
+two are pass-1 scaffolding facts that belong in `DEMO.md`, not in an operator's way. The dialog is now
+its title, the three reasons, and the two buttons.
 
 Actions: `Keep match` · `Cancel match` (`mat-flat-button`, `#BA1A1A`).
 
@@ -1351,12 +1455,51 @@ The reload is deliberate. A refetch would leave behind everything that is not fe
 cards, a drag in flight, an open dialog, the in-memory half of the preference store — and a reset that
 leaves a card expanded on a match that no longer exists is worse than one that takes a second.
 
+### 14.2 The record forms' layout (2026-09-08)
+
+Both debug forms are **one two-column grid** — `web/src/app/matching/record/_record-form.scss`, shared,
+so the demand and supply dialogs cannot drift. Three rules, and each of them replaces something the
+first cut got wrong:
+
+1. **The column count is fixed at two, not derived from the width.** The forms were a wrapping flex
+   row off a 180px basis, so the 640px dialog fitted *three* columns and `Availability details` — a
+   textarea with a two-line hint — landed in a 180px cell. Only a window narrow enough to clip the
+   dialog to Material's 80vw default produced the two the layout was drawn for, which is why the
+   screenshots that found this look right in the pairing and wrong in everything else. Two columns at
+   ~290px hold `Alliance Group Dannevirke` and a farm name; three at 180px hold neither. Below 560px
+   of viewport they stack to one.
+2. **`align-items: start`. A field's box is its own height.** A flex line stretches its items, so the
+   field *without* a hint grew its filled ground to match the field *with* one: `Processor` ran ~20px
+   taller than `Stock class` beside it — fill, focus underline and all — with dead grey below its
+   value, and `Transaction type` grew to the full height of the textarea and hint opposite it. A
+   filled field's ground is a control-sized object; stretching it says the control is that size.
+3. **The gutter is the grid's — 14px between rows, 16px between columns — and the subscript is not a
+   gutter.** Every field used to reserve `min-height: 18px` of subscript whether or not it had a hint
+   to put there, which meant a field *with* a hint spent that 18px on the words and butted straight
+   into the row below, while a field without one held 18px of nothing. A hint belongs to the field
+   above it, not to the space between two rows.
+
+Two consequences worth knowing. `.f-notes` / `.f-details` had asked for `flex: 1 1 100%` at
+specificity 0,1,0 while `.fields mat-form-field` answered `flex: 1 1 180px` at 0,1,1 — **the
+full-width rule never applied at all**, and Notes only *looked* full width because it was the last
+item on a line with room to grow; the span rules are now scoped `.fields` so they win. And `.fixed`,
+the read-only cell an edit uses for processor and stock class (requirement 4.2), takes its height from
+`--mat-form-field-container-height` and a 16px inset from Material's own filled padding, rather than
+repeating the 52 that `styles.scss` sets — it has to *be* a field's height, not happen to match it
+until someone changes the density row.
+
+`Documents/browser-checklist.md` carries the geometry claims. They are **unrun**.
+
+---
+
 ---
 
 ## 15. Strings — use these exactly
 
 Wording is part of the design, and non-technical users are the audience. No jargon that isn't APG's
-own: "Quantity Matched", never `matchedExclDraft`.
+own: "Quantity Matched", never `matchedExclDraft`. On the expanded card **both** sums are qualified
+(`excl. Draft` / `incl. Draft`), because APG is the only role that sees both and the bare title is the
+processor's and farmer's name for the excl-draft one.
 
 | Where | String |
 | --- | --- |
@@ -1365,7 +1508,8 @@ own: "Quantity Matched", never `matchedExclDraft`.
 | Availability over-committed | `Over-committed` |
 | Space quantity states | `Under-filled` / `Filled` / `Over-filled` |
 | Availability quantity states | `Under-committed` / `Fully committed` / `Over-committed` |
-| Expanded sums | `Quantity Matched incl. Draft` and `Quantity Matched` |
+| Expanded sums | `Quantity Matched excl. Draft` and `Quantity Matched incl. Draft`, each as a fraction: `29 of 77` |
+| Expanded drafted figure | `Drafted` |
 | Cancellation reasons | `Change from Agent/Farmer` · `Change from Processor` · `Internal decision by APG` |
 | Column counts | `showing 44 of 50` |
 | Away from default | `Filtered` / `Reset` |
@@ -1382,9 +1526,10 @@ own: "Quantity Matched", never `matchedExclDraft`.
 
 1. **Line 2 is unlabelled on purpose.** Only line 1 aligns to the header strip. Labelling both would
    need two header rows and cost 28px of the 596px list.
-2. **The card's `title` attributes** carry the full stock-class name on the tile and
-   `708 matched / 1003 incl. draft of 1180` on the meter, so a truncated or abbreviated value is
-   always recoverable by hover.
+2. **The card's `title` attributes** carry the full stock-class name on the `.sclass` cell (which
+   truncates at 96px) and `708 matched / 1003 incl. draft of 1180` on the meter, so a truncated value
+   is always recoverable by hover. Nothing on the card is *abbreviated* any more — the monogram tile
+   that was went out on 2026-09-08 (§7).
 3. **The match count on line 2 is live matches only.** Cancelled matches are excluded from the DTO's
    `matches` array entirely (resolved question 4) — but they are still correctly excluded from both
    sums. Do not blend those two facts.
@@ -1430,10 +1575,12 @@ own: "Quantity Matched", never `matchedExclDraft`.
     that it was found while implementing something unrelated (§6.2's notch needed the chevron off the
     card's edge), and it was found by **measuring pixels in a browser**, which is the one pass no
     test in this repo can do. `Documents/browser-checklist.md` exists for this reason.
-11. **The stock-class tile is not in the 17px line-1 height.** The tile is 20px and the line is 17px,
-    so the tile overflows the line box by 1.5px top and bottom. That is harmless — the row is
-    `align-items: center` inside a 51px content box with 8.5px of slack above and below — but it is
-    why the card height is set explicitly rather than summed from its parts (§6.1).
+11. **~~The stock-class tile is not in the 17px line-1 height.~~** Moot since the tile came off the
+    card rows (§16.10) and out of the application entirely (§7): the 20px box that overflowed the
+    17px line by 1.5px a side no longer exists. The point it was making does survive it — the card
+    height is set explicitly rather than summed from its parts (§6.1), which is what made the
+    overflow harmless and is still what keeps a 51px content box from being redefined by whatever the
+    tallest thing in the row happens to be.
 12. **The grip is a real cell, and the leading offset now says so (2026-09-07).** §10 originally gave
     the drag affordance as a six-dot glyph appearing on hover in the body's right gutter, with the
     *whole card body* as the `cdkDragHandle`, and item 10 above was the reason it was positioned
@@ -1514,7 +1661,8 @@ sidebar header, the version and copyright block, and the inert nav list in its o
 - [ ] ~10 cards visible per column at 1366 × 768 (§8.3). Measure it.
 - [ ] Fill meter: two segments, alpha for the draft delta, over-run treatment defined in §4.2.
 - [ ] Status spines exactly as §3.1. No hue on status; no pattern on the meter.
-- [ ] Stock-class tiles with the species shapes and the fallback (§7). CSV hex colours **not** used.
+- [ ] No stock-class abbreviation anywhere: every class in words, on the cards, both dialogs, the
+      forms and the drag chip (§7). CSV hex colours **not** used.
 - [ ] A `NzTime` formatter added in C# for `Week of 23 Aug` and shipped on the DTO — no date formatting
       in TypeScript, and no `new Date()` from an ISO value.
 - [ ] Every record drawn exactly once, in the band of its own date (§9.2).

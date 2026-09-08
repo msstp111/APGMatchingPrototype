@@ -1,5 +1,4 @@
 import { ChangeDetectionStrategy, Component, computed, inject, input } from '@angular/core';
-import { StockClassTile } from '../card/stock-class-tile';
 import { DropOutcome } from './drop-outcome';
 
 /**
@@ -7,8 +6,9 @@ import { DropOutcome } from './drop-outcome';
  *
  * Phase 5's preview was the card itself at full width, which meant the thing in your hand covered the
  * row you were aiming at — a 518px card obscuring the 518px card underneath it. The chip carries the
- * three fields a drag actually needs to stay oriented (what species, whose, how many) and gets out of
- * the way of the answer.
+ * two fields a drag actually needs to stay oriented (whose, and how many) and gets out of the way of
+ * the answer. "Whose" is the whole slot on the demand side — `ANZCO Kokiri`, not `ANZCO` — because
+ * most of that column is ANZCO's and the plant is the part that says which slot is in hand.
  *
  * It also carries the outcome (design-system.md 10, Phase 9). The pill hangs under the chip rather
  * than sitting on the target card, at Mark's direction: the outcome belongs to the card in your hand,
@@ -26,16 +26,16 @@ import { DropOutcome } from './drop-outcome';
 @Component({
   selector: 'app-drag-preview',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [StockClassTile],
   templateUrl: './drag-preview.html',
   styleUrl: './drag-preview.scss',
 })
 export class DragPreview {
   private readonly outcome = inject(DropOutcome);
 
-  readonly stockClass = input.required<string>();
-
-  /** The processor on a space, the location on an availability record. */
+  /**
+   * `ANZCO Kokiri` on a space — processor *and* plant, composed by the card through
+   * `card-chrome.spaceName` — and the location on an availability record.
+   */
   readonly name = input.required<string>();
 
   /** `quantityRequired` or `quantityAvailable`, rendered as given. */

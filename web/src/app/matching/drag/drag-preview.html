@@ -1,9 +1,8 @@
 <!--
-  Three fields and no more. A drag lasts a second or two and the operator already knows what they
+  Two fields and no more. A drag lasts a second or two and the operator already knows what they
   picked up; the chip's job is to keep them oriented, not to restate the row they can still see.
 -->
 <div class="chip">
-  <app-stock-class-tile [stockClass]="stockClass()" />
   <span class="cname" [title]="name()">{{ name() }}</span>
   <span class="chead">{{ headCount() }} head</span>
 </div>

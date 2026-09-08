@@ -49,7 +49,21 @@ $expansion-actions-padding: 10px 10px 8px;
 $auto-scroll-zone: 48px;
 // The drag preview (design-system.md 10, Phase 9). A chip, not a copy of the card: at full card width
 // the thing in your hand covers the row you are aiming at.
-$drag-chip-width: 200px;
+//
+// 232px, MEASURED not chosen (2026-09-08, headless Chrome at 12px/500 Roboto), because the chip now
+// carries `ANZCO Kokiri` rather than `ANZCO` and the plant is the half that would truncate:
+//
+//   142.8  `Alliance Group Dannevirke`, the longest name either column can produce — the supply
+//          side's longest, `Spring Creek Agriculture`, is 130.1 and was already clipping at 200px
+//     6    the flex gap
+//    55.8  `1180 head`, tabular
+//    16    8px of padding a side
+//   ----
+//   220.6  → 232, leaving ~11px of cushion for a font that renders wider than this measurement.
+//
+// It is still under half the 508px card, which is the constraint that matters: the chip must not
+// cover the row being aimed at.
+$drag-chip-width: 232px;
 $drag-chip-height: 30px;
 // Phase 3's $search-strip-height is gone. design-system.md 12.1's shared search strip was
 // deliberately not built (Phase 4) — the per-column filters cover it, and the 52px it reserved went
@@ -62,12 +76,11 @@ $drag-chip-height: 30px;
 
 // --- line 1's columns (design-system.md 6.1) ---
 $col-gap: 8px;
-// The monogram tile is no longer a cell on line 1 — Mark had it removed from both cards and from the
-// header strip, because the class it abbreviates is spelled out in full two cells along and 20px of a
-// 518px row is worth more to the name. The dimension stays because the tile itself lives on: the
-// quantity prompt, the match modal and the drag preview all still carry one, where there is no
-// adjacent stock-class column and the tile is the only thing saying what species is in play.
-$col-tile: 20px;
+// $col-tile — the monogram tile's 20px — is GONE (2026-09-08), with the tile itself. It came off
+// line 1 and the header strip first (the class it abbreviated is spelled out in full two cells
+// along), then off both match dialogs, and last off the drag chip, which was the only surface with
+// no room to spell a class out. Nothing abbreviates a stock class anywhere now: every place one
+// appears, it appears in words.
 $col-stock-class: 96px;
 // UNCHANGED at 50px, and worth saying why, because this change began as a complaint about it.
 // 50px was never too small for a date. It was too small for `dd-MM-yy` (~56px) and for the word

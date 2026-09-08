@@ -135,15 +135,14 @@ describe('Match modal', () => {
   });
 
   /**
-   * The monogram badge came off the card rows as match noise, and a dialog that still carried one
-   * beside each name was the last place it read as meaningful. Both classes stay on screen in the
-   * blocks' sub-lines.
+   * The monogram badge came off the card rows as match noise, then off the dialogs, and in 2026-09-08
+   * off the drag chip and out of the application. The blocks' sub-lines are now the only place either
+   * class is stated, which is why this asserts they are both in the text.
    */
-  it('carries no stock-class badge, and still names both classes', async () => {
+  it('names both stock classes, the only place either one is now stated', async () => {
     const fixture = await mount(context());
     const host = fixture.nativeElement as HTMLElement;
 
-    expect(host.querySelector('app-stock-class-tile')).toBeNull();
     expect(host.textContent).toContain('Nat Beef - Premium');
     expect(host.textContent).toContain('Prime');
   });
@@ -249,19 +248,23 @@ describe('Match modal', () => {
   // --- the footer -----------------------------------------------------------------------------------
 
   /** Resolved question 3: delete for a mis-drag, cancel-with-reason for anything past it. Never both. */
-  it('offers Undo match and Confirm match on a drafted match, and no cancel', async () => {
+  /**
+   * Both say `Cancel match`; the ellipsis is the only difference, and it is the whole difference —
+   * the drafted one acts on the press, the other asks for a reason first.
+   */
+  it('offers Cancel match and Confirm match on a drafted match, and no reason-asking cancel', async () => {
     const labels = buttons(await mount(context('Drafted')));
 
-    expect(labels).toContain('Undo match');
+    expect(labels).toContain('Cancel match');
     expect(labels).toContain('Confirm match');
     expect(labels).not.toContain('Cancel match…');
   });
 
-  it('offers Cancel match on a confirmed match, and neither delete nor confirm', async () => {
+  it('offers Cancel match… on a confirmed match, and neither delete nor confirm', async () => {
     const labels = buttons(await mount(context('Confirmed')));
 
     expect(labels).toContain('Cancel match…');
-    expect(labels).not.toContain('Undo match');
+    expect(labels).not.toContain('Cancel match');
     expect(labels).not.toContain('Confirm match');
   });
 

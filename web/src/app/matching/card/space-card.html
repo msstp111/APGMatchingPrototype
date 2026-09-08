@@ -36,7 +36,18 @@
       Row 1 of the card body's grid. There is no .l1 wrapper any more: every cell is a direct child of
       .cbody and is placed by grid area, because line 2 now has to align to line 1's columns.
     -->
-    <span class="name" [title]="space().processor">{{ space().processor }}</span>
+    <!--
+      The plant leads (2026-09-08), not the processor. ~70% of this column is ANZCO
+      (SeedConfig.ProcessorMix, and APG say the real share is higher), so the processor named most of
+      the column in the one cell the eye starts on; the plant is what identifies the slot. The two
+      simply traded places — the processor is on line 2, 17px below, where the plant used to be. Same
+      reasoning as the drag chip, which stopped carrying `processor` alone the same day.
+
+      The plant can be blank on a hand-built or partly filled record, so line 1 dashes rather than
+      rendering nothing: Angular prints null as an empty string, and an empty bold cell reads as a
+      broken card rather than as a missing field.
+    -->
+    <span class="name" [title]="space().plant">{{ space().plant || '-' }}</span>
     <span class="sclass" [title]="space().stockClass">{{ space().stockClass }}</span>
 
     <!--
@@ -55,6 +66,7 @@
       [matchedInclDraft]="space().matchedInclDraft"
       [matchedExclDraft]="space().matchedExclDraft"
       [unmatched]="space().unmatched"
+      [unmatchedLabel]="space().unmatchedLabel"
       [quantityState]="space().quantityState"
       [quantityStateLabel]="space().quantityStateLabel"
       side="demand"
@@ -62,7 +74,15 @@
     />
 
     <!-- Row 2. The month sits in the date column; everything else is pushed to the card's edge. -->
-    <span class="meta">{{ space().plant }} · {{ space().deliveryTime || '-' }}</span>
+    <!--
+      The delivery time is optional, and when it is absent the whole segment goes rather than the
+      usual `-` (design-system.md 13): line 2 is unlabelled meta, so a bare dash after a separator
+      names no field and reads as a truncated card. The dash still stands in the labelled places —
+      line 1's plant, the expansion's field rows, the match table.
+    -->
+    <span class="meta"
+      >{{ space().processor }}@if (space().deliveryTime) {<span> · {{ space().deliveryTime }}</span>}</span
+    >
     <span class="month" [title]="space().deliveryDateLabel">{{ space().deliveryMonthLabel }}</span>
 
     <span class="trail">
@@ -186,11 +206,7 @@
       preview sat over the row being aimed at, which is half of why the target was hard to read.
     -->
     <ng-template cdkDragPreview>
-      <app-drag-preview
-        [stockClass]="space().stockClass"
-        [name]="space().processor"
-        [headCount]="space().quantityRequired"
-      />
+      <app-drag-preview [name]="dragName()" [headCount]="space().quantityRequired" />
     </ng-template>
   </div>
 

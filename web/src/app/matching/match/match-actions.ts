@@ -132,12 +132,14 @@ export class MatchActions {
   /**
    * Resolved question 3: a drafted match is removed outright, with no reason asked for.
    *
-   * The button says `Undo match` and so does the snack — a confirmation that reports a different verb
-   * from the one just pressed makes the operator wonder whether a different thing happened.
+   * The button says `Cancel match` and so does the snack — a confirmation that reports a different
+   * verb from the one just pressed makes the operator wonder whether a different thing happened.
+   * That is also why the snack matches `cancelMatch`'s word for word: the two are one act to the
+   * operator, and only the record keeping differs.
    */
   private deleteDraft(context: MatchEditContextDto): void {
     this.api.deleteMatch(context.match.id).subscribe({
-      next: (result) => this.applyWrite(result, 'Match undone'),
+      next: (result) => this.applyWrite(result, 'Match cancelled'),
       error: (error: unknown) => this.report(error),
     });
   }

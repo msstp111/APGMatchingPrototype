@@ -24,6 +24,7 @@ import {
   matchBreakdown,
   matchSummaryLabel,
   quantityClass,
+  spaceName,
   spineClass,
   statusIcon,
 } from './card-chrome';
@@ -105,6 +106,19 @@ export class SpaceCard {
   readonly expanded = computed(() => this.state.isExpanded('demand', this.space().id));
 
   /** What this card hands a drop: itself, in full, on the demand side. */
+  /**
+   * `ANZCO Kokiri` — what the drag chip is labelled with, and the same composition both match
+   * dialogs' titles use, from one function in card-chrome.
+   *
+   * The chip took `processor` alone until 2026-09-08. Roughly 70% of the seeded spaces are ANZCO's
+   * (`SeedConfig.ProcessorMix`, and APG say the real mix is higher), so a chip reading `ANZCO` names
+   * the record it came from in the same word as most of the column — the plant is the part that
+   * identifies the slot. The card reached the same conclusion later the same day and swapped its two
+   * lines, so line 1 leads with the plant and the processor sits under it; the chip has no line 2 and
+   * so carries both in one string.
+   */
+  readonly dragName = computed(() => spaceName(this.space()));
+
   readonly dragCard = computed<DragCard>(() => ({ side: 'demand', space: this.space() }));
 
   /** How this card should look to the drag in flight — nothing at all unless it could receive it. */

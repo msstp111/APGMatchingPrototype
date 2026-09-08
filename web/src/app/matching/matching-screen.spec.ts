@@ -464,11 +464,14 @@ describe('Matching screen', () => {
       TestBed.resetTestingModule();
       await configure(
         [
-          aSpace({ id: 1, processor: 'Small', quantityRequired: 10, weekCommencing: '2026-08-23' }),
-          aSpace({ id: 2, processor: 'Big', quantityRequired: 900, weekCommencing: '2026-08-23' }),
+          // The names go on `plant`, not `processor`: line 1 of a space card is the PLANT as of
+          // 2026-09-08, and `cardNames` reads line 1. Naming the processors here would pass three
+          // identical strings through the assertion below and prove nothing about the ordering.
+          aSpace({ id: 1, plant: 'Small', quantityRequired: 10, weekCommencing: '2026-08-23' }),
+          aSpace({ id: 2, plant: 'Big', quantityRequired: 900, weekCommencing: '2026-08-23' }),
           aSpace({
             id: 3,
-            processor: 'Later',
+            plant: 'Later',
             quantityRequired: 500,
             weekCommencing: '2026-08-30',
           }),
@@ -773,6 +776,7 @@ describe('Matching screen', () => {
   });
 });
 
+/** Line 1's leading cell on each space card — the PLANT since 2026-09-08, not the processor. */
 function cardNames(column: Element): string[] {
   return [...column.querySelectorAll('app-space-card .name')].map(
     (name) => name.textContent?.trim() ?? '',

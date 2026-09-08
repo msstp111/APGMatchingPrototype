@@ -129,15 +129,36 @@ describe('Quantity states, on both sides', () => {
 
   // --- unmistakable, and never colour alone -------------------------------------------------------
 
-  it('draws the over-run cap and the negative numeral on both over states', async () => {
+  /**
+   * **No minus** (2026-09-08). The numeral is the DTO's `unmatchedLabel` — the magnitude — because the
+   * direction is already carried by the ink, by the over-run cap and by the word on line 2, and a
+   * fourth statement of it spent a character in a 40px column. The over-run cap is asserted in the
+   * same breath deliberately: the magnitude alone is only unambiguous while the cap is there to say
+   * which way it went, so if one of these two ever goes the other has to be reconsidered.
+   */
+  it('draws the over-run cap and an unsigned numeral on both over states', async () => {
     for (const [element, numeral, surface] of [
-      [await mount(SpaceCard, { space: overFilledSpace }), '-66', 'space'],
-      [await mount(AvailabilityCard, { record: overCommittedRecord }), '-22', 'record'],
+      [await mount(SpaceCard, { space: overFilledSpace }), '66', 'space'],
+      [await mount(AvailabilityCard, { record: overCommittedRecord }), '22', 'record'],
     ] as const) {
       // design-system.md 4.2: a meter cannot grow past its track, so the over state is drawn.
       expect(element.querySelector('.over-run'), `${surface} over-run cap`).not.toBeNull();
       expect(element.querySelector('.numeral')?.textContent?.trim()).toBe(numeral);
     }
+  });
+
+  /**
+   * And the label is RENDERED, not derived. The fixture hands the card a label the arithmetic would
+   * never produce; if the component ever reaches for `Math.abs(unmatched)` instead, this fails and
+   * `no-domain-arithmetic.spec.ts` — which cannot see a `Math.abs` with no operator beside it — would
+   * not have caught it.
+   */
+  it('prints the label it is given rather than the magnitude of the signed figure', async () => {
+    const space = await mount(SpaceCard, {
+      space: aSpace({ unmatched: -66, unmatchedLabel: 'SEVENTY', quantityState: 'Over' }),
+    });
+
+    expect(space.querySelector('.numeral')?.textContent?.trim()).toBe('SEVENTY');
   });
 
   // Scoped to .trail deliberately: the fill meter's own root also takes an `over` class when the state
@@ -182,12 +203,15 @@ describe('Quantity states, on both sides', () => {
     expect(supply.querySelector('.ink')?.className).toContain('q-pink');
   });
 
-  it('shows the negative unmatched figure in the expansion too, exactly as given', async () => {
+  it('shows the unmatched figure unsigned in the expansion too, beside the word', async () => {
     const supply = await mount(CardExpansion, {
       side: 'supply',
       availability: overCommittedRecord,
     });
 
-    expect(supply.querySelector('.ink')?.textContent?.trim()).toBe('-22');
+    // `22 Over-committed`, not `-22 Over-committed`. Here the word is right beside the figure, so the
+    // minus was the most redundant it is anywhere on the screen.
+    expect(supply.querySelector('.ink')?.textContent?.trim()).toBe('22');
+    expect(supply.querySelector('.state')?.textContent?.trim()).toBe('Over-committed');
   });
 });

@@ -1,26 +1,95 @@
 <!--
   Every value below is read straight off the DTO. Nothing here sums, subtracts, compares or formats a
-  date: the labels beside each date are the server's, and the two sums arrive computed.
+  date: the labels beside each date are the server's, and all four quantities in the headline — both
+  matched sums, the drafted difference between them, and the unmatched remainder — arrive computed.
 
-  APG-facing wording throughout — "Quantity Matched", never `matchedExclDraft` (design-system.md 15).
+  APG-facing wording throughout, never a DTO field name (design-system.md 15). Both sums carry their
+  qualifier — `excl. Draft` and `incl. Draft` — because APG is the only role that sees both, and a bare
+  "Quantity Matched" is the processor's and farmer's title for the excl-Draft one, which on this screen
+  read as the grand total while sitting beside a larger figure.
 -->
 <div class="expansion">
   @if (space(); as s) {
     <!--
-      The sums come FIRST: they are the drawer's caption bar, not a band in the middle of it.
-      An expansion that opened straight into a field row had no visible top edge of its own and
-      read as more rows of the list; a titled strip has one, and these two figures are what the
-      block is for. design-system.md 6.2 carries the order.
+      The sums strip: it heads the drawer, it is what the drawer was opened for, and it keeps its own
+      1px rule so the prose beneath it is a separate band.
+
+      LABEL OVER VALUE, the same way round as the prose band below — so all three captions sit on one
+      line and all three figures on one baseline. Figure-over-label was tried first and put the ragged
+      edge at the bottom of the block; the captions are the things of unequal length, so they are what
+      has to share a line.
+
+      THE DRAFTED FIGURE IS IN THE CAPTIONS — `excl. 30 Draft` / `incl. 30 Draft` — and not riding on
+      the incl-Draft numeral, which is where it sat until 2026-09-08. Three things follow, and they are
+      the reason this shape was chosen out of eleven drawn in Documents/sums-strip-lab.html:
+        * the figure is stated ONCE and explains BOTH sums, which is what it actually does — 29 is the
+          sum excluding those 30, 59 the sum including them;
+        * the two captions come out the same length, which answers the lopsidedness from the other end:
+          not by shortening the words but by giving both the same shape;
+        * nothing hangs off a 20px numeral any more, so the figures line up with nothing trailing them.
+      With NOTHING drafted the captions fall back to `excl. Draft` / `incl. Draft` rather than printing
+      `excl. 0 Draft`, which reads as a mistake. That fires on any fully-confirmed record.
+
+      `Quantity` and `Matched` are both gone from the captions. Neither was doing work three times over
+      on a block whose whole subject is one record's quantity — but note what it costs: nothing up here
+      says what `excl.` is excluding drafts FROM, so the strip leans on the meter and the header strip
+      above it. design-system.md 6.2 item 1 and 15 carry the wording decision.
+
+      LEFT-ALIGNED, with `Quantity unmatched` alone on the trailing edge, where the row above also ends
+      with its unmatched figure. All-four-on-the-right was tried and read as the fragment of a row.
+
+      Two things they replaced, both of which had survived every review:
+
+        * `Quantity required` and `Quantity unmatched` were printed TWICE. Each had a right-aligned
+          cell in the field row below, and both were verbatim copies of cells on the COLLAPSED row
+          40px above — same figures, same order, with the meter between them. `required` survives as
+          each sum's denominator; `unmatched` survives once, here.
+        * the sums were printed BARE. `59` and `29` with nothing to divide into send the eye back up
+          to the collapsed row for the 77. The requirements specify these two sums four times over —
+          both list views and both record views — and every one says the same thing about placement:
+          "displayed as read-only beside the Quantity Required value".
     -->
     <div class="sums">
       <div class="field">
-        <span class="label">Quantity Matched incl. Draft</span>
-        <span class="value sum">{{ s.matchedInclDraft }}</span>
+        <!--
+          `&ngsp;` and not a plain space: Angular strips whitespace-only text nodes around an element,
+          and the caption would render as `excl.30Draft`. The @if carries the trailing space with the
+          figure, so the zero case closes up to `excl. Draft` with one space and not two.
+        -->
+        <span class="label"
+          >excl.&ngsp;
+          @if (s.draftedQuantity > 0) {
+            <span class="dq">{{ s.draftedQuantity }}</span
+            >&ngsp;
+          }
+          Draft</span
+        >
+        <span class="value sum">
+          {{ s.matchedExclDraft }}<span class="of"> of {{ s.quantityRequired }}</span>
+        </span>
       </div>
 
       <div class="field">
-        <span class="label">Quantity Matched</span>
-        <span class="value sum">{{ s.matchedExclDraft }}</span>
+        <span class="label"
+          >incl.&ngsp;
+          @if (s.draftedQuantity > 0) {
+            <span class="dq">{{ s.draftedQuantity }}</span
+            >&ngsp;
+          }
+          Draft</span
+        >
+        <span class="value sum">
+          {{ s.matchedInclDraft }}<span class="of"> of {{ s.quantityRequired }}</span>
+        </span>
+      </div>
+
+      <div class="field right">
+        <span class="label">Quantity unmatched</span>
+        <!-- unmatchedLabel, not unmatched: the magnitude. `9 Over-filled`, never `-9 Over-filled`. -->
+        <span class="value sum">
+          <span class="ink" [class]="quantityInk(s)">{{ s.unmatchedLabel }}</span>
+          <span class="state">{{ s.quantityStateLabel }}</span>
+        </span>
       </div>
     </div>
 
@@ -28,19 +97,6 @@
       <div class="field grow">
         <span class="label">Notes</span>
         <span class="value">{{ s.notes || '-' }}</span>
-      </div>
-
-      <div class="field right">
-        <span class="label">Quantity required</span>
-        <span class="value num">{{ s.quantityRequired }}</span>
-      </div>
-
-      <div class="field right">
-        <span class="label">Quantity unmatched</span>
-        <span class="value num">
-          <span class="ink" [class]="quantityInk(s)">{{ s.unmatched }}</span>
-          <span class="state">{{ s.quantityStateLabel }}</span>
-        </span>
       </div>
     </div>
 
@@ -151,21 +207,43 @@
   }
 
   @if (availability(); as a) {
-    <!--
-      The sums come FIRST: they are the drawer's caption bar, not a band in the middle of it.
-      An expansion that opened straight into a field row had no visible top edge of its own and
-      read as more rows of the list; a titled strip has one, and these two figures are what the
-      block is for. design-system.md 6.2 carries the order.
-    -->
+    <!-- The same strip as the demand side; see the note there. Supply has three prose fields to
+         demand's one, and they are what the collapsed row could not carry. -->
     <div class="sums">
       <div class="field">
-        <span class="label">Quantity Matched incl. Draft</span>
-        <span class="value sum">{{ a.matchedInclDraft }}</span>
+        <span class="label"
+          >excl.&ngsp;
+          @if (a.draftedQuantity > 0) {
+            <span class="dq">{{ a.draftedQuantity }}</span
+            >&ngsp;
+          }
+          Draft</span
+        >
+        <span class="value sum">
+          {{ a.matchedExclDraft }}<span class="of"> of {{ a.quantityAvailable }}</span>
+        </span>
       </div>
 
       <div class="field">
-        <span class="label">Quantity Matched</span>
-        <span class="value sum">{{ a.matchedExclDraft }}</span>
+        <span class="label"
+          >incl.&ngsp;
+          @if (a.draftedQuantity > 0) {
+            <span class="dq">{{ a.draftedQuantity }}</span
+            >&ngsp;
+          }
+          Draft</span
+        >
+        <span class="value sum">
+          {{ a.matchedInclDraft }}<span class="of"> of {{ a.quantityAvailable }}</span>
+        </span>
+      </div>
+
+      <div class="field right">
+        <span class="label">Quantity unmatched</span>
+        <span class="value sum">
+          <span class="ink" [class]="quantityInk(a)">{{ a.unmatchedLabel }}</span>
+          <span class="state">{{ a.quantityStateLabel }}</span>
+        </span>
       </div>
     </div>
 
@@ -183,19 +261,6 @@
       <div class="field grow">
         <span class="label">Notes</span>
         <span class="value">{{ a.notes || '-' }}</span>
-      </div>
-
-      <div class="field right">
-        <span class="label">Quantity available</span>
-        <span class="value num">{{ a.quantityAvailable }}</span>
-      </div>
-
-      <div class="field right">
-        <span class="label">Quantity unmatched</span>
-        <span class="value num">
-          <span class="ink" [class]="quantityInk(a)">{{ a.unmatched }}</span>
-          <span class="state">{{ a.quantityStateLabel }}</span>
-        </span>
       </div>
     </div>
 

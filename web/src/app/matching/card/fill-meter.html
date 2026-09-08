@@ -19,6 +19,11 @@
     }
   </div>
 
-  <!-- The numeral is the DTO's unmatched figure, printed as given: negative when over. -->
-  <span class="numeral">{{ unmatched() }}</span>
+  <!--
+    The DTO's unmatchedLabel: the MAGNITUDE, printed as given. `9`, not `-9` — the over state is
+    already carried by this meter's ink, by the over-run cap beside the track and by the word on the
+    card's line 2, and a minus was a fourth statement of it inside a 40px column. The signed figure
+    is in the hover string above, where a sentence has room for it.
+  -->
+  <span class="numeral">{{ unmatchedLabel() }}</span>
 </div>
