@@ -23,6 +23,7 @@ import { StatusLegend } from '../legend/status-legend';
 import { isDemandDefault, isSupplyDefault } from '../filters/filter-service';
 import { MatchingPreferences } from '../filters/matching-preferences';
 import { RecordActions } from '../record/record-actions';
+import { SideGlyph } from './side-glyph';
 
 /**
  * One side of the matching screen: a header, the filter row, a sticky column-header strip, and a
@@ -47,6 +48,7 @@ import { RecordActions } from '../record/record-actions';
     EmptyColumn,
     NothingCompatible,
     ColumnAutoScroll,
+    SideGlyph,
   ],
   templateUrl: './matching-column.html',
   styleUrl: './matching-column.scss',
@@ -84,8 +86,6 @@ export class MatchingColumn {
     this.isDemand() ? 'Processor Spaces' : 'Livestock Availability',
   );
 
-  /** Demand and supply, said in glyphs: a works on one side, a location pin on the other. */
-  readonly glyph = computed(() => (this.isDemand() ? 'factory' : 'location_on'));
 
   /** Counts the bands it was handed, which is the filtered set: every record is drawn once. */
   readonly shown = computed(() =>

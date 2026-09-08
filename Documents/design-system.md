@@ -822,7 +822,13 @@ meter:
    the height and the flip's centre line — depend on that one line. Sticky, with a 3px top rule: **petrol `#00567E`** on demand, **`#37393C`**
    on supply. The title takes the same colour. This is the shell's own brand blue on a header, not a
    hue on a card, so it does not collide with §3.
-2. **Lead glyph** — a works/factory outline on demand, a location pin on supply, in the header.
+2. **Lead glyph** — a works/factory outline on demand, a cow's head on supply, in the header.
+   Both are inline SVG from one family (`matching/column/side-glyph.ts`, Phosphor Icons' `cow`
+   and `factory`, MIT) rather than `material-symbols-outlined` spans, because Material Symbols
+   has no cow — it offers a tractor and a paw print, and neither says livestock. They inherit
+   `1em` and `currentColor`, so every call site still sizes and colours them with the rule it
+   already had. Supply was a location pin until 2026-09-09; the pin named where the stock was,
+   not what it is, and `Location` is already a column on line 1.
 3. **Header strip labels** — `Plant / Delivery / Req'd` versus `Location / Avail fr / Avail`.
 4. **Noun set, everywhere** — `Required`/`Filled`/`Over-filled` versus
    `Available`/`Committed`/`Over-committed`, on cards, in dialogs and in the DTO's own

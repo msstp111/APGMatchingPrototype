@@ -16,6 +16,7 @@ import { catchError, of } from 'rxjs';
 import { ApiClient } from '../../api/api-client';
 import { MatchEditContextDto, UpdateMatchRequest } from '../../api/models';
 import { quantityClass, spaceName, spineClass, transactionTypeLabel } from '../card/card-chrome';
+import { SideGlyph } from '../column/side-glyph';
 
 /**
  * What the modal was closed with. The dialog decides nothing and writes nothing: it collects an
@@ -64,6 +65,7 @@ export type MatchModalResult =
     MatFormFieldModule,
     MatInputModule,
     MatAutocompleteModule,
+    SideGlyph,
   ],
   templateUrl: './match-modal.html',
   styleUrl: './match-modal.scss',

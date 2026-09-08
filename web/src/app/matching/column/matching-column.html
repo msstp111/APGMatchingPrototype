@@ -5,7 +5,7 @@
 -->
 <section class="column" [class.supply]="!isDemand()" [class.wash]="isDropTarget()">
   <header class="chead">
-    <span class="material-symbols-outlined glyph">{{ glyph() }}</span>
+    <app-side-glyph class="glyph" [side]="side()" />
     <h2 class="ctitle">{{ title() }}</h2>
     <span class="showing">showing {{ shown() | number }} of {{ totalCount() | number }}</span>
 

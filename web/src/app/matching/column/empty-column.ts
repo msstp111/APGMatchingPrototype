@@ -1,6 +1,7 @@
 import { ChangeDetectionStrategy, Component, computed, inject, input } from '@angular/core';
 import { MatchSide } from '../board/matching-board';
 import { RecordActions } from '../record/record-actions';
+import { SideGlyph } from './side-glyph';
 
 /**
  * What a column shows when **nothing at all** is loaded for its side (design-system.md 13).
@@ -21,9 +22,11 @@ import { RecordActions } from '../record/record-actions';
 @Component({
   selector: 'app-empty-column',
   changeDetection: ChangeDetectionStrategy.OnPush,
+  imports: [SideGlyph],
   template: `
     <div class="empty">
-      <span class="material-symbols-outlined glyph" aria-hidden="true">{{ glyph() }}</span>
+      <!-- The column header's own pair, at the state's size. -->
+      <app-side-glyph class="glyph" [side]="side()" />
 
       <p class="headline">{{ headline() }}</p>
       <p class="prose">{{ prose() }}</p>
@@ -47,9 +50,6 @@ export class EmptyColumn {
   readonly side = input.required<MatchSide>();
 
   readonly isDemand = computed(() => this.side() === 'demand');
-
-  /** The column's own glyph, so the state still says which side it belongs to. */
-  readonly glyph = computed(() => (this.isDemand() ? 'factory' : 'location_on'));
 
   readonly headline = computed(() =>
     this.isDemand() ? 'No processor spaces yet' : 'No livestock availability yet',
