@@ -25,17 +25,25 @@
 // $lms-card-zebra, the list's own stripe — at a 30px row rhythm and with no boundary of its own. It
 // was built out of the list's vocabulary, so it dissolved into it.
 //
-// FOUR devices separate it now, and not one of them is a hue or a ground:
+// FIVE devices separate it now. Four are neither a hue nor a ground; the fifth, the filled rail, is
+// the one exception and it is argued for in $open-rail's own note in _lms-tokens.scss:
 //
 //   1. the FRAME — 1px $lms-rule-strong, and nothing else on this screen is framed;
 //   2. the RAIL — the grip's own hairline continued down the sheet's leading edge, with the content
 //      indented to start where the card's name starts. Nothing in the drawer used to line up with
-//      the row that owns it;
+//      the row that owns it. Since 2026-09-09 it is FILLED with $open-rail and so is the grip on the
+//      row above it, so an open card carries one unbroken 30px stroke top to bottom;
 //   3. the NOTCH — an 11px tab on the top edge pointing at the chevron that opened it, so which card
 //      this belongs to is stated rather than inferred from adjacency;
 //   4. the SHADOW — the sheet rises out of a list that is now flat (§5.4).
 //
-// And a fifth thing that is not a device at all: only ONE drawer is open per column at a time
+// And since 2026-09-09 a FIFTH, which is the first one to touch the row rather than the sheet:
+//
+//   5. the SPINE — the record's own status spine, continued down the sheet at `left: 0` and the
+//      card's own bottom rule taken to transparent, so the open card's whole leading edge is one
+//      status-weighted stroke and the row and the sheet meet with no seam between them.
+//
+// And a sixth thing that is not a device at all: only ONE drawer is open per column at a time
 // (board/card-state.ts). The screen's complaint was a function of how many drawers were stacked, and
 // no amount of treatment answers that as directly as not stacking them.
 //
@@ -64,15 +72,34 @@
 //     indent — and the answer was that the sheet does not need one: the frame gave it four edges and
 //     the gutter was the only device paying no rent.
 //
-// So the host is a bare wrapper carrying the animation and nothing else. The .expansion div inside
-// it is the sheet, full-bleed, and it is the element every surface below hangs off.
+// The host carries the animation and, since 2026-09-09, the continued status spine — which is
+// positioned against it rather than against the sheet, so it spans the drawer's full height
+// including the sheet's own 1px frame. The .expansion div inside it is the sheet, full-bleed, and it
+// is the element every surface below hangs off.
 //
 // The host's own 1px $lms-divider bottom rule is GONE with the shadow change below: a sheet that
 // sits proud of the list closes itself, and a rule under it read as one more of the rules between
 // cards — which is the confusion the whole treatment exists to remove.
 :host {
   display: block;
+  position: relative;
   animation: apg-expand 120ms ease-out;
+}
+
+// The `.sp-*` classes. Included bare, exactly as legend/status-legend.scss does — card-shell's
+// `.card > .spine` override is scoped to the card and does not reach here, so the positioning below
+// is this file's own.
+@include geo.spines;
+
+// Full height, and it paints over the sheet's transparent leading border. z-index because
+// `.expansion` is `position: relative`: without it the sheet, later in source order, would cover the
+// spine's 3-6px.
+.spine {
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  z-index: 1;
 }
 
 // $lms-rule-strong, not $lms-divider: the frame has to outweigh the 1px rule under every card, or
@@ -81,41 +108,66 @@
 // It RISES now, and the recess is gone (2026-09-07). The inset pair was §5.4's one exception — the
 // only thing on the screen that sank — and it had to share 200px with a card lifting 1px on hover
 // and with band headers doing neither. Three directions at once in the same soft grey read as no
-// direction at all. One is committed to instead: the list is flat, and the open drawer is the only
+// direction at all. One is committed to instead: the list is flat, and the open card is the only
 // thing on this screen with a shadow. The bottom edge drops from 2px to 1px because the shadow is
 // what closes the block now, and 2px under a floating sheet reads as a shelf.
+//
+// ONE OF THE FOUR EDGES IS OPEN (2026-09-09): the LEADING one, which belongs to the status spine
+// now. It is transparent rather than 0 so the box keeps its dimensions to the pixel — the rail below
+// is positioned against the padding box, and a border removed rather than hidden would slide it a
+// pixel off the grip's rule. `background-clip` is border-box by default, so the sheet's white still
+// paints under it.
+//
+// The card's own bottom rule goes transparent with it (card-shell's `:host(.open)`), so the row and
+// this sheet meet on the frame's top edge alone rather than on the frame plus a $lms-divider
+// hairline. Two lines there read as two objects, which is what the spine and the rail exist to fix.
 .expansion {
   position: relative;
   background: lms.$lms-card;
   border: 1px solid lms.$lms-rule-strong;
+  border-left-color: transparent;
   box-shadow: 0 3px 8px -3px rgb(0 0 0 / 30%);
   // The leading rail: the sheet's content starts where the card's own name starts. See
   // $expansion-rail — the number is 29 and the reason it is not 30 is written there.
   padding-left: geo.$expansion-rail;
 }
 
-// The rail's hairline, continuing the grip's own rule down the side of the drawer. Positioned as an
-// explicit 1px at `rail - 1` rather than as a 29px box with a border-right: both land on the same
-// column, and this form says which pixel it is instead of leaving it to where a border paints
-// inside a box that is itself inside a 1px frame.
+// The rail. It was a bare 1px hairline continuing the grip's own rule; since 2026-09-09 it is the
+// grip's whole COLUMN, filled with $open-rail and still carrying that rule on its trailing edge, so
+// an open card shows one unbroken 30px stroke from the top of its row to the foot of its sheet.
+//
+// THE RULE MUST NOT MOVE, and that is the part to be careful with. An absolutely positioned child is
+// laid out against its ancestor's PADDING box, which starts inside the sheet's 1px frame, so `left:
+// 0` is x=1 on the card's own scale. There is no global `box-sizing: border-box` in this app, so a
+// 28px content width plus a 1px border-right totals 29 and puts the rule on x=29 — the pixel the
+// grip's own border-right paints on, which is what $expansion-rail's comment records. Writing it as
+// a 29px box with a border would land the rule on x=28 instead; the lab drew it that way and is a
+// pixel out (Documents/open-row-lab.html, idea 3).
+//
+// The 1px at x=0 the fill cannot reach is under the status spine, which is 3px at its narrowest
+// (Booked) and 6px otherwise — so the fill can start at the padding box and needs no negative offset
+// to cover the frame.
 .expansion::before {
   content: '';
   position: absolute;
   top: 0;
   bottom: 0;
-  left: geo.$expansion-rail - 1px;
-  width: 1px;
-  background: lms.$lms-divider;
+  left: 0;
+  width: geo.$expansion-rail - 1px;
+  background: lms.$open-rail;
+  border-right: 1px solid lms.$lms-divider;
 }
 
 // The notch, pointing at the chevron that opened the drawer (design-system.md 6.2).
 //
 // It says which card this sheet belongs to. Until it existed the only thing tying the two together
 // was adjacency — which is exactly the signal that stops working when two cards are open and the
-// column is a run of near-identical bands.
+// column is a run of near-identical bands. The grip column and the spine say it from the leading
+// edge now; this still says it from the trailing one, which is where the control that opened the
+// sheet actually is.
 //
 // `right` is measured from the sheet's padding box while the chevron is placed from the card's outer
-// edge, hence the -1px: the card's new $card-edge gutter, plus half the chevron, less the frame.
+// edge, hence the -1px: the card's $card-edge gutter, plus half the chevron, less the frame.
 // One expression, so the notch cannot drift off the control it points at. Verified by pixel scan in
 // Documents/expansion-lab-2.html: chevron centre and notch centre both on x=1068.5.
 .expansion::after {
@@ -129,6 +181,24 @@
   border-top: 1px solid lms.$lms-rule-strong;
   border-left: 1px solid lms.$lms-rule-strong;
   transform: translate(50%, -50%) rotate(45deg);
+}
+
+// A CANCELLED record breaks the stroke, and this is the fix.
+//
+// `cancelled-card` puts `grayscale(1)` and `opacity: .62` on `.card` and deliberately nothing on the
+// drawer — the drawer is the most interactive region on the card, and on this screen everything that
+// recedes does so because it is read-only. But that leaves the grip greyed on the row and the rail
+// full-strength blue three pixels below it, so the one unbroken stroke the whole idea is built on
+// snaps at the seam. Documents/open-row-lab.html predicted it; the running app confirmed it.
+//
+// So the two elements that are meant to be continuous with the row — the rail and the spine — take
+// the card's own treatment, with the same two values, and nothing else in the sheet moves. Copied
+// rather than shared with `cancelled-card` because that mixin also strikes through `.name`, which
+// this sheet does not have.
+:host(.cancelled) .expansion::before,
+:host(.cancelled) .spine {
+  filter: grayscale(1);
+  opacity: 0.62;
 }
 
 // --- 1. the sums strip, and 2. the prose beneath it ---

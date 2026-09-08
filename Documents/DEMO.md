@@ -197,6 +197,42 @@ with its title struck through, and it drops out of the default `Status = Booked`
 
 ---
 
+## 6a. Filter on drag — narrowing the far side to what fits (2026-09-09)
+
+The two stock-class lists do not map onto one another, which by now they have heard twice. This is the
+answer to the question that follows it: *so how do I find the right slot?*
+
+**Click `Filter on drag` in the top bar**, left of `Reset demo data`. It fills white when it is on.
+
+Now **start dragging Livestock Availability #43 — Moss Gate Lodge, Lamb, 626 available** — and look at
+the demand column before you get there. The moment the card leaves its row, that column has gone from
+33 booked spaces to the 8 that take lamb: ANZCO's, Alliance Group's and SFF's. The header says
+`Lamb only` where the `Filtered` chip usually sits, and `showing 8 of 40` keeps the loaded total
+honest. Drop as normal.
+
+**Then click a grip instead of dragging it, two or three times.** Nothing happens: the aid waits for a
+real drag, so a click that was aiming at the expand target does not flash half the screen.
+
+**Let go over nothing.** The whole column comes back. Nothing was filtered, nothing was saved, and the
+column refills on release without being asked.
+
+Three things to say while it is on:
+
+- **It hides; it never refuses.** Turn it off and lamb will go into a mutton space with no warning at
+  all. The screen is not overruling the operator, it is putting the likely slots in front of them.
+- **Both directions.** Grab a `Bulls` space and the supply column drops from 42 records to 15 — the
+  bulls, the sire bulls and the mixed cattle.
+- **It is off until asked for.** The first drag anyone does on a fresh demo behaves exactly as it did
+  before this existed.
+
+If they ask what happens when nothing fits: **filter the demand column to `Stock class: Deer`**. There
+is exactly one — **#17, Alliance Group Dannevirke, 76 required** — and grabbing it empties the supply
+column. The supply column says `No livestock availability for
+Deer`, with no filter to clear, because there are no deer in the supply list at all. That is the state
+a future pass would fix by unifying the two vocabularies, not by loosening this table.
+
+---
+
 ## 7. If there is time — the filters and the flip
 
 - **Status and Stock class** are chips on each column's filter row and show their current value
@@ -220,6 +256,8 @@ Have these ready. Each one has been asked before.
 | The two columns show **different weeks** at the same height | Each trims to its own records and they scroll independently. Locking them together would make one of them lie about which week you are in. |
 | A column **ends before this week** | It ran out of records. The `Past` tag on every earlier band says which side of today you are on. |
 | A space says `Cows`, a record says `Mixed Cattle` | Two vocabularies, no mapping, a person decides. The point of the screen. |
+| **Cards vanish** from the other column when a grip is pressed | `Filter on drag` is on (§6a). They are hidden for the length of the gesture, not filtered, and they come back on release. The header chip names what it narrowed to. |
+| `Filter on drag` hides a space the operator **wanted** | It is an aid over a table of plausible pairings, not a rule. Switch it off — the match it was hiding is allowed and always was. |
 | Dropping a card in **its own column** does nothing at all | Not a gesture. An error message for something that simply does not apply teaches people to fear the screen. |
 | `Confirm space` enabled on a space that is **not full** | The gate is one confirmed match and no drafts, not "full". |
 | A cancelled match **disappears completely** | Pass 1 has no Match list view. Deleting a draft and cancelling a match move the numbers identically. |

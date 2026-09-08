@@ -9,6 +9,7 @@ import {
 } from '../api/models';
 import { MatchingColumn } from './column/matching-column';
 import { buildBoard } from './board/matching-board';
+import { DragNarrowing } from './drag/drag-narrowing';
 import {
   filterAvailability,
   filterSpaces,
@@ -31,8 +32,16 @@ import { RecordPatch, RecordPatches } from './match/record-patches';
  *   `buildBoard` trims from the records it is given. Filter out the oldest surviving space and the
  *   demand column's first band moves forward, while the supply column's stays exactly where it was.
  *
+ * **"Filter on drag" enters the same pipeline, ahead of the operator's own filters.** While a card is
+ * in hand it narrows the *other* side's records to the stock classes that could take it, so the bands
+ * re-trim and the header count reads `showing 4 of 47` for exactly as long as the grip is held. It is
+ * innermost on purpose: `showing … of 47` and the filtered-empty summary both name the *loaded* total,
+ * which the aid must not appear to change.
+ *
  * Nothing on this screen is recomputed from a DTO figure. Filtering compares against values the
  * server worked out, sorting compares two of them, and the band calendar arrives already ordered.
+ * Stock-class compatibility is no exception: the pairings are the domain's, and reach the client as
+ * tags on the two records (`drag/stock-class-affinity.ts`).
  */
 @Component({
   selector: 'app-matching-screen',
@@ -44,6 +53,7 @@ import { RecordPatch, RecordPatches } from './match/record-patches';
 export class MatchingScreen {
   private readonly api = inject(ApiClient);
   private readonly preferences = inject(MatchingPreferences);
+  private readonly narrowing = inject(DragNarrowing);
   private readonly patches = inject(RecordPatches);
 
   readonly spaces = signal<readonly ProcessorSpaceDto[]>([]);
@@ -60,14 +70,17 @@ export class MatchingScreen {
    */
   readonly visibleSpaces = computed(() =>
     sortSpaces(
-      filterSpaces(this.spaces(), this.preferences.demandFilters()),
+      filterSpaces(this.narrowing.spaces(this.spaces()), this.preferences.demandFilters()),
       this.preferences.demandSort(),
     ),
   );
 
   readonly visibleAvailability = computed(() =>
     sortAvailability(
-      filterAvailability(this.availability(), this.preferences.supplyFilters()),
+      filterAvailability(
+        this.narrowing.availability(this.availability()),
+        this.preferences.supplyFilters(),
+      ),
       this.preferences.supplySort(),
     ),
   );

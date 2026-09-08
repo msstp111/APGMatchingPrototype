@@ -40,15 +40,31 @@ $lms-drop-target: #d1e1e8; // a card the drag may land on — deliberately DEEPE
 $lms-hover: #f5f9fb; // card hover
 $lms-column-wash: #f6fafc; // the opposite column during a drag
 
+// --- the open card's grip column (2026-09-09, design-system.md 6.2) ---
+// The 30px grip on an open row and the 29px rail down its sheet, filled as one unbroken stroke.
+//
+// NOT $lms-petrol-tint, and that is the whole of why this token exists: the tint is the current-week
+// band's ground, so a card inside the current week would have a grip the same colour as the header
+// directly above it. One step deeper than the tint and one step lighter than $lms-drop-target, so the
+// order in the column reads open (#DDEAF1) < droppable (#D1E1E8) — a card under the pointer is more
+// urgent than a card that happens to be open, and the two never mean the same thing.
+//
+// It is a fourth petrol value in the list and the case for it is that it is the only one attached to
+// a CELL rather than to a row: the grip is the one column carrying no status and no quantity, so
+// nothing had to be displaced to say "open". Do not add a fifth.
+$open-rail: #ddeaf1;
+$open-rail-ink: #00567e; // = $lms-petrol. The glyph comes up with its ground.
+
 // --- the expanded card's drawer (design-system.md 6.2) ---
 // ONE strip of chrome inside a WHITE sheet, and the whiteness is the part to leave alone.
 //
 // The drawer briefly had a grey ground (#E8EAED) so it could not be confused with the white/#F5F5F5
 // striped rows around it. It was rejected the same week: on this screen a greyed-out block reads as
 // READ ONLY — everything disabled here recedes exactly that way — and the drawer is the most
-// interactive region on the card. Separation is structural instead — a frame, an aligned rail, a
-// notch and an outer shadow — and none of it touches the ink. Do not reach for a ground again
-// without solving that first.
+// interactive region on the card. Separation is structural instead — a frame, an aligned rail (filled
+// with $open-rail since 2026-09-09, and that is the one exception), a notch, the record's own status
+// spine continued down the leading edge, and an outer shadow — and none of it touches the ink. Do
+// not reach for a ground again without solving that first.
 //
 // $lms-expansion-head (#DFE4E8) and $lms-expansion-head-rule (#CCD2D7) are GONE (2026-09-07). They
 // grounded the sums caption bar, and the second lab replaced that bar with type: the two figures now
@@ -113,6 +129,8 @@ $lms-attention-bg: #f5f5f5; // the panel behind a consequential warning
   --lms-drop-target: #{$lms-drop-target};
   --lms-hover: #{$lms-hover};
   --lms-column-wash: #{$lms-column-wash};
+  --open-rail: #{$open-rail};
+  --open-rail-ink: #{$open-rail-ink};
   --lms-expansion-th: #{$lms-expansion-th};
   --lms-expansion-rule: #{$lms-expansion-rule};
   --lms-rule-strong: #{$lms-rule-strong};

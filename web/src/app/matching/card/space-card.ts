@@ -13,6 +13,7 @@ import { ProcessorSpaceDto } from '../../api/models';
 import { CardStateStore } from '../board/card-state';
 import { acceptsFrom, pairFromDrop } from '../drag/card-drag';
 import { DragCard, DragStore } from '../drag/drag-state';
+import { DragNarrowing } from '../drag/drag-narrowing';
 import { DragPreview } from '../drag/drag-preview';
 import { DropOutcome } from '../drag/drop-outcome';
 import { MatchDrop } from '../match/match-drop';
@@ -55,12 +56,17 @@ import {
     CardExpansion,
     DragPreview,
   ],
+  // `open`, not `expanded`: the class is what card-shell's `:host(.open)` frame hangs off, and the
+  // frame is a visual state on the row. `expanded()` is the source either way — the chevron's
+  // aria-expanded and this read the same signal, so they cannot disagree.
+  host: { '[class.open]': 'expanded()' },
   templateUrl: './space-card.html',
   styleUrl: './space-card.scss',
 })
 export class SpaceCard {
   private readonly state = inject(CardStateStore);
   private readonly drag = inject(DragStore);
+  private readonly narrowing = inject(DragNarrowing);
   private readonly matchDrop = inject(MatchDrop);
   private readonly outcome = inject(DropOutcome);
 
@@ -163,6 +169,17 @@ export class SpaceCard {
 
   leftCard(): void {
     this.drag.leave('demand', this.space().id);
+  }
+
+  /**
+   * The grip has been pressed. "Filter on drag" starts watching the pointer from here and narrows the
+   * supply column once it has travelled far enough to be a drag — not on the press itself, which is
+   * often just a click, and not as late as `cdkDragStarted`, by which time CDK has measured every
+   * card (see `DragNarrowing.onMove`). With the aid off this costs one method call and changes
+   * nothing.
+   */
+  grabbed(event: PointerEvent): void {
+    this.narrowing.grab(this.dragCard(), event);
   }
 
   dragStarted(): void {

@@ -542,34 +542,83 @@ and it exists because an open card did not read as one object: the column is a r
 with `$lms-card-zebra` — the list's own stripe. It was built out of the list's vocabulary, so it
 dissolved into it.
 
-**Four** devices say "different kind of thing", and **not one of them is a hue or a ground**:
+**Five** devices say "different kind of thing". Four are neither a hue nor a ground; the fifth, the
+filled rail, is the one exception and is argued for in its own bullet:
 
-- **A frame.** 1px `$lms-rule-strong` `#BDBDBD` on all four sides. Nothing else on this screen is
-  framed, so a frame is unambiguous by scarcity alone — and `$lms-divider` would not do, as it is the
-  same weight as the rule under every card.
-- **A rail.** The drag grip's own 1px `$lms-divider` hairline, continued down the sheet's leading
-  edge, with the sheet's content indented past it — so the drawer's first label, the sums, and the
+- **A frame.** 1px `$lms-rule-strong` `#BDBDBD` on all four sides — the leading one transparent since
+  2026-09-09, see the spine below. Nothing else on this screen is framed, so a frame is unambiguous
+  by scarcity alone, and `$lms-divider` would not do: it is the same weight as the rule under every
+  card.
+- **A rail, filled since 2026-09-09 — and it is the first of these devices to touch the row.** The
+  drag grip's own 1px `$lms-divider` hairline, continued down the sheet's leading edge, with the
+  sheet's content indented past it — so the drawer's first label, the sums, and the
   match table's `Qty` column all begin at **x=38**, where the card's own name begins (30px grip +
   8px `$card-edge`). Nothing inside the drawer used to line up with the row that owns it. The rail is
   `$expansion-rail` = **29px, not 30**: the card's grip paints its border *inside* its own 30px box,
   so the rule is the pixel at x=29, and the sheet's rail is positioned inside a 1px frame. Verified
   by pixel scan against the grip, in the running app — `gripRuleX` and the rail both on x=232,
   `cardNameX` and the sheet's first label both on x=241.
+
+  Until 2026-09-09 every device in this section belonged to the *sheet* and `.card` carried no open
+  state at all: the only thing that changed on the row when it opened was that its chevron flipped.
+  So the part of the open object that still looked closed was the 52px row — the click target for
+  closing it and the drop target for matching onto it. Ten answers were drawn in
+  `Documents/open-row-lab.html`; this and the spine below are the two that shipped.
+
+  The rail is **filled with `$open-rail` `#DDEAF1`, and so is the 30px grip on the row above it**, so
+  an open card carries one unbroken stroke from the top of its row to the foot of its sheet. The grip
+  is the right column to spend: it is the row's only always-visible cell carrying neither a status nor
+  a quantity, so nothing had to be displaced to say "open". `$open-rail` is **not**
+  `$lms-petrol-tint` — that is the current-week band's ground, and a card inside the current week
+  would then have a grip the same colour as the header directly above it. It sits one step below the
+  tint and one step above `$lms-drop-target`, so the column reads *open* `#DDEAF1` < *droppable*
+  `#D1E1E8`: a card under the pointer is more urgent than a card that happens to be open.
+
+  **The rule must not move**, and the fill is where that gets fragile. An absolutely positioned child
+  is laid out against its ancestor's *padding* box, inside the sheet's 1px frame, and there is no
+  global `box-sizing: border-box` in this app — so the fill is a **28px content width plus a 1px
+  `border-right`**, totalling 29 and landing the rule on x=29, the pixel the grip's own border paints
+  on. Written as a 29px box with a border it lands on x=28; the lab drew it that way and is a pixel
+  out. Verified live: `gripRuleX` and `railRuleX` both 1133, `nameX` and the sheet's first label both
+  1142.
+
+  The grip's **hover** is restated for an open card — `$lms-hover` rather than the `$lms-surface` a
+  closed card's grip uses, because `#FAFAFA` punches a grey hole in the column exactly where the
+  pointer is. It has to out-weigh both `.grip:hover` and `.card:hover .grip`, the second of which
+  would otherwise drop the glyph from petrol to muted grey: a downgrade under the pointer.
+- **A spine, continued.** The record's own status spine runs down the sheet's leading edge at
+  `left: 0` — 3px `$lms-divider` for Booked, 6px for everything else, hatched for Pending, dashed for
+  Cancelled — so the open object's whole leading edge is one status-weighted stroke and its other
+  three are the frame. The sheet's leading border goes transparent to let it through; two lines
+  inside the same 6px would read as a seam of their own. It is positioned against the component
+  host rather than the sheet, so it spans the drawer's full height including the frame, and it is
+  derived in `CardExpansion` from the same `spineClass` the card calls, so the row's spine and the
+  sheet's cannot disagree.
+
+  **The card's own bottom rule goes transparent with it**, so the row and the sheet meet on the
+  frame's top edge alone rather than on the frame *plus* a `$lms-divider` hairline. That second line
+  was the seam — the same rule that separates any two cards, sitting between a row and its own
+  drawer — and two lines there read as two objects.
 - **A notch.** An 11px square rotated 45°, on the top edge, **centred on the chevron that opened the
   drawer** — `right: calc($card-edge + $col-chevron / 2 - 1px)`, the -1px being the frame, because
   the notch is placed from the sheet's padding box and the chevron from the card's outer edge. It
-  says *which card this belongs to*, which until now was inferred from adjacency alone — the one
-  signal that fails when two drawers are open in a column of near-identical bands. Verified live:
-  chevron centre and notch centre both on x=801.
-- **A shadow.** `0 3px 8px -3px rgba(0,0,0,.30)`, and after §5.4's revision it is the only shadow on
-  the screen. The sheet rises out of a flat list.
+  says *which card this belongs to*, which before it was inferred from adjacency alone — the one
+  signal that fails when two drawers are open in a column of near-identical bands. The rail and the
+  spine now say the same thing from the leading edge; this says it from the trailing one, where the
+  control that opened the sheet actually is. Verified live: chevron centre and notch centre both on
+  x=801.
+- **A shadow.** `0 3px 8px -3px rgba(0,0,0,.30)` on `.expansion`, and after §5.4's revision it is the
+  only shadow on the screen. The sheet rises out of a flat list.
 
-**And a fifth thing that is not a treatment at all: only one drawer is open per column** (see below).
+**And a sixth thing that is not a treatment at all: only one drawer is open per column** (see below).
 
-The `.expansion` div is the sheet and it is **full-bleed**: the component host is a bare wrapper
-carrying nothing but the open animation. Its 1px `$lms-divider` bottom rule is gone with the shadow
-change — a sheet that stands proud of the list closes itself, and a rule beneath it read as one more
-of the rules between cards. There is no `$expansion-inset` and no `$leading-offset` indent.
+The `.expansion` div is the sheet and it is **full-bleed**: the component host carries the open
+animation and the continued spine, and nothing else. The row's own open state is one class,
+`:host(.open)` on `SpaceCard` / `AvailabilityCard`, bound to the same `expanded()` the chevron's
+`aria-expanded` reads, and its rules live in `card-shell` so both columns get them from one place. Its 1px `$lms-divider` bottom rule is gone with
+the shadow change — a sheet that stands proud of the list closes itself, and a rule beneath it read
+as one more of the rules between cards. There is no `$expansion-inset` and no `$leading-offset`
+indent.
 
 **Two further devices were tried and pulled, both within a day of shipping. Read this before adding a
 third.**
@@ -780,6 +829,11 @@ the title, pushed right) · the `Filtered` badge and `Reset` when away from defa
 ---
 
 ## 7. Stock class carries no hue — and now no badge either
+
+**Stock class does now carry a behaviour (2026-09-09), and still no ink.** §10.2's "Filter on drag"
+narrows the far column by stock-class compatibility while a card is held, so the class finally decides
+something on this screen — but it decides *which rows are present*, and it adds no colour, no badge
+and no glyph to the rows that are. Nothing below changes.
 
 **Stock class carries no hue.** `Data/stock-class-configs.csv` ships a hex colour per class, and
 Phase 8 §3.1 asks for it — but resolved question 16 commits hue exclusively to the quantity meter, and
@@ -1092,6 +1146,50 @@ a tabular `1180 head`, plus 8px of padding a side. 220.6px, rounded up for cushi
 third field**: what makes the chip work is that it is under half the card it is dragged over, and the
 next field would come out of the name.
 
+### 10.2 Filter on drag (2026-09-09)
+
+**A toggle in the top bar, left of `Reset demo data`. While a card is held, the other column shows
+only the stock classes that could take it.** Grab a Lamb availability record and the demand column
+drops from 33 booked spaces to the 8 lamb ones; grab a Bulls space and the supply column drops from
+42 records to 15. Off by default, persisted with the rest of the view preferences, and cleared by
+`Reset demo data`.
+
+| Piece | Treatment |
+| --- | --- |
+| **The toggle** | §14.1's white-on-petrol chrome button, 26px, and the same shape as the reset beside it — one selector, not a copy, because two chrome controls 1px apart look like a mistake. **Filled white with petrol text while on**, `aria-pressed`, glyph `filter_alt` / `filter_alt_off`. A toggle whose only ON cue is its wording is a state nobody notices they are in. It is **not** marked as debug scaffolding: unlike the reset and `+ Add`, this is a real feature of the screen. |
+| **The narrowed column** | nothing is added to the cards. The list simply holds fewer of them, the bands re-trim (§9.3), and `showing 4 of 47` states it — the *loaded* total never changes, because the aid hides records and does not unload them. |
+| **The header chip** | the §12.3 `Filtered` chip's shape in petrol on `#E8F1F6`, reading `Lamb only`, and it **takes that chip's place** rather than adding a fifth item to a 596px header. `Reset` stands down with it; it was never clickable mid-gesture. Petrol is identity and no part of the quantity ramp, so it borrows no meaning from the meters below it. |
+| **Narrowed to nothing** | §13's third empty state. Reachable in the demo: Alliance Group books `Deer` and the supply vocabulary has none. |
+
+**It hides; it never refuses.** No drop is blocked on stock class, and no endpoint knows the aid
+exists. The two vocabularies do not map onto one another and the operator is the one who judges
+compatibility, so a pairing the table has not thought of costs one click, not a dead end.
+
+**The pairings live in `Apg.Domain/Matching/StockClassCompatibility.cs`** and reach the client only as
+tags on each record (`stockClassGroups`); the client's whole contribution is asking whether two tag
+lists intersect. An unrecognised class carries *every* tag, so it fails towards being visible — a
+record that cannot be seen cannot be matched. Lamb and Mutton are deliberately not interchangeable:
+different products, different schedules ($7–9 against $4.50–5.80 in the seed), and neither vocabulary
+has a class spanning them.
+
+**It narrows on the pointer move that starts the drag — not on the press — and that timing is not a
+matter of taste.** Two things pin it from either side:
+
+- **Not the press.** A grip is a drag handle on a row whose commonest action is expanding it, so it
+  gets clicked by mistake constantly. This narrowed on `pointerdown` until 2026-09-09, and every one
+  of those clicks emptied half the far column and filled it back in — which reads as the screen
+  glitching, in the one place §10 insists nothing may move under the pointer.
+- **Not `cdkDragStarted`, either.** Every card is its own `cdkDropList`, and CDK measures *all* of
+  them inside the handler that crosses the drag threshold. Narrow any later and every surviving card
+  sits somewhere CDK does not believe it is: the pointer enters nothing, no row lights up, and the drop
+  lands nowhere.
+
+So it happens on the **same pointer move CDK starts the drag on, one listener earlier** — CDK's own
+threshold (`CDK_DRAG_CONFIG.dragStartThreshold`, 5px, `|dx| + |dy|`), with `ApplicationRef.tick()` to
+settle the DOM inside the handler before CDK measures. The release hangs off `pointerup` rather than
+`cdkDragEnded`, because a grip pressed and let go without a drag emits nothing from CDK at all.
+`drag/drag-narrowing.ts` carries the full account.
+
 **Nothing keyboard-driven is designed, on purpose.** A mouse is assumed available at all times
 (resolved question 14): no keyboard drag path, no "press space to lift" hint, no drag-handle focus
 ring, no screen-reader live region for the drag. Its absence is a decision, not an oversight to be
@@ -1396,6 +1494,7 @@ existing app. Nothing ever shows a raw `undefined`, `NaN` or `Invalid Date`.
 | **Empty column** | same layout, the column's own glyph, `No livestock availability yet`, *"Records appear here as farmers and agents submit them."*, and the debug `+ Add a record` stroked button. Distinct from the filtered case — nothing to clear. **Built in Phase 8** (`column/empty-column.ts`); Phase 4 and Phase 7 both parked it. It is checked *before* the filtered case, and its condition is "nothing loaded for this side", not "nothing shown". |
 | **Loading** | **Phase 8.** The same centred block, a spinning `progress_activity` glyph and one line: *"Loading processor spaces and livestock availability…"*. Before Phase 8 the screen drew nothing until the week bands arrived, so a cold start's first paint was indistinguishable from an empty data set. |
 | **API unreachable** | **Phase 8.** The same block with a `cloud_off` glyph in `$lms-error`, the sentence naming the port, the command that starts the API, and a **Try again** button that re-issues all three reads. Colour on the glyph and the border only — `$lms-error` is semantic and no part of the quantity ramp. |
+| **Narrowed to nothing** | **2026-09-09.** §10.2's aid has left the column empty: the card in hand has no compatible stock class on this side. The same centred block, a `filter_alt_off` glyph, `No livestock availability for Deer`, and one sentence naming the two ways out — let go, or switch the aid off. **No control**, because the pointer is down and a button cannot be clicked mid-gesture; and **not** the filtered-empty panel, because no filter of the operator's is hiding anything and `Clear filters` would send them after a cause that does not exist. Checked before the filtered case, like the empty column. |
 | **Empty week band** | §8.4: the header renders, then a 44px `- no processor spaces this week`. |
 | **Record with no matches** | §6.2's table placeholder. Deliberately empty, not broken. |
 | **Missing default price** | `no default price` in `#9E9E9E`. Never blank, never `$0.00`. |
@@ -1454,6 +1553,13 @@ take the operator's filters with it.
 The reload is deliberate. A refetch would leave behind everything that is not fetched — expanded
 cards, a drag in flight, an open dialog, the in-memory half of the preference store — and a reset that
 leaves a card expanded on a match that no longer exists is worse than one that takes a second.
+
+**Its neighbour is not scaffolding.** §10.2's `Filter on drag` toggle (2026-09-09) sits immediately
+left of the reset and shares this button's shape exactly — same 26px, same ring, same type — because
+two chrome controls a pixel apart look like a mistake rather than a distinction. What separates them
+is the toggle's filled ON state, which the reset has no equivalent of and needs none. It carries **no
+demo-data marking of any kind**, and must not acquire one: it is a real feature of the matching
+screen, and the ribbon and the `construction` glyph mean something specific in this application.
 
 ### 14.2 The record forms' layout (2026-09-08)
 

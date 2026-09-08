@@ -14,7 +14,18 @@
       deliberately — "you have filtered this column" is information, not a warning, and every usable
       amber collides with the quantity ramp's orange.
     -->
-    @if (!isDefault()) {
+    <!--
+      While a card is held on the other side, the header says what this column has been narrowed to
+      (Phase 10). It takes the `Filtered` chip's place rather than adding a fifth item to the row: the
+      cards vanish at pointer-DOWN, before the drag wash arrives, and that is the moment this has to
+      be legible. `Reset` stands down with the chip — it was never clickable mid-gesture.
+    -->
+    @if (isNarrowed()) {
+      <span class="filtered narrowed" [title]="narrowedTitle()">
+        <span class="material-symbols-outlined" aria-hidden="true">filter_alt</span>
+        {{ narrowedTo() }} only
+      </span>
+    } @else if (!isDefault()) {
       <span class="filtered" title="This column is not in its default filter and sort state">
         <span class="material-symbols-outlined" aria-hidden="true">info</span>
         Filtered
@@ -81,6 +92,13 @@
         filter to clear, so the only way forward is a record (design-system.md 13).
       -->
         <app-empty-column [side]="side()" />
+      } @else if (nothingCompatible()) {
+        <!--
+        "Filter on drag" has narrowed this column to nothing: the card in hand has no compatible stock
+        class on this side. Checked before the filtered case, because no filter of the operator's is
+        hiding anything and the column refills itself the moment the grip is released.
+      -->
+        <app-nothing-compatible [side]="side()" [stockClass]="narrowedTo() ?? ''" />
       } @else if (isFilteredEmpty()) {
         <!-- Never a blank column: the filters that emptied it are restated, with two ways out. -->
         <app-filtered-empty [side]="side()" [spaces]="spaces()" [availability]="availability()" />

@@ -23,5 +23,30 @@
     Reset demo data
   </button>
 
+  <!--
+    "Filter on drag" (Phase 10). A toggle, not an action, and it says which it is by staying filled
+    while it is on: the two states have to be readable at a glance from across a room during a demo,
+    and a control whose only difference is its wording is not.
+
+    It is in the top bar beside the reset because it governs BOTH columns — one switch for both
+    directions of the drag — so it belongs to neither column's filter row, and because it is a
+    standing preference rather than something to be set mid-gesture. It is not debug scaffolding, and
+    is deliberately not marked as such: unlike the reset and the + Add buttons, this is a real feature
+    of the screen.
+  -->
+  <button
+    type="button"
+    class="drag-filter"
+    [class.on]="filterOnDrag()"
+    [attr.aria-pressed]="filterOnDrag()"
+    (click)="toggleFilterOnDrag()"
+    [title]="filterTitle()"
+  >
+    <span class="material-symbols-outlined" aria-hidden="true">{{
+      filterOnDrag() ? 'filter_alt' : 'filter_alt_off'
+    }}</span>
+    Filter on drag
+  </button>
+
   <span class="dev-flag"># DEV ENVIRONMENT #</span>
 </header>

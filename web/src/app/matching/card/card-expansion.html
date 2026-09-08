@@ -8,6 +8,15 @@
   "Quantity Matched" is the processor's and farmer's title for the excl-Draft one, which on this screen
   read as the grand total while sitting beside a larger figure.
 -->
+<!--
+  The status spine, continued down the sheet (2026-09-09). A sibling of the sheet rather than a child
+  of it: it is positioned against the component host, so it spans the drawer's full height including
+  the sheet's own 1px frame, whose leading edge goes transparent to let it through.
+-->
+@if (spine(); as s) {
+  <span class="spine" [class]="s"></span>
+}
+
 <div class="expansion">
   @if (space(); as s) {
     <!--

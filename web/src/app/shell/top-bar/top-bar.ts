@@ -1,5 +1,6 @@
-import { ChangeDetectionStrategy, Component, inject, output } from '@angular/core';
+import { ChangeDetectionStrategy, Component, computed, inject, output } from '@angular/core';
 import { DemoReset } from '../demo-reset/demo-reset';
+import { MatchingPreferences } from '../../matching/filters/matching-preferences';
 
 /**
  * LMS v7's top bar: full width, petrol blue, hamburger and wordmark on the left, the dev-environment
@@ -18,6 +19,7 @@ import { DemoReset } from '../demo-reset/demo-reset';
 })
 export class TopBar {
   private readonly demo = inject(DemoReset);
+  private readonly preferences = inject(MatchingPreferences);
 
   /** Raised by the hamburger; the shell owns whether the sidebar is open. */
   readonly toggleSidebar = output<void>();
@@ -25,5 +27,28 @@ export class TopBar {
   /** Confirms first, then re-seeds and reloads. The service owns all of it. */
   resetDemoData(): void {
     this.demo.confirmAndReset();
+  }
+
+  /**
+   * Whether grabbing a card narrows the far column to compatible stock classes.
+   *
+   * The shell reaches into the matching screen's preference store, as `DemoReset` already does when
+   * it clears them: the switch governs both columns and is a standing preference, so the top bar is
+   * where it goes, and `MatchingPreferences` is root-provided precisely so it survives being read from
+   * outside the screen. Nothing here decides anything — the store holds the state and the screen acts
+   * on it.
+   */
+  readonly filterOnDrag = this.preferences.filterOnDrag;
+
+  readonly filterTitle = computed(() =>
+    this.filterOnDrag()
+      ? 'On: picking up a card hides the records on the other side whose stock class could not take '
+        + 'it. Nothing is blocked — release the card and the whole column comes back.'
+      : 'Off: both columns show every record while a card is dragged. Turn on to hide the stock '
+        + 'classes that could not be matched with the card in hand.',
+  );
+
+  toggleFilterOnDrag(): void {
+    this.preferences.toggleFilterOnDrag();
   }
 }

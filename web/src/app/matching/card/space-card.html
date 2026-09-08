@@ -162,11 +162,20 @@
       expands — and the glyph is a real cell rather than the hover-only six dots §10 had in the right
       gutter, because a drag target should be big and in the place the eye starts.
     -->
+    <!--
+      `pointerdown` starts "Filter on drag" watching the pointer (drag/drag-narrowing.ts). It narrows
+      nothing yet — a click on a grip is not a drag — and the far column changes only once the pointer
+      has travelled CDK's own drag threshold. It cannot wait for `cdkDragStarted` either: CDK measures
+      every card drop list inside the handler that crosses that threshold, so a column narrowed any
+      later would leave every surviving card somewhere CDK does not believe it is, and the drop would
+      land nowhere. When the aid is switched off the handler returns immediately.
+    -->
     <span
       class="grip"
       cdkDragHandle
       title="Drag onto a card in the other column to match"
       aria-hidden="true"
+      (pointerdown)="grabbed($event)"
     >
       <span class="material-symbols-outlined">drag_indicator</span>
     </span>

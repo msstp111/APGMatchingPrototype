@@ -33,6 +33,18 @@ export function dragName(card: DragCard): string {
 }
 
 /**
+ * The class the card is offering or asking for.
+ *
+ * Named apart from the two above because it is not a figure and not a title: it is what
+ * "Filter on drag" narrows the far column *by*, and what that column names as its reason for being
+ * short. The two vocabularies do not map onto one another, so this string is only ever displayed or
+ * compared through the server's own tags — never parsed.
+ */
+export function dragStockClass(card: DragCard): string {
+  return card.side === 'demand' ? card.space.stockClass : card.availability.stockClass;
+}
+
+/**
  * How a card looks to an in-flight drag (design-system.md 10).
  *
  * - `none` — no drag is happening, **or the pointer has not yet crossed into the opposite column**.

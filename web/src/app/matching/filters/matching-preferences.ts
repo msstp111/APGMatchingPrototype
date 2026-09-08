@@ -6,6 +6,7 @@ import {
   DemandSortField,
   DEFAULT_DEMAND_FILTERS,
   DEFAULT_DEMAND_SORT,
+  DEFAULT_FILTER_ON_DRAG,
   DEFAULT_FLIPPED,
   DEFAULT_SUPPLY_FILTERS,
   DEFAULT_SUPPLY_SORT,
@@ -39,12 +40,23 @@ const STORAGE_VERSION = 2;
 
 export interface MatchingViewPreferences {
   readonly flipped: boolean;
+  /**
+   * Whether grabbing a card narrows the far column to the stock classes it could be matched with
+   * (`drag/drag-narrowing.ts`).
+   *
+   * A view preference like every other field here — it hides nothing permanently, changes no record,
+   * and is never sent to the API — which is why it may live in the browser at all. It sits beside
+   * `flipped` rather than inside either column's filters because it belongs to neither: one switch
+   * governs both directions, and it is set from the top bar rather than from a column's filter row.
+   */
+  readonly filterOnDrag: boolean;
   readonly demand: { readonly filters: DemandFilters; readonly sort: Sort<DemandSortField> };
   readonly supply: { readonly filters: SupplyFilters; readonly sort: Sort<SupplySortField> };
 }
 
 const DEFAULTS: MatchingViewPreferences = {
   flipped: DEFAULT_FLIPPED,
+  filterOnDrag: DEFAULT_FILTER_ON_DRAG,
   demand: { filters: DEFAULT_DEMAND_FILTERS, sort: DEFAULT_DEMAND_SORT },
   supply: { filters: DEFAULT_SUPPLY_FILTERS, sort: DEFAULT_SUPPLY_SORT },
 };
@@ -54,6 +66,7 @@ export class MatchingPreferences {
   private readonly state = signal<MatchingViewPreferences>(readStored());
 
   readonly flipped = computed(() => this.state().flipped);
+  readonly filterOnDrag = computed(() => this.state().filterOnDrag);
   readonly demandFilters = computed(() => this.state().demand.filters);
   readonly demandSort = computed(() => this.state().demand.sort);
   readonly supplyFilters = computed(() => this.state().supply.filters);
@@ -78,6 +91,14 @@ export class MatchingPreferences {
   /** Purely presentational (requirement 5.2): nothing else in this object moves. */
   toggleFlipped(): void {
     this.commit({ ...this.state(), flipped: !this.state().flipped });
+  }
+
+  /**
+   * Switches the drag-time stock-class narrowing on or off. Set from the top bar, next to
+   * "Reset demo data" — it governs both columns, so it belongs to neither column's filter row.
+   */
+  toggleFilterOnDrag(): void {
+    this.commit({ ...this.state(), filterOnDrag: !this.state().filterOnDrag });
   }
 
   /**
@@ -164,7 +185,8 @@ function readStored(): MatchingViewPreferences {
   const supply = record(raw['supply']);
 
   return {
-    flipped: typeof raw['flipped'] === 'boolean' ? raw['flipped'] : DEFAULTS.flipped,
+    flipped: boolean(raw['flipped'], DEFAULTS.flipped),
+    filterOnDrag: boolean(raw['filterOnDrag'], DEFAULTS.filterOnDrag),
     demand: {
       filters: readDemandFilters(record(demand['filters'])),
       sort: readSort(record(demand['sort']), DEFAULT_DEMAND_SORT, knownDemandSortFields),

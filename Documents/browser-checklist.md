@@ -449,6 +449,17 @@ of them had already been got wrong once in the lab.
 | The notch is centred on its chevron | chevron centre and notch centre both at **x=801**; pixel scan of the gap in the sheet's top border gives 1444–1459, centre 1451.5, against the chevron apex at 1451.5 | ✔ |
 | The card's trailing run is 40px, matching the strip | meter block and `.s-meter` both end on **x=781** — see section A, this one was a failure before today | ✔ |
 | The drawer rises; nothing else on the screen has a shadow | `.expansion` box-shadow `0 3px 8px -3px rgba(0,0,0,.3)`; the host's border-bottom is `0px`; `.card:hover` declares colour only | ✔ |
+
+**2026-09-09 — the open row.** Four more, on the two ideas that shipped out of `open-row-lab.html`:
+the grip column filled through, and the status spine continued.
+
+| Claim | What was measured | |
+| --- | --- | --- |
+| The grip column runs unbroken from row to sheet | open `.grip` background and the sheet's `::before` both `rgb(221, 234, 241)`; the glyph `rgb(0, 86, 126)`. Fill is `28px` wide with a `1px` border-right — 29 in content-box, which is the point | ✔ |
+| The filled rail did **not** move the grip's rule | `gripRuleX` and `railRuleX` both **1133**; `nameX` and the sheet's first label both **1142**. Written as a 29px box with a border it lands a pixel left — the lab does exactly that and is wrong | ✔ |
+| Nothing about the open state changes a dimension | every card's `.card` height is **52px** with a drawer open and 52px without, measured across the whole column before and after the click, identical | ✔ |
+| The status spine runs the whole open object | `app-card-expansion > .spine` height equals the host's height less the row's 52px, exactly; open `.card` `border-bottom-color: rgba(0,0,0,0)`. Checked on Pending, whose 45° hatch is the one that would show a phase break at the seam: none | ✔ |
+| The grip still answers the pointer when the card is open | ground `rgb(245,249,251)` = `$lms-hover`, glyph stays `rgb(0,86,126)`. Both rules it has to out-weigh were checked by removing this one: the tint swallows `.grip:hover`, and `.card:hover .grip` drops the glyph to muted grey | ✔ |
 | The sums are type on white, at 20px | no ground on `.sums`; `$lms-expansion-head` and `$lms-expansion-head-rule` no longer exist in the stylesheet | ✔ |
 | One drawer per column | two demand cards clicked in turn → `app-space-card app-card-expansion` count stays **1** | ✔ |
 | ...but the two columns are independent | a demand card and a supply card open together → 1 and 1, neither closing the other. This is the half of the rule that a shorter implementation would silently break | ✔ |
@@ -506,6 +517,36 @@ design-system.md §14.2 has the reasoning; jsdom holds the fields and the valida
 | The ribbon's 16px clears the first row of fields | `debug-ribbon.scss`, `margin: -4px 0 16px` | It was 12 and read as tight against the grid |
 | Nothing wraps or clips at the narrow end | §14.2 item 1's 560px stack | Open either form at ~700px viewport (the dialog clips to 80vw = 560) and again at ~520px. At the second the grid must be **one column**, not two 230px ones |
 | The over-fill / over-commit caption still clears the field above it | the original subscript fix, half of which (`min-height`) is gone | Edit a matched record and drop its quantity below `matchedInclDraft`. The red sentence must sit clear of `Notes`, wrapping included — this is the exact overlap the `min-height` was added for, so it is the one item here with a known way to fail |
+
+## Filter on drag (2026-09-09) — unrun, and one item here is the whole feature
+
+The top-bar toggle that narrows the far column to compatible stock classes while a card is held.
+design-system.md §10.2 has the reasoning; `matching-screen.spec.ts`'s `filter on drag` block proves
+the narrowing lands synchronously on the move that starts the drag — and that a click on a grip does
+nothing — and `drag-narrowing.spec.ts` proves the state machine. **What no test can prove is that CDK still hits the right row afterwards** — jsdom has no
+layout, so a drop that lands on the wrong card, or on nothing, would pass every test in the suite.
+That is item 1 and it is the reason this section exists.
+
+**The API must be restarted** before any of this: `stockClassGroups` is a new DTO field, and a server
+started before 2026-09-09 does not send it. Every record would then arrive with the field absent, the
+narrowing would treat that as no opinion and nothing would ever be hidden — which looks exactly like
+the toggle not working.
+
+| Claim | Where it comes from | How to check |
+| --- | --- | --- |
+| **A drop after narrowing lands on the card under the pointer** | §10.2's timing rule. Each card is its own `cdkDropList` and CDK measures every one of them inside the handler that crosses the drag threshold; the narrowing runs in that same handler, one listener earlier, and anything later would leave every surviving card somewhere CDK does not believe it is | Toggle on. Grab a **Lamb** availability record — the demand column should drop to 8 booked spaces — and drop it on the **last** lamb space in the list, i.e. the one that moved furthest up when the column shrank. The quantity prompt must name **that** space. Repeat dropping on the first: both ends of the list matter, and the far end is where a stale rect shows |
+| Every lit-row treatment still works in the narrowed column | §10's hot/dim/blocked states are keyed off CDK's own `entered` / `exited` | With the same drag, sweep down the narrowed column. Exactly one row lights at a time, the others recede, and a full space still shows the `block` glyph |
+| A **click** on a grip narrows nothing at all | the fault the 2026-09-09 rework fixed: it used to narrow on `pointerdown` | Click a grip sharply, ten times, at both ends of a column. The far column must not so much as flicker. Then press, hold **still**, and confirm it is still full |
+| The column narrows on the move that **starts** the drag, and nothing changes after | `DragNarrowing.onMove` at CDK's own 5px threshold, ticking synchronously | Press a Lamb record's grip and edge the pointer away slowly. The demand column must shorten within the first few pixels — as the card leaves the row, not before it and not on entering the far column — and which cards are present must not change again for the rest of the drag |
+| A drag abandoned outside either column restores it | the release is on `pointerup`, not `cdkDragEnded` | Drag a card into the gutter, the top bar, the sidebar, then off the window entirely and release. The far column must come back every time, with no stale `Lamb only` chip |
+| Escape restores it while the button is still down | `DragNarrowing` listens for Escape as `DragStore` does | Grab a card, move into the far column, press Escape **without releasing**. Preview, highlights *and* the full column all return together; then release over a card — nothing is created |
+| The header chip replaces `Filtered`, and the header does not reflow | §10.2, and the 596px header already carries title, count, chip, `+ Add` and `?` | Filter the demand column first (so `Filtered` + `Reset` are showing), then grab a supply record. `Lamb only` must appear **in their place**, and `+ Add` must not move by a pixel |
+| `showing N of M` keeps the loaded total | the aid narrows `buildBoard`'s input, inside the operator's own filters | Grab a Lamb record: the demand header should read `showing 8 of 40`-ish — the second number unchanged from before the grab |
+| Bands re-trim, and the operator can still tell which week they are in | §9.3's per-column trim runs on the narrowed list | Grab a record whose compatible spaces are all in one week. The demand column should show that week's band alone, not a run of empty headers |
+| **Narrowed to nothing** draws §13's third state | Alliance Group books `Deer`; the supply vocabulary has none | Filter the demand column to `Stock class: Deer` to find one, then grab it. The supply column must read `No livestock availability for Deer` with **no** `Clear filters` button, and refill on release |
+| Auto-scroll still works in a short column | `columnAutoScroll` measures live, unlike CDK's cache | Grab a card whose narrowed target column is shorter than the viewport. The 48px veils must not appear at all, and the pointer must not scroll a list with nothing to scroll |
+| The toggle reads as on from across the room | §10.2 — a toggle whose only ON cue is its wording is a state nobody notices | Look at the top bar from 2m in both states. Also confirm the ON state does not collide with the yellow dev flag beside it |
+| Nothing is blocked | the aid hides and never refuses | With the aid **on**, turn it off mid-session and match a Lamb record into a **Mutton** space. It must go through with no warning of any kind |
 
 ## Recording the result
 

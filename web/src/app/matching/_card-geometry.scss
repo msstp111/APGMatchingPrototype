@@ -377,6 +377,48 @@ $meter-gap: 6px;
   }
 
   // ---------------------------------------------------------------------------------------------
+  // THE OPEN CARD'S GRIP COLUMN RUNS THROUGH (2026-09-09)
+  //
+  // Every device in design-system.md 6.2 belonged to the SHEET — the frame, the rail, the notch, the
+  // shadow — and `.card` carried no open state at all: the only thing that changed on the row when it
+  // opened was that its chevron flipped. So the part of the open object that still looked closed was
+  // the 52px row, which is the click target for closing it and the drop target for matching onto it.
+  // Ten answers were drawn in Documents/open-row-lab.html and two shipped: this, and the status spine
+  // continuing down the sheet (card-expansion.scss).
+  //
+  // The grip is the row's only always-visible neutral cell, and $expansion-rail is 29px because the
+  // sheet's rail was already aligned to the grip's own hairline. So a 30px column already runs the
+  // full height of an open card with nothing in it. Filling it makes one unbroken stroke from the top
+  // of the row to the foot of the sheet — on the one column that carries no status meaning and no
+  // quantity meaning, so nothing is displaced to say it.
+  //
+  // The colour is NOT $lms-petrol-tint. That is the current-week band's ground, and a card inside the
+  // current week would then have a grip the same colour as the header above it. $open-rail is one
+  // step deeper and one step lighter than $lms-drop-target, so the order in the column reads
+  // open < droppable — a card under the pointer is more urgent than a card that is merely open.
+  //
+  // Nothing here touches a dimension: the grip is 30px open or closed, and $card-height is untouched.
+  :host(.open) .grip {
+    background: lms.$open-rail;
+    color: lms.$open-rail-ink;
+  }
+
+  // The grip's own hover, restated for an open card — and it has to out-weigh BOTH of the rules
+  // below, `.grip:hover` and `.card:hover .grip`, or the handle on the one card an operator is most
+  // likely to drag from gives no feedback at all: the tint swallows the first and the second drops
+  // the glyph from petrol to muted grey, which is a downgrade under the pointer. Hence `.card` in
+  // the middle of the selector, which is there for weight and nothing else.
+  //
+  // $lms-hover and not the $lms-surface a closed card's grip uses. #FAFAFA is a near-white and it
+  // punches a grey hole in the column exactly where the pointer is, which is against the whole point
+  // of a stroke that runs through. $lms-hover is the screen's existing "you are pointing at this",
+  // it is in the same blue family, and it is a legible step up from $open-rail. No new token.
+  :host(.open) .card .grip:hover {
+    background: lms.$lms-hover;
+    color: lms.$open-rail-ink;
+  }
+
+  // ---------------------------------------------------------------------------------------------
   // The grip — the drag handle, and the only part of the card that drags (2026-09-07)
   //
   // design-system.md 10 had the grab affordance as a six-dot glyph absolutely positioned in the

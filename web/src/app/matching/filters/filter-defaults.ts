@@ -138,6 +138,16 @@ export const DEFAULT_SUPPLY_SORT: Sort<SupplySortField> = Object.freeze({
 /** Processor Spaces on the left, per the spec. Flipping is the operator's to do (requirement 5). */
 export const DEFAULT_FLIPPED = false;
 
+/**
+ * "Filter on drag" starts **off**.
+ *
+ * It is an aid, and an aid that is on before anyone asks for it changes what the screen shows the
+ * first time a card is picked up — which is the one moment a new operator is least able to tell a
+ * feature from a fault. Off by default, persisted once switched on, and cleared by "Reset demo data"
+ * with every other preference.
+ */
+export const DEFAULT_FILTER_ON_DRAG = false;
+
 // ---------------------------------------------------------------------------------------------
 // "Clear filters" is not the same thing as "Reset to default"
 // ---------------------------------------------------------------------------------------------

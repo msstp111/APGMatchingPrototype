@@ -97,6 +97,16 @@ export function aSpace(overrides: Partial<ProcessorSpaceDto> = {}): ProcessorSpa
       // Not null: the default space has no matches, so Confirm is blocked and has to say why. A fixture
       // whose canConfirm and confirmBlockedReason disagreed would be a state the API cannot produce.
       confirmBlockedReason: 'Needs at least one confirmed match and no drafts',
+      /**
+       * The tags the server would ship beside this stock class — `Nat Beef - Premium` is the graded
+       * beef programme, so it carries that one tag and nothing else.
+       *
+       * A spec that overrides `stockClass` and cares about "Filter on drag" must override this too.
+       * The two always travel together on the wire, and the builders deliberately do not derive one
+       * from the other: the table lives in `Apg.Domain`, and a copy of it here would be the drift
+       * `no-domain-arithmetic.spec.ts` exists to prevent, one directory over.
+       */
+      stockClassGroups: ['beef-premium'],
       matches: [],
       ...overrides,
     },
@@ -135,6 +145,8 @@ export function anAvailability(
       quantityStateLabel: 'Under-committed',
       weekCommencing: '2026-08-23',
       weekCommencingLabel: '23-08-26',
+      /** `Prime` is prime cattle on this side too — see the note on `aSpace`. */
+      stockClassGroups: ['beef-prime'],
       matches: [],
       ...overrides,
     },

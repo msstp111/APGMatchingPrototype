@@ -1,4 +1,4 @@
-import { provideZonelessChangeDetection } from '@angular/core';
+import { ApplicationRef, provideZonelessChangeDetection } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
 import { Subject, of } from 'rxjs';
 import { ApiClient } from '../api/api-client';
@@ -538,6 +538,146 @@ describe('Matching screen', () => {
   // -------------------------------------------------------------------------------------------
   // Phase 5 — a write patches both records; a consumed record leaves the default view
   // -------------------------------------------------------------------------------------------
+
+  /**
+   * "Filter on drag": while a card is held, the other column shows only the stock classes that could
+   * take it.
+   *
+   * These tests go through the real grip, with a real `pointerdown`, because the *timing* is the
+   * feature. Every card is its own `cdkDropList` and CDK measures them all once, when the drag
+   * threshold is crossed; a column narrowed any later would leave every surviving card somewhere CDK
+   * does not believe it is, and the drop would land on nothing. So the narrowing happens on
+   * pointer-down and the DOM is refreshed inside that handler — which is what the first test asserts,
+   * by reading the column before awaiting anything.
+   */
+  describe('filter on drag', () => {
+    const lambSpace = aSpace({ id: 1, plant: 'Levin', stockClass: 'Lamb', stockClassGroups: ['lamb'] });
+    const cowSpace = aSpace({ id: 2, plant: 'Kokiri', stockClass: 'Cows', stockClassGroups: ['beef-cow'] });
+    const deerSpace = aSpace({ id: 3, plant: 'Mataura', stockClass: 'Deer', stockClassGroups: ['deer'] });
+    const lambRecord = anAvailability({ id: 10, stockClass: 'Lamb', stockClassGroups: ['lamb'] });
+
+    async function board(
+      spaces: readonly ProcessorSpaceDto[],
+      records: readonly LivestockAvailabilityDto[],
+      on = true,
+    ): Promise<HTMLElement> {
+      TestBed.resetTestingModule();
+      localStorage.clear();
+      await configure(spaces, records);
+
+      if (on) {
+        TestBed.inject(MatchingPreferences).toggleFilterOnDrag();
+      }
+
+      return await render();
+    }
+
+    /** Presses a card's grip. A press alone is a click, and narrows nothing. */
+    function press(card: Element | null | undefined): void {
+      card
+        ?.querySelector('.grip')
+        ?.dispatchEvent(new MouseEvent('pointerdown', { bubbles: true, clientX: 0, clientY: 0 }));
+    }
+
+    /**
+     * A press plus enough travel to be a drag — CDK's threshold is 5px.
+     *
+     * Nothing is awaited afterwards anywhere in this block: the narrowing has to be on screen by the
+     * time this returns, because CDK measures every card inside its own handler for this same move.
+     */
+    function drag(card: Element | null | undefined): void {
+      press(card);
+      document.dispatchEvent(new MouseEvent('pointermove', { clientX: 40, clientY: 0 }));
+    }
+
+    it('narrows the far column on the move that starts the drag, before anything is awaited', async () => {
+      const element = await board([lambSpace, cowSpace], [lambRecord]);
+
+      expect(element.querySelectorAll('app-space-card')).toHaveLength(2);
+
+      drag(element.querySelector('app-availability-card'));
+
+      const spaces = element.querySelectorAll('app-space-card');
+
+      expect(spaces).toHaveLength(1);
+      expect(spaces[0].textContent).toContain('Levin');
+    });
+
+    it('names what it narrowed to in the column header', async () => {
+      const element = await board([lambSpace, cowSpace], [lambRecord]);
+
+      drag(element.querySelector('app-availability-card'));
+
+      const demand = element.querySelector('app-matching-column.demand');
+
+      expect(demand?.querySelector('.filtered.narrowed')?.textContent).toContain('Lamb only');
+      // The loaded total is unchanged: the aid hides records, it does not unload them.
+      expect(demand?.textContent).toContain('showing 1 of 2');
+    });
+
+    it('leaves the column the card came from alone', async () => {
+      const element = await board(
+        [lambSpace],
+        [lambRecord, anAvailability({ id: 11, stockClass: 'Cow', stockClassGroups: ['beef-cow'] })],
+      );
+
+      drag(element.querySelector('app-availability-card'));
+
+      expect(element.querySelectorAll('app-availability-card')).toHaveLength(2);
+    });
+
+    it('brings the column back when the pointer comes up', async () => {
+      const element = await board([lambSpace, cowSpace], [lambRecord]);
+
+      drag(element.querySelector('app-availability-card'));
+      document.dispatchEvent(new MouseEvent('pointerup', { bubbles: true }));
+      await TestBed.inject(ApplicationRef).whenStable();
+
+      expect(element.querySelectorAll('app-space-card')).toHaveLength(2);
+      expect(element.querySelector('.filtered.narrowed')).toBeNull();
+    });
+
+    /**
+     * Alliance Group books deer and the supply vocabulary has none, so this state is reachable in the
+     * demo. It must not be the filtered-empty panel: no filter of the operator's is hiding anything,
+     * and `Clear filters` would send them after a cause that does not exist.
+     */
+    it('explains a column narrowed to nothing without blaming the filters', async () => {
+      const element = await board([deerSpace], [lambRecord]);
+
+      drag(element.querySelector('app-space-card'));
+
+      const supply = element.querySelector('app-matching-column.supply');
+
+      expect(supply?.querySelector('app-nothing-compatible')).not.toBeNull();
+      expect(supply?.textContent).toContain('No livestock availability for Deer');
+      expect(supply?.querySelector('app-filtered-empty')).toBeNull();
+      expect(supply?.textContent).not.toContain('Clear filters');
+    });
+
+    it('does nothing at all while the switch is off', async () => {
+      const element = await board([lambSpace, cowSpace], [lambRecord], false);
+
+      drag(element.querySelector('app-availability-card'));
+
+      expect(element.querySelectorAll('app-space-card')).toHaveLength(2);
+      expect(element.querySelector('.filtered.narrowed')).toBeNull();
+    });
+
+    /**
+     * The grip is a drag handle on a row whose commonest action is expanding it, so it gets clicked by
+     * mistake constantly. Until 2026-09-09 every one of those clicks emptied half the other column and
+     * filled it back in, which read as the screen glitching.
+     */
+    it('does nothing when a grip is clicked rather than dragged', async () => {
+      const element = await board([lambSpace, cowSpace], [lambRecord]);
+
+      press(element.querySelector('app-availability-card'));
+
+      expect(element.querySelectorAll('app-space-card')).toHaveLength(2);
+      expect(element.querySelector('.filtered.narrowed')).toBeNull();
+    });
+  });
 
   describe('after a match is created', () => {
     it('updates both columns from the write result', async () => {

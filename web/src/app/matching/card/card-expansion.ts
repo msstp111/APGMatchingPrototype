@@ -5,7 +5,7 @@ import { LivestockAvailabilityDto, MatchStatus, ProcessorSpaceDto } from '../../
 import { MatchSide } from '../board/matching-board';
 import { MatchActions } from '../match/match-actions';
 import { RecordActions } from '../record/record-actions';
-import { matchStatusIcon, quantityClass, transactionTypeLabel } from './card-chrome';
+import { matchStatusIcon, quantityClass, spineClass, transactionTypeLabel } from './card-chrome';
 
 /**
  * What opens below a card: the fields that did not fit, both matched sums, and an LMS table of the
@@ -27,6 +27,11 @@ import { matchStatusIcon, quantityClass, transactionTypeLabel } from './card-chr
   selector: 'app-card-expansion',
   changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [DecimalPipe, MatButtonModule],
+  // Only the two elements meant to read as continuous with the row above use this — the rail and the
+  // continued spine. The drawer's CONTENT stays at full strength deliberately: it is the most
+  // interactive region on the card, and everything that recedes on this screen recedes because it is
+  // read-only. See the note on `:host(.cancelled)` in card-expansion.scss.
+  host: { '[class.cancelled]': 'isCancelled()' },
   templateUrl: './card-expansion.html',
   styleUrl: './card-expansion.scss',
 })
@@ -52,6 +57,25 @@ export class CardExpansion {
    * from `canConfirm` alone.
    */
   readonly confirmBlockedReason = computed(() => this.space()?.confirmBlockedReason ?? null);
+
+  /**
+   * The record's own status spine, continued down the sheet's leading edge (2026-09-09).
+   *
+   * The card's spine used to stop at its bottom rule, so an open card was a row followed by a
+   * separate block. With the seam between them removed (card-shell's `:host(.open)`) the two are one
+   * object, and this runs its whole leading edge: 3px of `$lms-divider` for Booked, 6px for
+   * everything else, hatched for Pending and dashed for Cancelled.
+   *
+   * Derived here rather than passed in from the card. Both call `spineClass` on the same record's
+   * status, so the row's spine and the sheet's cannot come to disagree — and the specs that mount
+   * this component on its own do not need a new input to satisfy.
+   *
+   * Null only in a degenerate mount with neither record set; the template draws nothing then.
+   */
+  readonly spine = computed(() => {
+    const record = this.space() ?? this.availability();
+    return record ? spineClass(record.status) : null;
+  });
 
   /** Inks the unmatched figure in the ramp colour for this state and this side. */
   quantityInk(record: ProcessorSpaceDto | LivestockAvailabilityDto): string {

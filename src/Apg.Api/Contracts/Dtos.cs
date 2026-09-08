@@ -114,6 +114,22 @@ public sealed record ProcessorSpaceDto
     /// </remarks>
     public required string? ConfirmBlockedReason { get; init; }
 
+    /// <summary>
+    /// The stock-class compatibility tags, from <c>StockClassCompatibility</c> — what the matching
+    /// screen's "Filter on drag" aid compares between a grabbed card and the cards on the far side.
+    /// </summary>
+    /// <remarks>
+    /// Tags rather than a list of the other vocabulary's class names, because one generic class
+    /// (Alliance Group's <c>Cattle</c>) stands over several specific ones and the cross product does
+    /// not belong on the wire. Two records are compatible when their two tag lists intersect, which is
+    /// the only test the client performs on them; the table itself, the fail-open rule for a class it
+    /// has never heard of, and the decision that Lamb and Mutton are not interchangeable all stay in
+    /// the domain. <b>Nothing is gated on this.</b> Compatibility is a human judgement — the two
+    /// vocabularies do not map onto each other — so no endpoint refuses a match for disagreeing with
+    /// it, and turning the aid off puts every record back.
+    /// </remarks>
+    public required IReadOnlyList<string> StockClassGroups { get; init; }
+
     /// <summary>Live matches only — cancelled ones are excluded (resolved question 4).</summary>
     public required IReadOnlyList<MatchDto> Matches { get; init; }
 }
@@ -216,6 +232,22 @@ public sealed record LivestockAvailabilityDto
     public required DateOnly WeekCommencing { get; init; }
 
     public required string WeekCommencingLabel { get; init; }
+
+    /// <summary>
+    /// The stock-class compatibility tags, from <c>StockClassCompatibility</c> — what the matching
+    /// screen's "Filter on drag" aid compares between a grabbed card and the cards on the far side.
+    /// </summary>
+    /// <remarks>
+    /// Tags rather than a list of the other vocabulary's class names, because one generic class
+    /// (Alliance Group's <c>Cattle</c>) stands over several specific ones and the cross product does
+    /// not belong on the wire. Two records are compatible when their two tag lists intersect, which is
+    /// the only test the client performs on them; the table itself, the fail-open rule for a class it
+    /// has never heard of, and the decision that Lamb and Mutton are not interchangeable all stay in
+    /// the domain. <b>Nothing is gated on this.</b> Compatibility is a human judgement — the two
+    /// vocabularies do not map onto each other — so no endpoint refuses a match for disagreeing with
+    /// it, and turning the aid off puts every record back.
+    /// </remarks>
+    public required IReadOnlyList<string> StockClassGroups { get; init; }
 
     /// <summary>Live matches only — cancelled ones are excluded (resolved question 4).</summary>
     public required IReadOnlyList<MatchDto> Matches { get; init; }

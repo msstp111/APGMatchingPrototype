@@ -13,7 +13,9 @@ import { WeekBand } from '../band/week-band';
 import { BandView, MatchSide } from '../board/matching-board';
 import { LivestockAvailabilityDto, ProcessorSpaceDto } from '../../api/models';
 import { ColumnAutoScroll } from '../drag/column-auto-scroll';
+import { DragNarrowing } from '../drag/drag-narrowing';
 import { DragStore } from '../drag/drag-state';
+import { NothingCompatible } from '../drag/nothing-compatible';
 import { ColumnFilters } from '../filters/column-filters';
 import { EmptyColumn } from './empty-column';
 import { FilteredEmpty } from '../filters/filtered-empty';
@@ -37,13 +39,22 @@ import { RecordActions } from '../record/record-actions';
 @Component({
   selector: 'app-matching-column',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [DecimalPipe, WeekBand, ColumnFilters, FilteredEmpty, EmptyColumn, ColumnAutoScroll],
+  imports: [
+    DecimalPipe,
+    WeekBand,
+    ColumnFilters,
+    FilteredEmpty,
+    EmptyColumn,
+    NothingCompatible,
+    ColumnAutoScroll,
+  ],
   templateUrl: './matching-column.html',
   styleUrl: './matching-column.scss',
 })
 export class MatchingColumn {
   private readonly preferences = inject(MatchingPreferences);
   private readonly drag = inject(DragStore);
+  private readonly narrowing = inject(DragNarrowing);
   private readonly records = inject(RecordActions);
   private readonly dialog = inject(MatDialog);
   private readonly host = inject<ElementRef<HTMLElement>>(ElementRef);
@@ -119,6 +130,33 @@ export class MatchingColumn {
    * scope, requirement 4.1 is where it lands).
    */
   readonly isEmpty = computed(() => this.totalCount() === 0);
+
+  /**
+   * The stock class this column is currently narrowed by, or null — "Filter on drag" (Phase 10).
+   *
+   * Non-null only while a card is held on the *other* side and the aid is on, which is why the chip
+   * it drives replaces the `Filtered` chip rather than sitting beside it: the header has room for one
+   * more thing, and for as long as a card is in hand this is the more urgent of the two statements.
+   * `Reset` goes with it, and loses nothing — it was not clickable mid-gesture anyway.
+   */
+  readonly narrowedTo = computed(() => this.narrowing.narrowedTo(this.side()));
+
+  readonly isNarrowed = computed(() => this.narrowedTo() !== null);
+
+  readonly narrowedTitle = computed(
+    () =>
+      `Filter on drag: showing only the stock classes that could be matched with ${this.narrowedTo()}`,
+  );
+
+  /**
+   * The narrowing has left this column with nothing — a state of its own, checked before the filtered
+   * case for the same reason `isEmpty` is: only one of the three has a filter of the operator's to
+   * blame, and offering `Clear filters` for a column that will refill itself on release would send
+   * someone clearing filters that are not the cause.
+   */
+  readonly nothingCompatible = computed(
+    () => this.isNarrowed() && this.shown() === 0 && this.totalCount() > 0,
+  );
 
   /**
    * The opposite column takes the wash — but not at pickup any more (Phase 9, design-system.md 10).

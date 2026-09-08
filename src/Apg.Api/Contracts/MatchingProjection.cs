@@ -147,6 +147,7 @@ public static class MatchingProjection
             // The cost is a LINQ filter over one space's matches, forty times per request.
             CanConfirm = ProcessorSpaceRules.CanConfirm(space, matches, context.Cancelled),
             ConfirmBlockedReason = ProcessorSpaceRules.ConfirmBlockedReason(space, matches, context.Cancelled),
+            StockClassGroups = StockClassCompatibility.GroupsFor(space.StockClass),
             Matches = LiveMatchDtos(matches, context),
         };
     }
@@ -187,6 +188,7 @@ public static class MatchingProjection
             QuantityStateLabel = QuantityStateLabels.For(tally.State, MatchSide.LivestockAvailability),
             WeekCommencing = NzTime.WeekCommencing(availability.AvailableFrom),
             WeekCommencingLabel = NzTime.WeekLabel(availability.AvailableFrom),
+            StockClassGroups = StockClassCompatibility.GroupsFor(availability.StockClass),
             Matches = LiveMatchDtos(matches, context),
         };
     }

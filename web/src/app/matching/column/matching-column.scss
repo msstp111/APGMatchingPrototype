@@ -81,6 +81,16 @@
   font-size: 14px;
 }
 
+// The same chip in the app's own petrol, for the transient state rather than the standing one:
+// "Filter on drag" is on screen only while a card is held, so it may be a little louder than
+// `Filtered`, which is on screen all day. Petrol is identity and is no part of the quantity ramp, so
+// this borrows no meaning from the meters below it (design-system.md 4).
+.filtered.narrowed {
+  border-color: lms.$lms-petrol;
+  background: lms.$lms-petrol-tint;
+  color: lms.$lms-petrol;
+}
+
 .reset {
   flex: 0 0 auto;
   border: 0;

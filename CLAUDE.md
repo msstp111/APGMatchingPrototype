@@ -57,6 +57,14 @@ service: confirm, re-seed, clear preferences, reload) and `reset-demo-data.*` (t
 decides nothing and closes true or false, like every other dialog in the application). It reuses
 `matching/record/debug-ribbon.ts` rather than growing a second debug treatment.
 
+**The top bar carries two controls now**, and only one of them is scaffolding: `Reset demo data`, and
+from 2026-09-09 the `Filter on drag` toggle beside it, which reads and writes
+`MatchingPreferences.filterOnDrag` (root-provided, which is exactly why the shell may reach it — as
+`DemoReset` already does to clear the stored preferences). The two share one SCSS selector for their
+shape; what separates them is the toggle's filled ON state. The toggle carries **no** demo-data
+marking: it is a real feature of the matching screen, and `# DEMO DATA TOOL #` means something
+specific here.
+
 ### Wiring
 
 - The Angular dev server proxies `/api` to `http://localhost:5286` (`web/proxy.conf.json`, wired into `angular.json`'s `serve` options), so the client only ever calls same-origin paths. CORS for `http://localhost:4200` is configured in the API as a fallback for running without the proxy.
@@ -74,8 +82,9 @@ decides nothing and closes true or false, like every other dialog in the applica
 - **The seeded Processor Spaces are 70% ANZCO / 20% Alliance Group / 10% SFF** (`SeedConfig.ProcessorMix`), shuffled. Until after Phase 4 the seeder cycled `Processors[i % 3]` while the week came from `i % 6`; the two aliased, so every week held exactly one processor and always would. The shuffle removes that structural guarantee but does not promise a mixed week — at 70% ANZCO an all-ANZCO week is ordinary, and the current seed has one. Statuses are **34 Booked / 4 Confirmed / 2 Cancelled**, assigned *after* the matches exist so a Confirmed space is one `ProcessorSpaceRules.CanConfirm` agrees could be confirmed, and one Cancelled space keeps its live matches because cancelling never cascades. All of these are pinned by `SeedDeterminismTests`.
 - Every invented list (processors, plants, carriers, stock classes, farmer names) lives in `src/Apg.Api/Seeding/SeedConfig.cs` so APG's real values are a one-file swap.
 - LMS colours and metrics live in `web/src/styles/_lms-tokens.scss`, sampled from the screenshots, with Phase 2's matching-screen palette appended (surfaces, rules, the quantity ramp, semantics) as both SCSS variables and `:root` custom properties. The Material palettes in `web/src/styles/_theme-colors.scss` were generated from `#00567E`. Do not re-sample; the values are recorded in the build log.
-- **The Angular initial-chunk budget is 1 MB warn / 1.5 MB error** (`web/angular.json`), raised from
-500 kB / 1 MB in Phase 8 with Mark's agreement. The bundle has been over 500 kB since Phase 3 and was
+- **The Angular initial-chunk budget is 1.2 MB warn / 1.5 MB error** (`web/angular.json`), raised from
+500 kB / 1 MB in Phase 8 with Mark's agreement, and the warning raised again 1 MB → 1.2 MB on
+2026-09-09 when "Filter on drag" put the initial total 1.18 kB past 1,000,000 bytes. The bundle has been over 500 kB since Phase 3 and was
 within 41 kB of the old hard error after Phase 7's five dialogs; the remedy for a prototype whose whole
 job is one screen is a bigger budget, not lazy-loading the forms. The `anyComponentStyle` warning went
 4 kB → 6 kB for the same reason. **`npm run build` is now clean with no warnings** — if it starts
@@ -92,6 +101,7 @@ Domain rules live in C# in `Apg.Domain` (no EF, no ASP.NET) and reach the client
 ### Where the rules actually live (Phase 1)
 
 - **`src/Apg.Domain/Matching/`** — `CancelledRecords` (which records are cancelled; **every quantity and status rule takes one**), `MatchQuantities` (both sums, `Tally`, `ForSpace`, `ForAvailability`, `ConsumingSpace`/`ConsumingAvailability`), `QuantityTally` (`Unmatched`, `State`), `QuantityState` / `MatchSide` / `QuantityStateLabels`, `AvailabilityStatus.Derive`, `ProcessorSpaceRules` (`CanConfirm` **and** `ConfirmBlockedReason`, expressed over the same clauses so the gate and its explanation cannot drift), `MatchCreation` (`Propose`, `DefaultMatchQuantity`, `MaxMatchQuantity`, `NoUnmatchedQuantity`), `MatchLifecycle` (`CanDelete` / `CanConfirm` / `CanCancel` / `Confirm`, plus their refusal strings), `RecordCancellation`.
+- **`src/Apg.Domain/Matching/StockClassCompatibility.cs`** — which stock classes could plausibly be matched, as **group tags** (`GroupsFor`, `AreCompatible`, `IsKnown`). One name-keyed table serves **both** vocabularies, because where a name appears on both sides it means the same animal. It exists only for the matching screen's "Filter on drag" aid: **nothing is gated on it**, no endpoint consults it, and an unrecognised class carries *every* tag so it fails towards being visible. Lamb and Mutton are deliberately not interchangeable.
 - **`src/Apg.Domain/Pricing/PriceTable.cs`** — `DefaultPricePerKg`, keyed on the Processor Space stock class.
 - **`src/Apg.Domain/Time/NzTime.cs`** — the *only* home for date rules: `WeekCommencing`, `ToNzDate`, `Today(TimeProvider)`, `CurrentWeekCommencing(TimeProvider)`, `DateLabel`, `WeekLabel`, `AtNzTime`, and from Phase 3 `ShortDateLabel` / `ShortDateLabelFormat` (`d MMM` → `16 Aug`, `1 Sep`) and `WeeksFrom(first, last)` (contiguous inclusive Sundays, both ends normalised — still the source of `/api/week-bands`). Extend this file; never start a second one.
 - **`src/Apg.Api/Contracts/`** — `Dtos.cs`, `MatchingProjection` (computes nothing; calls the domain for every value), `WorkingSetLoader`, `PriceTableLoader`, `MatchWriter` (pure over a `WorkingSet` + `PriceTable` — Propose / Reject / Drafted / RejectDelete), `MatchResponses`, `ApiJson` (the wire format, shared with the tests).
@@ -116,6 +126,10 @@ board/card-state.ts       root CardStateStore — which cards are expanded (sess
 drag/drag-state.ts        root DragStore — the card in flight, Escape cancel, drop-state (valid/blocked/same)
 drag/card-drag.ts         acceptsFrom (same-column silent reject) + pairFromDrop (both directions → one pair)
 drag/column-auto-scroll.ts  [columnAutoScroll] on each .list; CDK's own auto-scroll is disabled
+drag/drag-narrowing.ts    root DragNarrowing — "Filter on drag" (2026-09-09). Narrows the FAR column
+                          to compatible stock classes on the grip's pointerdown, restores on pointerup
+drag/stock-class-affinity.ts  the pure half: do two records' stockClassGroups intersect
+drag/nothing-compatible.ts    the third empty state — narrowed to nothing (Alliance Group's Deer)
 match/record-patches.ts   root RecordPatches — THE write stream. Every writer publishes; the screen
                           subscribes once. A patch may carry one record or both, and an absent half
                           means "the server did not say", not "unchanged by omission".
@@ -177,14 +191,54 @@ testing/dto-fixtures.ts   DTO builders for the specs only
 **The expanded card, round two (2026-09-07).** `Documents/expansion-lab-2.html` drew ten treatments
 against the inset sheet and **3, 5, 6, 8 and 0 shipped**: the sums anchor the drawer at 20px on white
 (the `$lms-expansion-head` caption bar and its rule are **deleted** — two of the eight greys gone), a
-**rail** carries the grip's hairline down the sheet and indents its content to the card's own x=38, a
+**rail** carries the grip's hairline down the sheet and indents its content to the card's own x=38
+(**filled** since 2026-09-09 — see "The open row" below), a
 **notch** on the top edge is centred on the chevron that opened it, the recess became an **outer
-shadow** and is now the only shadow on the screen (hover is colour only), and **one drawer is open per
-column**. The diagnosis behind all five is the thing to carry forward: eight named greys lived inside
+shadow** and is now the only shadow on the screen
+(hover is colour only), and **one drawer is open per column**. The diagnosis behind all five is the thing to carry forward: eight named greys lived inside
 ten L\* points, so **a ninth step could not separate anything** — every remaining fix had to be the
 removal of a grey or a device that is not a value. Two numbers are measured, not derived, and their
 comments say so: `$expansion-rail` is **29px not 30** (the grip's rule is the pixel *inside* its own
 box; at 30 the rail lands 2px right of it) and the notch's offset carries a -1px for the frame.
+
+**The open row (2026-09-09).** Every device in §6.2 belonged to the *sheet*, and `.card` carried no
+open state at all — the only thing that changed on the row when it opened was that its chevron
+flipped. So the part of the open object that still looked closed was the 52px row, which is the click
+target for closing it and the drop target for matching onto it. `Documents/open-row-lab.html` is the
+fifth lab in the series and drew ten answers; **3 and 4 shipped**:
+
+- **The grip column runs through.** The row's 30px grip and the sheet's 29px rail are filled with
+  `$open-rail` `#DDEAF1`, so an open card carries one unbroken stroke from the top of its row to the
+  foot of its sheet. The grip is the right column to spend because it is the row's only
+  always-visible cell carrying neither a status nor a quantity. **Not `$lms-petrol-tint`** — that is
+  the current-week band's ground, and a card inside that week would get a grip matching the header
+  above it; `$open-rail` sits below the tint and above `$lms-drop-target`, so the column reads *open*
+  < *droppable*. **The fill must not move the rail's rule:** an absolutely positioned child lays out
+  against the padding box, there is no global `box-sizing: border-box` here, so it is a 28px width
+  **plus** a 1px `border-right` — 29 total, rule on x=29 where the grip's own border paints. As a
+  29px box with a border it lands on x=28; the lab drew it that way and is a pixel out.
+- **The status spine continues** down the sheet's leading edge, and the card's own bottom rule goes
+  transparent, so the open card's whole leading edge is one status-weighted stroke and the row and
+  the sheet meet on the frame's top edge alone rather than on the frame plus a `$lms-divider`
+  hairline. The spine is positioned against `app-card-expansion`'s host, not the sheet, so it spans
+  the drawer's full height including the frame; it is derived in `CardExpansion` from the same
+  `spineClass` the card calls, so the two cannot disagree.
+
+The row's open state is one class — `:host(.open)`, a host binding on both cards reading the same
+`expanded()` the chevron's `aria-expanded` reads — and its rules live in `card-shell` so both columns
+get them from one place. **The grip's hover has to be restated there**, at a weight that beats both
+`.grip:hover` and `.card:hover .grip`: the tint swallows the first, and the second drops the glyph
+from petrol to muted grey, which is a downgrade under the pointer. It uses `$lms-hover`, not the
+`$lms-surface` a closed grip uses, because `#FAFAFA` punches a grey hole in the column exactly where
+the pointer is.
+
+**The notch and the sheet's own shadow are untouched.** An earlier cut of this change deleted both:
+it had built idea 1, the frame swallowing the row, instead of idea 3. That was the wrong pair and is
+reverted.
+
+Verified in the running app, not only in the lab: `gripRuleX` and `railRuleX` both 1133, `nameX` and
+the sheet's first label both 1142, every card 52px open or closed, and Pending's 45° hatch carries
+through the seam with no phase break. `Documents/browser-checklist.md` carries the five rows.
 
 **The expanded card's sums strip (2026-09-08).** Three parts in the drawer still, sums first — what
 changed is what is in them. The strip's two sums are **fractions** now (`29 of 77`, `59 of 77 · 30
@@ -226,6 +280,52 @@ item 10 said the card and the header strip both spend 32 and forgot that `.strip
 under it from Phase 3 onward, in both columns, and every review agreed with the code because the
 document carried the same missing term. The card now takes `padding-right: $card-edge`. `$card-edge`
 is the one number both ends read.
+
+**Filter on drag (2026-09-09).** A toggle in the top bar, immediately left of `Reset demo data`:
+while a card is held, **the other column shows only the stock classes that could take it**. Grab a
+Lamb availability record and the demand column drops from 33 booked spaces to the 8 lamb ones; grab a
+Bulls space and supply drops from 42 records to 15. Off by default, persisted with the other view
+preferences, cleared by `Reset demo data`. Five things are worth knowing before touching it:
+
+- **The pairings are the domain's** (`StockClassCompatibility`) and reach the client only as
+  `stockClassGroups` on both record DTOs. The client's entire contribution is asking whether two tag
+  lists intersect (`drag/stock-class-affinity.ts`) — there is no table, no alias list and no species
+  in `web/`, and there must never be.
+- **It hides; it never refuses.** No drop is blocked on stock class and no endpoint knows the toggle
+  exists. See the qualification under "Stock class is not a shared vocabulary" below.
+- **It narrows on the pointer move that starts the drag — not on the press, and not on
+  `cdkDragStarted` — and ticks synchronously.** Three constraints meet in one handler
+  (`DragNarrowing.onMove`):
+  - *not the press*: a grip is a drag handle on a row whose commonest action is expanding it, so it
+    gets clicked constantly, and narrowing on `pointerdown` (as this did until 2026-09-09) emptied
+    half the far column and filled it back in on every stray click;
+  - *not `cdkDragStarted`*: every card is its own `cdkDropList` and CDK measures **all** of them inside
+    the handler that crosses the drag threshold, so a column narrowed any later leaves every surviving
+    card somewhere CDK does not believe it is — the pointer enters nothing and the drop lands nowhere;
+  - *therefore the same move, one listener earlier*. The threshold is **CDK's own**
+    (`CDK_DRAG_CONFIG.dragStartThreshold`, default 5) applied with CDK's own `|dx| + |dy|`, and two
+    independent things put this handler in front of CDK's: `pointermove` precedes the `mousemove` CDK
+    listens for, and this listener is registered from the grip's `pointerdown` while CDK registers its
+    global listeners from a `mousedown` handler on the card **root**, an ancestor. If the threshold
+    ever drifts, drift it *lower*: narrowing early costs a repaint, narrowing late costs the drop.
+
+  `ApplicationRef.tick()` inside that handler is what makes the DOM settle before CDK measures — **the
+  app is zoneless**, so a signal write alone would repaint a microtask too late.
+  `matching-screen.spec.ts` asserts the narrowing *before awaiting anything*, which is the only way
+  that claim can be tested at all; whether CDK then hits the right row is a browser-checklist item, and
+  it is the one that matters.
+- **The release is on `pointerup`, not `cdkDragEnded`** — a grip pressed and let go without a drag
+  emits nothing from CDK, and would leave the far column narrowed with no drag to explain it.
+- **`filterOnDrag` was added to `apg.matching.preferences.v2` without bumping the version**, because
+  the reader falls back field by field: an older stored object simply has no such key and gets the
+  default. It sits beside `flipped` rather than in either column's filters — one switch governs both
+  directions, and it is set from the shell.
+
+The narrowed column says so in its header, in the `Filtered` chip's place (`Lamb only`), and a column
+narrowed to nothing draws its own state (`drag/nothing-compatible.ts`) rather than the filtered-empty
+panel — no filter of the operator's is hiding anything, and `Clear filters` would send them after a
+cause that does not exist. Alliance Group's `Deer` spaces reach it: the supply vocabulary has no deer.
+design-system.md §10.2 is the spec.
 
 **Filter and sort state (Phase 4).** `MatchingPreferences` (root) holds both columns' filters and sorts plus the flip, persisted to `localStorage` under the single key **`apg.matching.preferences.v2`** (v1 was abandoned when the supply column's `unmatchedOnly` became `hasUnmatched`; bumping the version drops stale state visibly instead of silently re-enabling a filter), validated field by field on read so a stale or hand-edited value falls back to that field's default rather than emptying a column. Every default lives in `filters/filter-defaults.ts` and **both the opening state and `reset()` read the same constants**, which `filter-defaults.spec.ts` asserts so they cannot drift. Card expansion stays session-only in `CardStateStore`. The flip is CSS `order` on the two column hosts — the components are never destroyed, so nothing is lost across it, and Phase 7's `+ Add` buttons will follow the columns because they live in the column header.
 
@@ -413,6 +513,8 @@ Processors and farmers/agents **never see the Match entity**. Match-derived info
 ### Stock class is not a shared vocabulary
 
 The two sides use different, non-aligned stock-class lists. Processor Space stock classes are **processor-specific** (ANZCO, Alliance Group, and SFF each have their own list); Livestock Availability uses a single separate list (GFNB ultra/premium, Prime, Cow, Sire Bull, Bull, Mixed Cattle, Lamb, Mutton). There is no automatic mapping between them — the human operator judges compatibility during drag-and-drop. Don't build a join on stock class and don't assume a shared enum.
+
+**The one sanctioned exception is a display aid, and it stays one (2026-09-09).** `StockClassCompatibility` in `Apg.Domain` says which classes *could plausibly* pair, and the matching screen's `Filter on drag` toggle uses it to hide the obvious mismatches on the far side while a card is held. It is not a join: no match is created from it, no endpoint refuses one for disagreeing with it, it is off by default, and switching it off puts every record back. If a future pass unifies the two vocabularies, that table is what shrinks.
 
 ## Business rules that drive most of the UI
 

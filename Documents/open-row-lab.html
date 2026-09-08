@@ -1,0 +1,1407 @@
+<!doctype html>
+<html lang="en-NZ">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>APG matching — the open row</title>
+<!--
+  ============================================================================================
+  THROWAWAY. Not part of the Angular application, not routed, not imported anywhere.
+  One self-contained file: no build step, no framework, no CDN, no network. Opens over file://.
+  Fifth in the series, same pattern and same reasons as drag-lab.html, expansion-lab.html,
+  expansion-lab-2.html and sums-strip-lab.html.
+
+  WHY A FIFTH LAB
+  The four devices that separate the drawer from the list — frame, rail, notch, shadow — all
+  belong to the SHEET. `.card` gets no open-state class at all: space-card.html sets `zebra`,
+  `cancelled` and `lifted` on it and nothing else, and the only thing that changes on the row
+  when it opens is that the chevron flips. So the one part of the open object that still looks
+  closed is the 52px row — which is the click target for closing it, and the drop target for
+  making a match on it. Somebody reviewing the screen said the open card "isn't super clear",
+  and this is what they were looking at.
+
+  THE DIAGNOSIS THE TEN IDEAS ANSWER
+    1. THE ROW HAS NO OPEN STATE. Not a wrong choice — a gap. Every device went to the sheet.
+    2. VALUE IS EXHAUSTED, still. Eight named greys inside ten L* points (expansion-lab-2's
+       finding, and two of the eight have since been deleted). A ninth step separates nothing,
+       so the answers here are geometry, continuity, or an existing element changing state.
+    3. HUE IS COMMITTED to the quantity meter, and petrol is already spent twice in the list:
+       $lms-petrol-tint is the current-week band, $lms-drop-target is the card under a drag.
+       A third petrol value in the same column says "this week" or "droppable" before it says
+       "open" — which is the same argument that killed the drawer's petrol ground.
+    4. HOVER IS NOT AN ANSWER ON ITS OWN. $lms-hover #F5F9FB is ~1.4 L* off the #F5F5F5 zebra
+       stripe and ~2.4 off white. Hover works because it ARRIVES under the pointer; a static
+       1.4 L* difference somewhere in a run of forty rows is not findable. Turn the Hover
+       control to "the open row" and look at it against its neighbour before spending the idea.
+
+  Geometry and colour are copied from the real screen, so the alternatives are judged against
+  the thing the designer already knows:
+      web/src/styles/_lms-tokens.scss                     every colour below
+      web/src/app/matching/_card-geometry.scss            every dimension, card-shell, spines,
+                                                          cancelled-card, the drag states
+      web/src/app/matching/card/space-card.html           the row: grip, spine overlay, line 1/2
+      web/src/app/matching/card/card-expansion.scss       THE BASELINE sheet: frame, rail, notch,
+                                                          shadow
+      web/src/app/matching/card/card-expansion.html       the sums strip as it shipped 2026-09-08
+      web/src/app/matching/column/matching-column.scss    the 28px strip, leading pad 30 + 8
+
+  Material Symbols is deliberately not used — the icon font would not load offline, so every
+  glyph here is inline SVG.
+
+  WHAT SHIPPED
+  3 and 4, on 2026-09-09 — the grip column runs through, and the status spine continues down the
+  sheet. THE LEFT BOARD IS THEREFORE HISTORY: it is the pre-2026-09-09 screen, kept because the
+  eight ideas that were not chosen are only judgeable against what they were rejected in favour of.
+  Open with `#3,4` for what ships; `#none` is a bare comparison.
+
+  ONE THING IN HERE IS A PIXEL OUT, and the app does not copy it. Idea 3's filled rail is written
+  `width: calc(var(--rail) - 1px)` with a `border-right`, under this file's `* { box-sizing:
+  border-box }` — so the box is 28px INCLUDING its border and the rule lands on x=27, one pixel left
+  of the grip's. The app has no global border-box reset, so it uses a 28px content width plus a 1px
+  border, totalling 29, and the rule stays on the grip's own pixel. Left as drawn: it is what was
+  reviewed and chosen, and the note is worth more than a silent fix.
+
+  HOW TO READ IT
+  Left board is what shipped BEFORE this lab and never changes. Right board takes one class per idea, so the ideas
+  compose and the presets are just sets of those classes. Click a note to toggle its idea; press
+  1-9 and 0 for the same; the URL hash carries the combination.
+
+  FOUR CONTROLS, and they exist because the row is a harder thing to judge than the sheet was:
+    * OPEN ROW — which status is open. The leading-edge ideas (4, 5) live or die on Booked's
+      3px spine against everything else's 6px, and Cancelled greyscales the whole row, which
+      takes the petrol out of any idea that put petrol on it.
+    * STRIPE — whether the open row lands on white or on #F5F5F5. Idea 7 is a no-op on half the
+      rows in the column and this is the control that shows it.
+    * HOVER — paints the real hover state on the open row's neighbour, or on the open row
+      itself. Two things to look for: whether open and hovered are still distinguishable, and
+      that any idea painting the row's background BEATS hover on specificity, exactly as it
+      would in the app. That is the cascade, not the lab.
+    * DRAG — the Phase 9 drag state on the card below the open one: `valid hot` on that one,
+      `dim` on everything else. Idea 9 borrows that vocabulary and this is where you find out
+      whether it collides.
+  ============================================================================================
+-->
+<style>
+:root {
+  /* --- LMS tokens, copied verbatim from _lms-tokens.scss --- */
+  --lms-petrol: #00567e;
+  --lms-surface: #fafafa;
+  --lms-divider: #e0e0e0;
+  --lms-text: #212121;
+  --lms-text-muted: #757575;
+  --lms-card: #ffffff;
+  --lms-card-zebra: #f5f5f5;
+  --lms-band: #f0f0f0;
+  --lms-petrol-tint: #e8f1f6;
+  --lms-drop-target: #d1e1e8;
+  --lms-hover: #f5f9fb;
+  --lms-expansion-th: #eceff1;
+  --lms-expansion-rule: #d5d9dd;
+  --lms-rule-strong: #bdbdbd;
+  --lms-rule-soft: #efefef;
+  --lms-faint: #9e9e9e;
+  --lms-error: #ba1a1a;
+  --q-under-bar: #e8820c;
+  --q-under-ink: #a85b00;
+  --q-exact-bar: #2e7d32;
+  --q-exact-ink: #1b5e20;
+  --q-over-bar: #1565c0;
+  --q-over-ink: #0d47a1;
+  --q-track: #e0e0e0;
+
+  /* --- geometry, from _card-geometry.scss --- */
+  --card-h: 52px;
+  --strip-h: 28px;
+  --band-h: 30px;
+  --chead-h: 48px;
+  --filter-h: 40px;
+  --spine: 6px;
+  --spine-booked: 3px;
+  --col-gap: 8px;
+  --col-grip: 30px;
+  --col-sclass: 96px;
+  --col-date: 50px;
+  --col-month: 26px;
+  --col-qty: 40px;
+  --col-meter: 112px;
+  --col-chev: 24px;
+  --card-edge: 8px;
+  --meter-track: 66px;
+  --meter-numeral: 40px;
+  /* $expansion-rail — 29px, NOT the grip's 30. The card is edge-to-edge, so its grip paints its
+     border-right INSIDE its own 30px box: the rule is the pixel at x=29. Measured, not derived;
+     the note in _card-geometry.scss is the one to read. */
+  --rail: 29px;
+
+  /* --- values PROPOSED here, and nowhere in the app ---
+         Idea 3 fills the drawer's 29px rail and the row's 30px grip with one tone. It cannot be
+         $lms-petrol-tint: that is the current-week band's ground, and a card inside the current
+         week would then have a grip the same colour as the header above it. One step deeper, and
+         one step lighter than $lms-drop-target, so the order in the column reads
+         open (#DDEAF1) < droppable (#D1E1E8) — a target is more urgent than a state. */
+  --open-rail: #ddeaf1;
+  --open-rail-ink: #00567e;
+}
+
+* { box-sizing: border-box; }
+html, body { height: 100%; margin: 0; }
+
+body {
+  display: flex;
+  background: var(--lms-surface);
+  color: var(--lms-text);
+  font-family: Roboto, "Segoe UI", "Helvetica Neue", Arial, sans-serif;
+  font-size: 13px;
+  overflow: hidden;
+}
+
+/* ============================================================================================
+   page frame: lab left, notes pinned right
+   ============================================================================================ */
+.lab { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; height: 100%; }
+
+.intro {
+  flex: 0 0 auto;
+  padding: 11px 14px 9px;
+  background: #fff;
+  border-bottom: 1px solid var(--lms-divider);
+}
+.intro h1 { margin: 0 0 3px; font-size: 15px; font-weight: 600; }
+.intro p { margin: 0; max-width: 104ch; font-size: 12.5px; line-height: 17px; color: #3d4144; }
+.intro b { font-weight: 600; }
+.intro code {
+  font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  font-size: 11.5px;
+  background: var(--lms-surface);
+  border: 1px solid var(--lms-divider);
+  padding: 0 3px;
+}
+
+.presets {
+  flex: 0 0 auto;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 14px;
+  background: #fff;
+  border-bottom: 1px solid var(--lms-divider);
+}
+
+.plabel {
+  font-size: 10.5px;
+  font-weight: 500;
+  letter-spacing: 0.7px;
+  text-transform: uppercase;
+  color: var(--lms-text-muted);
+  margin-right: 2px;
+}
+
+.presets button, .seg-ctl button {
+  height: 26px;
+  padding: 0 9px;
+  border: 1px solid var(--lms-rule-strong);
+  border-radius: 13px;
+  background: #fff;
+  font-family: inherit;
+  font-size: 11.5px;
+  color: var(--lms-text);
+  cursor: pointer;
+}
+.presets button:hover, .seg-ctl button:hover { background: var(--lms-hover); }
+.presets button.on, .seg-ctl button.on {
+  background: var(--lms-petrol);
+  border-color: var(--lms-petrol);
+  color: #fff;
+}
+.presets .sep { width: 1px; height: 20px; background: var(--lms-divider); margin: 0 3px; }
+.seg-ctl { display: inline-flex; align-items: center; gap: 4px; }
+.seg-ctl button { border-radius: 3px; padding: 0 8px; }
+
+.active {
+  margin-left: auto;
+  font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  font-size: 11px;
+  color: var(--lms-text-muted);
+}
+
+/* --- the stage --- */
+.stage {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  gap: 16px;
+  padding: 14px;
+  overflow: auto;
+}
+
+.stack { flex: 1 1 0; display: flex; flex-direction: column; min-width: 520px; max-width: 900px; }
+
+.cap {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  margin-bottom: 6px;
+  font-size: 10.5px;
+  font-weight: 600;
+  letter-spacing: 0.7px;
+  text-transform: uppercase;
+  color: var(--lms-text-muted);
+}
+.cap .what { font-weight: 400; letter-spacing: 0; text-transform: none; font-size: 11.5px; color: var(--lms-faint); }
+.stack.proposed .cap { color: var(--lms-petrol); }
+
+.board { flex: 1 1 auto; min-height: 0; display: flex; }
+
+.column {
+  flex: 1 1 auto;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  background: var(--lms-card);
+  border: 1px solid var(--lms-divider);
+}
+
+/* ============================================================================================
+   THE REAL SCREEN, REPRODUCED. Do not "improve" anything from here to THE IDEAS: its whole job
+   is to be the thing the alternatives are measured against.
+   ============================================================================================ */
+
+/* --- column header, 48px --- */
+.chead {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  height: var(--chead-h);
+  padding: 0 10px;
+  border-bottom: 1px solid var(--lms-divider);
+}
+.chead .glyph { color: var(--lms-petrol); display: inline-flex; }
+.ctitle { margin: 0; font-size: 14px; font-weight: 600; }
+.showing { margin-left: auto; font-size: 11.5px; color: var(--lms-text-muted); font-variant-numeric: tabular-nums; }
+.add {
+  display: inline-flex; align-items: center; gap: 3px;
+  height: 26px; padding: 0 8px;
+  border: 1px solid var(--lms-rule-strong); border-radius: 3px;
+  background: #fff; color: var(--lms-petrol);
+  font-family: inherit; font-size: 12px; font-weight: 500;
+}
+.help {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 26px; height: 26px; padding: 0;
+  border: 0; border-radius: 3px; background: none;
+  color: var(--lms-text-muted);
+}
+
+/* --- filter row, 40px --- */
+.frow {
+  flex: 0 0 auto;
+  display: flex; align-items: center; gap: 6px;
+  height: var(--filter-h); padding: 0 10px;
+  border-bottom: 1px solid var(--lms-divider);
+}
+.chip {
+  display: inline-flex; align-items: center; gap: 3px;
+  height: 26px; padding: 0 9px;
+  border: 1px solid var(--lms-rule-strong); border-radius: 13px;
+  font-size: 11.5px; white-space: nowrap;
+}
+.chip.set { border-color: var(--lms-petrol); color: var(--lms-petrol); background: var(--lms-petrol-tint); }
+.sortby {
+  margin-left: auto;
+  font-size: 10.5px; font-weight: 500; letter-spacing: 0.7px; text-transform: uppercase;
+  color: var(--lms-text-muted);
+}
+
+/* --- the scrolling list --- */
+.list { flex: 1 1 auto; min-height: 0; overflow-y: auto; overflow-x: hidden; position: relative; }
+
+/* the 28px micro-cap strip, sticky at 0. Leading padding is $col-grip + 8px, spine included. */
+.strip {
+  position: sticky; top: 0; z-index: 4;
+  display: flex; align-items: center; gap: var(--col-gap);
+  height: var(--strip-h);
+  padding: 0 8px 0 calc(var(--col-grip) + 8px);
+  background: var(--lms-surface);
+  border-bottom: 1px solid var(--lms-divider);
+  font-size: 10.5px; font-weight: 500; line-height: 12px;
+  letter-spacing: 0.7px; text-transform: uppercase; color: var(--lms-text-muted);
+}
+.s-name { flex: 1 1 auto; min-width: 0; }
+.s-sclass { flex: 0 0 var(--col-sclass); }
+.s-date { flex: 0 0 var(--col-date); }
+.s-qty { flex: 0 0 var(--col-qty); text-align: right; }
+.s-meter { flex: 0 0 var(--col-meter); text-align: right; }
+.s-chev { flex: 0 0 var(--col-chev); }
+
+/* --- week bands --- */
+.band { border-top: 2px solid var(--lms-text-muted); }
+.band.current { border-top-color: var(--lms-petrol); }
+
+.bhead {
+  position: sticky; top: var(--strip-h); z-index: 1;
+  display: flex; align-items: center; gap: 8px;
+  height: var(--band-h); padding: 0 10px;
+  background: var(--lms-band);
+  border-bottom: 1px solid var(--lms-divider);
+}
+.band.current .bhead { background: var(--lms-petrol-tint); }
+.blabel {
+  font-size: 12px; font-weight: 500; line-height: 14px;
+  letter-spacing: 0.7px; text-transform: uppercase; color: var(--lms-text-muted);
+}
+.band.current .blabel { color: var(--lms-petrol); }
+.blabel .dt { font-weight: 700; }
+.tag { font-size: 8.5px; font-weight: 700; line-height: 11px; letter-spacing: 0.3px; text-transform: uppercase; }
+.tag.now { color: var(--lms-petrol); }
+.totals { margin-left: auto; font-size: 11px; line-height: 14px; color: var(--lms-text-muted); font-variant-numeric: tabular-nums; }
+
+/* --- the 52px card row: card-shell in _card-geometry.scss --- */
+.cardwrap { display: block; }
+
+/* The drop list is a wrapper around the row. Nothing about it may change the row's height or the
+   line-1 alignment, so its highlights are outlines. */
+.target { position: relative; }
+
+.card {
+  position: relative;
+  display: flex;
+  height: var(--card-h);
+  background: var(--lms-card);
+  border-bottom: 1px solid var(--lms-divider);
+  padding-right: var(--card-edge);
+  transition: background-color 120ms ease-out, box-shadow 120ms ease-out;
+}
+.card.zebra { background: var(--lms-card-zebra); }
+
+/* Colour only, and no shadow: since 2026-09-07 the open drawer is the one thing on this screen
+   that carries one. `.hovered` is the same declaration as `:hover` so the state can be pinned
+   for comparison — and it sits HERE, before the ideas, so the cascade in this file is the
+   cascade in the app. Any idea that paints the open row's background outranks it. */
+.card:hover, .card.hovered { background: var(--lms-hover); cursor: pointer; }
+.card:hover .grip, .card.hovered .grip { color: var(--lms-text-muted); }
+
+/* Cancelled removes colour rather than adding any (design-system.md 3). */
+.card.cancelled { filter: grayscale(1); opacity: 0.62; }
+.card.cancelled .name { text-decoration: line-through; }
+
+/* The spine is an OVERLAY, not a cell — it paints over the grip's leading 3-6px, which is what
+   keeps every grip glyph at one x whatever the status. */
+.card > .spine { position: absolute; left: 0; top: 0; bottom: 0; z-index: 1; }
+.sp-booked { width: var(--spine-booked); background: var(--lms-divider); }
+.sp-pending { width: var(--spine); background: repeating-linear-gradient(45deg, var(--lms-rule-strong) 0 2px, #fff 2px 4px); }
+.sp-confirmed { width: var(--spine); background: var(--lms-petrol); }
+.sp-cancelled { width: var(--spine); background: repeating-linear-gradient(180deg, var(--lms-faint) 0 6px, transparent 6px 10px); }
+
+.grip {
+  flex: 0 0 var(--col-grip);
+  align-self: stretch;
+  display: flex; align-items: center; justify-content: center;
+  width: var(--col-grip);
+  padding-left: var(--spine);
+  color: var(--lms-faint);
+  cursor: grab;
+  border-right: 1px solid var(--lms-divider);
+  transition: color 120ms ease-out, background-color 120ms ease-out;
+}
+.grip:hover { color: var(--lms-petrol); background: var(--lms-surface); }
+
+.cbody {
+  flex: 1 1 auto; min-width: 0;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) var(--col-sclass) var(--col-date) var(--col-qty) var(--col-meter);
+  grid-template-rows: 17px 14px;
+  column-gap: var(--col-gap);
+  row-gap: 3px;
+  align-content: center;
+  align-items: center;
+  padding: 0 8px;
+  cursor: pointer;
+}
+.cbody > * { min-width: 0; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+
+/* Line 1 is the PLANT (2026-09-08); the processor moved to line 2. */
+.name { grid-area: 1 / 1; font-size: 13px; font-weight: 500; line-height: 16px; }
+.sclass { grid-area: 1 / 2; font-size: 13px; font-weight: 500; line-height: 16px; color: var(--lms-text-muted); }
+.day { grid-area: 1 / 3; font-size: 13px; font-weight: 600; line-height: 16px; font-variant-numeric: tabular-nums; }
+.qty { grid-area: 1 / 4; font-size: 13px; font-weight: 500; line-height: 16px; text-align: right; font-variant-numeric: tabular-nums; }
+.meter { grid-area: 1 / 5; }
+
+.meta { grid-area: 2 / 1; font-size: 11.5px; line-height: 14px; color: var(--lms-text-muted); }
+.month {
+  grid-area: 2 / 3; justify-self: start; width: var(--col-month);
+  font-size: 9px; font-weight: 600; line-height: 12px;
+  letter-spacing: 0.7px; text-transform: uppercase; color: var(--lms-text-muted);
+}
+.trail {
+  grid-area: 2 / 3 / 3 / 6;
+  justify-self: end;
+  max-width: calc(100% - (var(--col-month) + var(--col-gap)));
+  display: flex; align-items: center; gap: var(--col-gap);
+  overflow: hidden;
+  font-size: 11.5px; line-height: 14px; color: var(--lms-text-muted);
+}
+.over { flex: 0 0 auto; font-weight: 500; }
+.mcount {
+  flex: 0 1 auto; min-width: 0;
+  overflow: hidden; white-space: nowrap; text-overflow: ellipsis;
+  padding: 0; border: 0; background: none; font: inherit; color: inherit; cursor: pointer;
+  text-decoration-line: underline; text-decoration-style: dotted; text-underline-offset: 2px;
+}
+.trail .orphan-mark { flex: 0 0 auto; display: inline-flex; color: var(--lms-faint); }
+.status { flex: 0 0 auto; display: inline-flex; align-items: center; gap: 3px; white-space: nowrap; }
+
+.chev {
+  flex: 0 0 var(--col-chev); align-self: center;
+  display: inline-flex; align-items: center; justify-content: center;
+  width: var(--col-chev); height: var(--col-chev);
+  padding: 0; border: 0; border-radius: 50%; background: none;
+  color: var(--lms-text-muted); cursor: pointer;
+  transition: background-color 120ms ease-out, color 120ms ease-out;
+}
+.chev.orphaned { background: var(--lms-error); border-radius: 2px; color: #fff; }
+
+/* --- the fill meter --- */
+.meter { display: flex; align-items: center; gap: 6px; }
+.track {
+  position: relative;
+  flex: 0 0 var(--meter-track); width: var(--meter-track); height: 8px;
+  border-radius: 1px; background: var(--q-track); overflow: hidden;
+}
+.seg { position: absolute; top: 0; left: 0; height: 100%; border-radius: 1px; }
+.seg.incl { opacity: 0.45; }
+.numeral {
+  flex: 0 0 var(--meter-numeral); width: var(--meter-numeral);
+  font-size: 15px; font-weight: 600; line-height: 16px;
+  text-align: right; font-variant-numeric: tabular-nums;
+}
+.meter.over .track { overflow: visible; box-shadow: inset 0 0 0 1px currentcolor; }
+.over-run { position: absolute; top: -2px; right: -6px; width: 3px; height: 12px; border-radius: 1px; background: currentcolor; }
+
+.q-under { color: var(--q-under-bar); }
+.q-under .seg { background: var(--q-under-bar); }
+.q-under .numeral { color: var(--q-under-ink); }
+.q-exact { color: var(--q-exact-bar); }
+.q-exact .seg { background: var(--q-exact-bar); }
+.q-exact .numeral { color: var(--q-exact-ink); }
+.q-over { color: var(--q-over-bar); }
+.q-over .seg { background: var(--q-over-bar); }
+.q-over .numeral { color: var(--q-over-ink); }
+
+.ink.i-under { color: var(--q-under-ink); }
+.ink.i-exact { color: var(--q-exact-ink); }
+.ink.i-over { color: var(--q-over-ink); }
+.over.i-over { color: var(--q-over-ink); }
+
+/* --- Phase 9 drag states. Eligibility is NOT announced: `.valid` alone draws nothing, and the
+       two things worth saying are the card under the pointer and the cards that would refuse. --- */
+.target.valid.hot .card {
+  outline: 2px solid var(--lms-petrol);
+  outline-offset: -2px;
+  background: var(--lms-drop-target);
+}
+.target.dim .card { opacity: 0.55; }
+
+/* ============================================================================================
+   THE EXPANSION, EXACTLY AS IT SHIPS — card-expansion.scss + card-expansion.html, 2026-09-08.
+   Four devices separate it, and every one belongs to the SHEET:
+     1. the FRAME    1px $lms-rule-strong
+     2. the RAIL     the grip's hairline continued at x=29, content indented to x=38
+     3. the NOTCH    11px, centred on the chevron that opened it
+     4. the SHADOW   the only shadow on the screen
+   The row above it gets nothing. That is what this lab is about.
+   ============================================================================================ */
+.cardwrap > .exphost { display: none; }
+.cardwrap.expanded > .exphost { display: block; }
+
+@keyframes apg-expand { from { opacity: 0; transform: translateY(-2px); } }
+
+.exphost { position: relative; animation: apg-expand 120ms ease-out; }
+/* the spine copy idea 4 turns on; inert until then */
+.exphost > .spine { display: none; position: absolute; left: 0; top: 0; bottom: 0; z-index: 2; }
+
+.expansion {
+  position: relative;
+  background: var(--lms-card);
+  border: 1px solid var(--lms-rule-strong);
+  box-shadow: 0 3px 8px -3px rgb(0 0 0 / 30%);
+  padding-left: var(--rail);
+}
+/* the rail's hairline, at rail - 1 — the pixel the CARD's grip placed */
+.expansion::before {
+  content: "";
+  position: absolute; left: calc(var(--rail) - 1px); top: 0; bottom: 0;
+  width: 1px; background: var(--lms-divider);
+}
+/* the notch, centred on the chevron: the card's 8px gutter + half the chevron, less the frame */
+.expansion::after {
+  content: "";
+  position: absolute; top: -1px;
+  right: calc(var(--card-edge) + var(--col-chev) / 2 - 1px);
+  width: 11px; height: 11px;
+  background: var(--lms-card);
+  border-top: 1px solid var(--lms-rule-strong);
+  border-left: 1px solid var(--lms-rule-strong);
+  transform: translate(50%, -50%) rotate(45deg);
+}
+
+/* the sums strip and the prose band share one leading pad — $card-edge on top of the 29px rail,
+   so the first label sits at x=38, under the card's own name. The trailing pad is the card's own
+   40px run less the frame. */
+.sums, .fields {
+  padding: 8px calc(var(--card-edge) * 2 + var(--col-chev) - 1px) 6px var(--card-edge);
+  border-bottom: 1px solid var(--lms-rule-soft);
+}
+.sums { display: flex; align-items: flex-start; gap: 26px; }
+.fields { display: flex; flex-wrap: wrap; gap: 4px 24px; }
+
+.field { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.sums .field { gap: 1px; }
+.field.grow { flex: 1 1 auto; }
+.field.right { margin-left: auto; text-align: right; }
+
+.label {
+  font-size: 10.5px; font-weight: 500; line-height: 12px;
+  letter-spacing: 0.7px; text-transform: uppercase; color: var(--lms-text-muted);
+}
+.sums .label { white-space: nowrap; }
+.sums .dq { margin: 0 0.3em; font-weight: 700; color: var(--lms-text); }
+.value { font-size: 12.5px; line-height: 16px; color: var(--lms-text); }
+
+/* 20px, the only place on this screen where a quantity is set larger than the card's own figures */
+.sum { font-size: 20px; font-weight: 600; line-height: 22px; white-space: nowrap; font-variant-numeric: tabular-nums; }
+.sum .of, .sum .state { font-size: 12.5px; font-weight: 400; color: var(--lms-text-muted); }
+.sum .state { margin-left: 6px; }
+
+.table-wrap { overflow-x: auto; }
+.matches { width: 100%; border-collapse: collapse; font-size: 12.5px; text-align: left; }
+.matches th {
+  height: 26px; padding: 0 8px;
+  background: var(--lms-expansion-th);
+  border-bottom: 1px solid var(--lms-divider);
+  white-space: nowrap;
+  font-size: 10.5px; font-weight: 500; line-height: 12px;
+  letter-spacing: 0.7px; text-transform: uppercase; color: var(--lms-text-muted);
+}
+.matches td {
+  height: 30px; padding: 0 8px;
+  border-bottom: 1px solid var(--lms-rule-soft);
+  color: var(--lms-text); vertical-align: middle;
+}
+.matches th + th, .matches td + td { border-left: 1px solid var(--lms-rule-soft); }
+.matches th + th { border-left-color: var(--lms-expansion-rule); }
+.matches th:first-child, .matches td:first-child { padding-left: var(--card-edge); }
+.matches .num { text-align: right; font-variant-numeric: tabular-nums; }
+.openable { cursor: pointer; }
+.openable:hover td { background: var(--lms-hover); }
+
+.sub { margin-left: 6px; color: var(--lms-text-muted); }
+.muted { color: var(--lms-text-muted); }
+.faint { color: var(--lms-faint); }
+.mstat { color: var(--lms-text-muted); display: inline-flex; vertical-align: -3px; }
+.empty { color: var(--lms-faint); font-size: 12px; }
+
+.orphan {
+  display: inline-flex; align-items: center; gap: 3px;
+  margin-left: 6px; padding: 1px 5px;
+  border-radius: 2px; background: var(--lms-error); color: #fff;
+  font-size: 11px; font-weight: 500; white-space: nowrap;
+}
+
+.actions { display: flex; align-items: center; gap: 8px; padding: 10px var(--card-edge) 8px; }
+.btn-outlined {
+  height: 30px; padding: 0 14px;
+  border: 1px solid var(--lms-rule-strong); border-radius: 4px; background: none;
+  font-family: inherit; font-size: 13px; color: var(--lms-petrol);
+}
+.btn-outlined[disabled] { color: var(--lms-faint); }
+.btn-text {
+  height: 30px; padding: 0 8px;
+  border: 0; border-radius: 4px; background: none;
+  font-family: inherit; font-size: 12px; color: var(--lms-text-muted); cursor: pointer;
+}
+.btn-text.danger { color: var(--lms-error); }
+.btn-text[disabled] { color: var(--lms-faint); cursor: not-allowed; }
+.why { font-size: 11.5px; color: var(--lms-text-muted); }
+
+/* ============================================================================================
+   THE IDEAS. One class per idea on `.board`, applied to the right-hand board only.
+   Every rule below is scoped to `.cardwrap.expanded > .target > .card` or to that card's own drawer, so
+   nothing here can touch a collapsed row — which is the whole test: the ideas have to be
+   findable in a run of forty rows without repainting the run.
+   ============================================================================================ */
+
+/* --- 2. Delete the seam, and bracket the object ------------------------------------------
+   There is a 1px $lms-divider hairline BETWEEN the open row and its own drawer — the row's
+   bottom rule, identical to the rule under every other card. That is the pixel that makes them
+   two objects. Remove it so the two surfaces touch, put a strong rule above the row, and take
+   the sheet's bottom edge to 2px. Bracketed rather than framed: the 52px never moves, because
+   the top rule is an inset shadow and not a border.
+   (Listed before 1 in source order because 1's frame subsumes this one's top rule — see there.) */
+.i2 .cardwrap.expanded > .target > .card {
+  border-bottom-color: transparent;
+  box-shadow: inset 0 1px 0 var(--lms-rule-strong);
+}
+.i2 .cardwrap.expanded .expansion { border-top-color: transparent; border-bottom-width: 2px; }
+.i2 .cardwrap.expanded .expansion::after { display: none; }  /* nothing left for the notch to sit on */
+
+/* --- 1. The frame swallows the row -------------------------------------------------------
+   The sheet's 1px frame stops at its own top edge, so the row that owns it sits OUTSIDE the
+   framed object. Take the frame up over the row and the open card is one bordered thing —
+   which is what it is. The notch goes with it: a frame states ownership outright, so the
+   device that pointed at the chevron is paying no rent any more.
+
+   The frame on the row is an INSET SHADOW, not a border: a border would add 2px to a 52px row
+   whose height is explicit and load-bearing (design-system.md 6.1, 16.11). The outer shadow
+   moves from the sheet to the wrapper, so the whole object rises together rather than the sheet
+   rising out of its own head. */
+.i1 .cardwrap.expanded { position: relative; z-index: 3; box-shadow: 0 3px 8px -3px rgb(0 0 0 / 30%); }
+.i1 .cardwrap.expanded > .target > .card {
+  border-bottom-color: transparent;
+  box-shadow:
+    inset 0 1px 0 var(--lms-rule-strong),
+    inset 1px 0 0 var(--lms-rule-strong),
+    inset -1px 0 0 var(--lms-rule-strong);
+}
+.i1 .cardwrap.expanded .expansion {
+  border-top-color: transparent;
+  box-shadow: none;
+}
+.i1 .cardwrap.expanded .expansion::after { display: none; }
+
+/* --- 3. The grip column runs through -----------------------------------------------------
+   The 30px grip is the row's only always-visible neutral cell, and $expansion-rail is 29px —
+   the drawer's rail is ALREADY aligned to it, because that is what idea 5 of the second lab
+   bought. So there is a 30px column running the full height of the open object with nothing in
+   it. Fill it: one unbroken stroke from the top of the row to the foot of the sheet, on the one
+   column that carries no status meaning and no quantity meaning.
+   Not $lms-petrol-tint — see the note on --open-rail. */
+.i3 .cardwrap.expanded > .target > .card .grip { background: var(--open-rail); color: var(--open-rail-ink); }
+.i3 .cardwrap.expanded .expansion::before {
+  left: 0;
+  width: calc(var(--rail) - 1px);
+  background: var(--open-rail);
+  border-right: 1px solid var(--lms-divider);
+}
+
+/* --- 4. The status spine continues -------------------------------------------------------
+   The card's spine stops at its bottom rule. Run it the full height of the drawer: one L-shaped
+   object, and the drawer inherits the record's status, which is information rather than
+   decoration. No new colour and no new value — one edge moves.
+   The spine paints OVER the sheet's frame on the leading edge, which is why the frame's left
+   goes transparent: two lines in the same 6px would read as a seam. */
+.i4 .exphost > .spine { display: block; }
+.i4 .cardwrap.expanded .expansion { border-left-color: transparent; }
+.i4 .cardwrap.expanded > .target > .card { border-bottom-color: transparent; }
+
+/* --- 5. A petrol bar at the leading edge -------------------------------------------------
+   Petrol is the app's identity colour and is chrome-only today — top bar, sidebar, the create
+   FAB — so it appears nowhere in the list and is no part of the quantity ramp. 3px of it at
+   x=0 says "this one" with no ambiguity at all.
+   It COLLIDES with the status spine, which owns exactly that pixel, so the spine steps in by
+   the bar's own width and both are readable inside the 6px the grip already reserves. That is
+   the honest cost of the idea and the reason it is drawn here rather than described. */
+.i5 .cardwrap.expanded > .target > .card::before {
+  content: "";
+  position: absolute; left: 0; top: 0; bottom: 0;
+  width: 3px; z-index: 2;
+  background: var(--lms-petrol);
+}
+.i5 .cardwrap.expanded > .target > .card > .spine { left: 3px; }
+
+/* --- 6. Weight, not ground ---------------------------------------------------------------
+   The greys problem is a BACKGROUND problem. Ink weight is a channel this screen has never
+   spent on state: the open row takes its name to 700 and its whole second line out of muted
+   grey into $lms-text. Line 1's columns are fixed, so nothing reflows — the name is the only
+   cell that could clip, and it ellipsises already. */
+.i6 .cardwrap.expanded > .target > .card .name { font-weight: 700; }
+.i6 .cardwrap.expanded > .target > .card .meta,
+.i6 .cardwrap.expanded > .target > .card .trail,
+.i6 .cardwrap.expanded > .target > .card .month { color: var(--lms-text); }
+
+/* --- 7. The open row leaves the stripe ---------------------------------------------------
+   Force it to white while the cards either side keep their zebra sequence, so it reads as
+   lifted out of the run. Zero new tokens, one declaration. Half the time it is already white —
+   the STRIPE control is what shows you that, and it is why this is a multiplier on 1 or 2
+   rather than an answer on its own. */
+.i7 .cardwrap.expanded > .target > .card { background: var(--lms-card); }
+
+/* --- 8. The chevron becomes a filled control ---------------------------------------------
+   It is the element that carries `aria-expanded` and the only focusable thing on the row, and
+   open currently just rotates it. Fill it: a background on the EXISTING 24px box, never a
+   bigger one — nothing may grow between the body and the card's edge or the 40px trailing run
+   becomes 50 and `Unmatched` stops sitting over its own numerals (design-system.md 16.10).
+   Note where it lands on a record whose match hangs off a cancelled partner: `.chev.orphaned`
+   is already a solid $lms-error box, and the two cannot both be the chevron. */
+.i8 .cardwrap.expanded > .target > .card .chev { background: var(--lms-petrol); color: #fff; }
+.i8 .cardwrap.expanded > .target > .card .chev.orphaned { background: var(--lms-error); }
+
+/* --- 9. A rest state for the drop target -------------------------------------------------
+   Since Phase 9 the drag paints exactly ONE card — the one under the pointer — in
+   $lms-drop-target with a 2px petrol outline. The open row is also the row a drop lands on, so
+   say it in the same vocabulary, one step lighter and with a 1px outline instead of 2.
+   The DRAG control is where this gets decided: with a drag in flight, does the open row now
+   look like the card under the pointer? */
+.i9 .cardwrap.expanded > .target > .card {
+  outline: 1px solid var(--lms-petrol);
+  outline-offset: -1px;
+  background: var(--open-rail);
+}
+
+/* --- 0. Pin the open row -----------------------------------------------------------------
+   A 200px sheet plus a scroll loses its own head: the row that owns the visible drawer goes off
+   the top of the viewport. Stick it under the 28px strip so it is always the topmost row.
+   Scroll the list to judge it — and watch the band header, which sticks to the same 28px and is
+   the collision this idea has to answer. */
+.i0 .cardwrap.expanded > .target {
+  position: sticky;
+  top: var(--strip-h);
+  z-index: 3;
+}
+
+/* ============================================================================================
+   notes panel
+   ============================================================================================ */
+.notes {
+  flex: 0 0 300px;
+  height: 100%;
+  overflow-y: auto;
+  padding: 12px 12px 40px;
+  background: #fff;
+  border-left: 1px solid var(--lms-divider);
+}
+.notes h2 {
+  margin: 0 0 8px;
+  font-size: 10.5px; font-weight: 600; letter-spacing: 0.7px; text-transform: uppercase;
+  color: var(--lms-text-muted);
+}
+.notes h2 + h2 { margin-top: 16px; }
+.diag {
+  margin: 0 0 14px; padding: 8px 9px;
+  background: var(--lms-surface); border: 1px solid var(--lms-divider);
+  font-size: 11.5px; line-height: 16px; color: #3d4144;
+}
+.diag b { font-weight: 600; }
+.diag ol { margin: 5px 0 0; padding-left: 16px; }
+.diag li { margin-bottom: 3px; }
+
+.note {
+  display: block; width: 100%; text-align: left;
+  margin-bottom: 6px; padding: 7px 8px;
+  border: 1px solid var(--lms-divider); border-left: 3px solid var(--lms-divider);
+  border-radius: 2px; background: #fff;
+  font-family: inherit; cursor: pointer;
+}
+.note:hover { background: var(--lms-hover); }
+.note.on { border-color: var(--lms-petrol); border-left-color: var(--lms-petrol); background: var(--lms-petrol-tint); }
+.note .n { font-size: 12px; font-weight: 600; }
+.note .n .k {
+  display: inline-block; width: 15px;
+  font-family: ui-monospace, Menlo, Consolas, monospace; font-size: 10.5px;
+  color: var(--lms-faint);
+}
+.note.on .n .k { color: var(--lms-petrol); }
+.note .d { margin: 3px 0 0; font-size: 11.5px; line-height: 15px; color: #3d4144; }
+.note .r { margin: 4px 0 0; font-size: 11px; line-height: 15px; color: var(--lms-text-muted); }
+.note .r b { font-weight: 600; color: #3d4144; }
+.foot { margin-top: 14px; font-size: 11px; line-height: 16px; color: var(--lms-faint); }
+</style>
+</head>
+<body>
+
+<div class="lab">
+  <div class="intro">
+    <h1>The open row — ten ways to make an expanded card read as open</h1>
+    <p>
+      Both boards show the same column with one card open. The left is <b>what ships today</b>: the
+      drawer carries a frame, a rail, a notch and the screen's only shadow, and the 52px row above it
+      carries <b>nothing at all</b> — <code>.card</code> gets no open-state class, and the only thing
+      that changes when a card opens is that its chevron flips. That row is the click target for
+      closing it and the drop target for matching onto it, which is why a reviewer called the open
+      card unclear. The right board takes any combination of the ten.
+      <b>Ideas 3 and 4 shipped on 2026-09-09</b> — press <b>SHIPPED</b> for them, and note the left
+      board is now the screen as it was <i>before</i> that, not as it is.
+      <b>Click a note to toggle it</b>, or press <code>1</code>–<code>9</code> and <code>0</code>.
+      Use <b>Open row</b> to put the treatment on each status in turn — Booked's spine is 3px where
+      every other status has 6, and Cancelled greyscales the row, which takes the petrol out of
+      anything that put petrol on it. <b>Stripe</b> lands the open row on white or on
+      <code>#F5F5F5</code>. <b>Hover</b> pins the real hover state next to the open row, or on it.
+      <b>Drag</b> paints the Phase 9 drop state on the card below. The hash carries the set.
+    </p>
+  </div>
+
+  <div class="presets" id="presets">
+    <span class="plabel">Presets</span>
+    <!-- buttons injected -->
+    <span class="sep"></span>
+    <span class="plabel">Open row</span>
+    <span class="seg-ctl" id="openctl"></span>
+    <span class="sep"></span>
+    <span class="plabel">Stripe</span>
+    <span class="seg-ctl" id="zebractl"></span>
+    <span class="sep"></span>
+    <span class="plabel">Hover</span>
+    <span class="seg-ctl" id="hoverctl"></span>
+    <span class="sep"></span>
+    <span class="plabel">Drag</span>
+    <span class="seg-ctl" id="dragctl"></span>
+    <span class="active" id="activeout"></span>
+  </div>
+
+  <div class="stage">
+    <div class="stack">
+      <div class="cap">Before <span class="what">four devices on the sheet, none on the row</span></div>
+      <div class="board" id="board-base"></div>
+    </div>
+    <div class="stack proposed">
+      <div class="cap">Proposed <span class="what" id="propwhat">nothing on — identical to the left</span></div>
+      <div class="board" id="board-prop"></div>
+    </div>
+  </div>
+</div>
+
+<div class="notes">
+  <h2>The diagnosis</h2>
+  <div class="diag">
+    <ol>
+      <li><b>The row has no open state.</b> Not a wrong choice — a gap. All four devices went to the
+          sheet; the row kept its chevron rotation and nothing else.</li>
+      <li><b>Value is still exhausted.</b> Eight named greys inside ten L* points, two since deleted.
+          A ninth step separates nothing, so what is left is geometry, continuity, or an existing
+          element changing state.</li>
+      <li><b>Hue is committed</b> to the quantity meter, and petrol is spent twice in the list already
+          — <code>#E8F1F6</code> is this week, <code>#D1E1E8</code> is the card under a drag.</li>
+      <li><b>Cancelled breaks the continuity ideas.</b> <code>cancelled-card</code> greyscales
+          <code>.card</code> and not the drawer, so 3 and 5 lose their colour on the row while the
+          sheet keeps it. Found by drawing it, not by reasoning about it.</li>
+      <li><b>Hover cannot do it alone.</b> <code>#F5F9FB</code> is ~1.4 L* off the zebra stripe and
+          ~2.4 off white. Hover reads because it <i>arrives</i>; a static 1.4 L* somewhere in forty
+          rows is not findable. Set Hover to “the open row” and see.</li>
+    </ol>
+  </div>
+
+  <h2>A · Make the row part of the sheet</h2>
+  <div id="group-a"></div>
+  <h2>B · Run one stroke through both</h2>
+  <div id="group-b"></div>
+  <h2>C · Change the row itself</h2>
+  <div id="group-c"></div>
+  <h2>D · Borrow, or move</h2>
+  <div id="group-d"></div>
+
+  <p class="foot">
+    Fifth in the series, after <code>drag-lab.html</code>, <code>expansion-lab.html</code>,
+    <code>expansion-lab-2.html</code> and <code>sums-strip-lab.html</code>. Two treatments are
+    deliberately absent because both were tried and pulled: a grey ground on the row (greyed-out
+    reads as read-only everywhere else on this screen) and a shadow on the row (§5.4 spends shadow
+    on one thing, and three shadow directions inside 200px read as none).
+  </p>
+</div>
+
+<script>
+/* ============================================================================================
+   glyphs — inline SVG, because the icon font would not load over file://
+   ============================================================================================ */
+var SVG = {
+  grip: '<svg width="20" height="20" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><circle cx="7.5" cy="5" r="1.4"/><circle cx="12.5" cy="5" r="1.4"/><circle cx="7.5" cy="10" r="1.4"/><circle cx="12.5" cy="10" r="1.4"/><circle cx="7.5" cy="15" r="1.4"/><circle cx="12.5" cy="15" r="1.4"/></svg>',
+  chevDown: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg>',
+  chevUp: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M6 15l6-6 6 6"/></svg>',
+  booked: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="12" cy="12" r="9"/></svg>',
+  confirmed: '<svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 3a9 9 0 100 18 9 9 0 000-18zm-1 13l-4-4 1.4-1.4L11 13.2l4.6-4.6L17 10z"/></svg>',
+  drafted: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7.5V12l3 2"/></svg>',
+  pending: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M8 12h8"/></svg>',
+  cancelled: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M5.6 5.6l12.8 12.8"/></svg>',
+  blockSm: '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M5.6 5.6l12.8 12.8"/></svg>',
+  block: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M5.6 5.6l12.8 12.8"/></svg>',
+  factory: '<svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M3 21h18v-9l-5 3v-3l-5 3V9L3 13z"/></svg>',
+  plus: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>',
+  qmark: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M9.6 9.2a2.4 2.4 0 114.3 1.5c-.7.9-1.9 1.2-1.9 2.6"/><circle cx="12" cy="17" r="0.9" fill="currentColor" stroke="none"/></svg>',
+  down: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg>'
+};
+
+var STATUS_GLYPH = { Booked: SVG.booked, Pending: SVG.pending, Confirmed: SVG.confirmed, Cancelled: SVG.cancelled };
+var MSTAT = { Confirmed: SVG.confirmed, Drafted: SVG.drafted };
+
+/* ============================================================================================
+   the data — the demand column, the seed's own shape.
+
+   Nothing here is computed: every sum, every unmatched figure and every label is written out as
+   the DTO would deliver it, including `unmatchedLabel` as a MAGNITUDE (`40 Over-filled`, never
+   `-40`). Four cards are openable, one per status, because the leading-edge ideas turn on the
+   3px/6px spine difference and Cancelled greyscales everything on the row.
+   ============================================================================================ */
+var BANDS = [
+  { week: '6 Sep', current: true, totals: '3 spaces · 547 head', cards: [
+    { id: 'kokiri', plant: 'Kokiri', processor: 'ANZCO', time: 'AM kill',
+      sclass: 'Bulls', day: '7', month: 'Sep', qty: 127, status: 'Booked', spine: 'sp-booked',
+      incl: 0, excl: 0, drafted: 0, unmatched: 127, ulabel: '127', state: 'Under-filled',
+      ramp: 'q-under', mcount: 'no matches' },
+
+    { id: 'rangitikei', plant: 'Rangitikei', processor: 'ANZCO', time: 'Second shift',
+      sclass: 'Prime', day: '9', month: 'Sep', qty: 240, status: 'Confirmed', spine: 'sp-confirmed',
+      incl: 240, excl: 240, drafted: 0, unmatched: 0, ulabel: '0', state: 'Filled',
+      ramp: 'q-exact', mcount: '3 matches · confirmed',
+      openable: true, notes: 'Repeat booking for the same customer.',
+      canConfirm: false, why: 'Already confirmed',
+      matches: [
+        { qty: 90, farmer: 'Tania Kingi', loc: 'Lower Mount Pastures', sclass: 'Bull', status: 'Confirmed', price: '7.42', transport: 'Kahurangi Carriers' },
+        { qty: 90, farmer: 'Bruce Doolan', loc: 'Hawk Holly Hills', sclass: 'Prime', status: 'Confirmed', price: '7.42', transport: null },
+        { qty: 60, farmer: 'Hinemoa Bishop', loc: 'Spur Ridge', sclass: 'Sire Bull', status: 'Confirmed', price: '7.42', transport: 'Tussock Transport' }
+      ]},
+
+    { id: 'canterbury', plant: 'Canterbury', processor: 'ANZCO', time: null,
+      sclass: 'Cows', day: '11', month: 'Sep', qty: 180, status: 'Pending', spine: 'sp-pending',
+      incl: 120, excl: 60, drafted: 60, unmatched: 60, ulabel: '60', state: 'Under-filled',
+      ramp: 'q-under', mcount: '2 matches · 1 draft' }
+  ]},
+
+  { week: '13 Sep', totals: '5 spaces · 3,200 head', cards: [
+    { id: 'belfast', plant: 'Belfast', processor: 'SFF', time: null,
+      sclass: 'Lamb', day: '15', month: 'Sep', qty: 920, status: 'Booked', spine: 'sp-booked',
+      incl: 920, excl: 791, drafted: 129, unmatched: 0, ulabel: '0', state: 'Filled',
+      ramp: 'q-exact', mcount: '4 matches · 1 draft',
+      openable: true, notes: null,
+      canConfirm: false, why: 'Needs at least one confirmed match and no drafts',
+      matches: [
+        { qty: 36, farmer: 'Tania Kingi', loc: 'Lower Mount Pastures', sclass: 'Bull', status: 'Confirmed', price: '7.42', transport: 'Kahurangi Carriers' },
+        { qty: 450, farmer: 'Angus Struthers', loc: 'Maple Farm', sclass: 'Mutton', status: 'Confirmed', price: '7.31', transport: null },
+        { qty: 305, farmer: 'Aroha Cardno', loc: 'Matai Bank Pastoral', sclass: 'Lamb', status: 'Confirmed', price: '7.31', transport: null },
+        { qty: 129, farmer: 'Wiremu Ruawai', loc: 'Elm Ford Acres', sclass: 'Mutton', status: 'Drafted', price: '7.31', transport: null }
+      ]},
+
+    { id: 'mataura', plant: 'Mataura', processor: 'Alliance Group', time: 'PM kill',
+      sclass: 'Lamb', day: '16', month: 'Sep', qty: 570, status: 'Booked', spine: 'sp-booked',
+      incl: 150, excl: 150, drafted: 0, unmatched: 420, ulabel: '420', state: 'Under-filled',
+      ramp: 'q-under', mcount: '1 match · confirmed' },
+
+    { id: 'eltham', plant: 'Eltham', processor: 'ANZCO', time: 'Second shift',
+      sclass: 'Nat Beef - Premium', day: '17', month: 'Sep', qty: 500, status: 'Booked', spine: 'sp-booked',
+      incl: 0, excl: 0, drafted: 0, unmatched: 500, ulabel: '500', state: 'Under-filled',
+      ramp: 'q-under', mcount: 'no matches' },
+
+    { id: 'rakaia', plant: 'Rakaia', processor: 'ANZCO', time: 'PM kill',
+      sclass: 'Lamb', day: '18', month: 'Sep', qty: 1000, status: 'Pending', spine: 'sp-pending',
+      incl: 720, excl: 620, drafted: 100, unmatched: 280, ulabel: '280', state: 'Under-filled',
+      ramp: 'q-under', mcount: '5 matches · 2 drafts', orphaned: 1,
+      openable: true, notes: 'Prefer even lines, no stragglers.',
+      canConfirm: false, why: 'Needs at least one confirmed match and no drafts',
+      matches: [
+        { qty: 300, farmer: 'Hamish Thornton', loc: 'Ridgeway Downs', sclass: 'Lamb', status: 'Confirmed', price: '7.28', transport: 'Tussock Transport' },
+        { qty: 200, farmer: 'Moana Kereopa', loc: 'Waipuna Station', sclass: 'Lamb', status: 'Confirmed', price: '7.28', transport: null },
+        { qty: 120, farmer: 'Ngaire Hape', loc: 'Tokanui Flats', sclass: 'Mutton', status: 'Confirmed', price: '7.28', transport: 'Alpine Freight Lines' },
+        { qty: 135, farmer: 'Callum Blackwood', loc: 'Dovedale Run', sclass: 'Lamb', status: 'Drafted', price: '7.28', transport: null, cancelled: true },
+        { qty: 100, farmer: 'Rhys Osborne', loc: 'Kowhai Bend', sclass: 'Lamb', status: 'Drafted', price: null, transport: null }
+      ]},
+
+    { id: 'lorneville', plant: 'Lorneville', processor: 'Alliance Group', time: 'Yard by 6:30am',
+      sclass: 'Mutton', day: '19', month: 'Sep', qty: 610, status: 'Cancelled', spine: 'sp-cancelled',
+      incl: 650, excl: 650, drafted: 0, unmatched: -40, ulabel: '40', state: 'Over-filled',
+      ramp: 'q-over', mcount: '2 matches · confirmed',
+      openable: true, notes: 'Cancelled by the processor; the two matches are still live.',
+      canConfirm: false, why: 'This space is cancelled',
+      matches: [
+        { qty: 400, farmer: 'Kelly Paterson', loc: 'Terrace Rimu Crossing', sclass: 'Mutton', status: 'Confirmed', price: '7.05', transport: 'Southern Cross Livestock' },
+        { qty: 250, farmer: 'Hamish Ngata', loc: 'Ruru Flats', sclass: 'Mutton', status: 'Confirmed', price: '7.05', transport: null }
+      ]}
+  ]}
+];
+
+/* the openable card per status, which is what the Open row control picks */
+var BY_STATUS = { Booked: 'belfast', Pending: 'rakaia', Confirmed: 'rangitikei', Cancelled: 'lorneville' };
+
+/* ============================================================================================
+   the ten ideas
+   ============================================================================================ */
+var IDEAS = [
+  { k: 1, group: 'a', name: 'The frame swallows the row',
+    d: 'The sheet’s 1px frame stops at its own top edge, so the row that owns it sits outside the framed object. Take the frame up over the row — and drop the notch, because a frame states ownership outright.',
+    r: '<b>Cost: an inset shadow on the row, the outer shadow moved to the wrapper, one ::after deleted.</b> Risk: a border would add 2px to a 52px row whose height is explicit, so it has to be a shadow. Judge it with two cards open in a real column — a framed row is the strongest claim on this list and the easiest to overdo.' },
+
+  { k: 2, group: 'a', name: 'Delete the seam',
+    d: 'A 1px divider sits BETWEEN the open row and its own drawer — the row’s bottom rule, identical to the rule under every other card. That pixel is what makes them two objects. Remove it, put a strong rule above the row, take the sheet’s bottom edge to 2px.',
+    r: '<b>Cost: three declarations, one of them a deletion.</b> Cheapest structural answer here, and it keeps the 52px untouched. Risk: without 1’s side frame the object is bracketed rather than enclosed — turn 1 on underneath it and decide whether the sides are earning their weight.' },
+
+  { k: 3, group: 'b', name: 'The grip column runs through',
+    d: 'The 30px grip is the row’s only always-visible neutral cell, and the drawer’s rail is already aligned to it at 29px. Fill that column: one unbroken stroke from the top of the row to the foot of the sheet.',
+    r: '<b>SHIPPED 2026-09-09.</b> Two declarations and one new token. Not $lms-petrol-tint — that is the current-week band’s ground, and a card in the current week would then match the header above it. <b>Risk, and it is measured in this file:</b> on a Cancelled record the stroke BREAKS AT THE SEAM — grayscale(1) is on .card and not on the drawer, so the row’s 30px goes grey while the sheet’s 29px stays blue. Open the Cancelled card and look at the corner.' },
+
+  { k: 4, group: 'b', name: 'The status spine continues',
+    d: 'The card’s spine stops at its bottom rule. Run it the full height of the drawer and delete the rule between them: one L-shaped object, and the drawer inherits the record’s status.',
+    r: '<b>SHIPPED 2026-09-09.</b> The spines mixin, included by the expansion. Risk: Booked’s spine is 3px of $lms-divider, so the commonest case is also the weakest — open the Booked card first. And Cancelled’s dashed grey spine down 200px of the most interactive region on the screen says READ ONLY, which is the argument that killed the drawer’s grey ground.' },
+
+  { k: 5, group: 'b', name: 'A petrol bar at the leading edge',
+    d: '3px of $lms-petrol at x=0. Petrol is the app’s identity colour and is chrome-only today — top bar, sidebar, FAB — so it appears nowhere in the list and is no part of the quantity ramp.',
+    r: '<b>Cost: one ::before, plus 3px off the spine’s position.</b> It wants the exact pixel the status spine owns, so the spine steps in by the bar’s width; both fit inside the 6px the grip already reserves. Risk: two vertical bars in 9px is a lot of edge for one row — and Cancelled greyscales the petrol clean away, so the one status whose card is hardest to read loses the signal entirely.' },
+
+  { k: 6, group: 'c', name: 'Weight, not ground',
+    d: 'The greys problem is a BACKGROUND problem. Ink weight is a channel this screen has never spent on state: the name goes to 700 and the whole of line 2 comes out of muted grey into $lms-text.',
+    r: '<b>Cost: four declarations, no new colour, no new value, nothing structural.</b> Line 1’s columns are fixed so nothing reflows. Risk: it is quiet by construction — probably a supporting signal rather than the answer. Check the longest plant name for clipping at 700.' },
+
+  { k: 7, group: 'c', name: 'The open row leaves the stripe',
+    d: 'Force it to white while the cards either side keep their zebra sequence, so it reads as lifted out of the run.',
+    r: '<b>Cost: one declaration.</b> Risk: it is a NO-OP on half the rows in the column — flip the Stripe control and watch it disappear. A multiplier on 1 or 2, never an answer alone.' },
+
+  { k: 8, group: 'c', name: 'The chevron becomes a control',
+    d: 'It carries aria-expanded and is the only focusable thing on the row, and opening currently just rotates it. Fill it — a background on the existing 24px box, never a bigger one.',
+    r: '<b>Cost: one declaration.</b> Risk: 24px in the far corner of a 1064px row cannot answer “which row is open” at a glance, so this is supporting evidence. And it collides: .chev.orphaned is already a solid $lms-error box — open the Pending card and look at the corner.' },
+
+  { k: 9, group: 'd', name: 'A rest state for the drop target',
+    d: 'Since Phase 9 the drag paints exactly one card — the one under the pointer — in $lms-drop-target with a 2px petrol outline. The open row is also the row a drop lands on, so say it in the same vocabulary: one step lighter, 1px instead of 2.',
+    r: '<b>Cost: three declarations.</b> Risk: this is the one to test with the DRAG control on. If the open row reads as the card under the pointer, the idea is dead — and it pre-announces a drop state when nothing is in flight.' },
+
+  { k: 0, group: 'd', name: 'Pin the open row',
+    d: 'A 200px sheet plus a scroll loses its own head. Stick the open row under the 28px strip so the row owning the visible drawer is always the topmost one.',
+    r: '<b>Cost: two declarations, and a second sticky layer.</b> Scroll the list to judge it, and watch the band header — it sticks to the same 28px, and that collision is the thing this idea has to answer. Much the biggest change on the list; park it unless the drawer keeps growing.' }
+];
+
+var PRESETS = [
+  { name: 'Before', set: [], what: 'nothing on — the pre-2026-09-09 screen, identical to the left' },
+  { name: 'SHIPPED', set: [3, 4], what: 'the grip column runs through, and the spine continues — live since 2026-09-09' },
+  { name: 'My pick', set: [2, 3, 7], what: 'no seam · grip runs through · off the stripe' },
+  { name: 'One framed object', set: [1, 6], what: 'the frame encloses the row, and its ink comes forward' },
+  { name: 'Continuity', set: [2, 4], what: 'no seam, and the status spine runs the whole object' },
+  { name: 'No new colour', set: [1, 2, 6, 7], what: 'geometry, weight and the stripe — not one hue added' },
+  { name: 'Colour does it', set: [3, 5, 8], what: 'three petrol devices, on purpose — count them' },
+  { name: 'Cheapest', set: [7, 8], what: 'two declarations total. Is it enough?' },
+  { name: 'Everything', set: [1, 2, 3, 4, 5, 6, 7, 8, 9, 0], what: 'too much, on purpose — the mirror before you leave the house' }
+];
+
+/* ============================================================================================
+   state
+   ============================================================================================ */
+var on = new Set();
+var openId = 'belfast';       /* Booked: the 3px spine, the weakest case for 4 and 5 */
+var zebraOffset = 1;          /* which parity the open row lands on */
+var hoverMode = 'none';       /* none | neighbour | open */
+var dragOn = false;
+
+var FLAT = [];
+BANDS.forEach(function (b) { b.cards.forEach(function (c) { FLAT.push(c.id); }); });
+
+function inkClass(state) {
+  if (state === 'Filled') return 'i-exact';
+  if (state === 'Over-filled') return 'i-over';
+  return 'i-under';
+}
+
+/* the card below the open one: the hover comparison and the drag target both use it */
+function neighbourId() {
+  var i = FLAT.indexOf(openId);
+  return FLAT[i + 1] || FLAT[i - 1];
+}
+
+/* ============================================================================================
+   render — one column, built twice. Both boards share the open card, so the comparison is honest.
+   ============================================================================================ */
+function meter(c) {
+  var pct = function (v) { return Math.max(0, Math.min(100, Math.round((v / c.qty) * 100))); };
+  var over = c.unmatched < 0;
+  return '<div class="meter ' + c.ramp + (over ? ' over' : '') + '">' +
+    '<span class="track">' +
+      '<span class="seg incl" style="width:' + pct(c.incl) + '%"></span>' +
+      '<span class="seg" style="width:' + pct(c.excl) + '%"></span>' +
+      (over ? '<span class="over-run"></span>' : '') +
+    '</span>' +
+    '<span class="numeral">' + c.ulabel + '</span>' +
+  '</div>';
+}
+
+function matchRow(m) {
+  var badge = m.cancelled
+    ? '<span class="orphan" title="This match’s availability record has been cancelled. The match itself has not.">' + SVG.block + 'record cancelled</span>'
+    : '';
+  return '<tr class="openable" title="Open this match">' +
+    '<td class="num">' + m.qty + '</td>' +
+    '<td>' + m.farmer + badge + '<span class="sub">' + m.loc + '</span></td>' +
+    '<td class="muted">' + m.sclass + '</td>' +
+    '<td><span class="mstat">' + (MSTAT[m.status] || '') + '</span> ' + m.status + '</td>' +
+    '<td class="num">' + (m.price ? '$' + m.price : '<span class="faint">no default price</span>') + '</td>' +
+    '<td>' + (m.transport || '-') + '</td>' +
+  '</tr>';
+}
+
+/* The sums strip as it shipped 2026-09-08: label over value, the drafted figure INSIDE the two
+   captions, both sums as fractions, `Quantity unmatched` alone on the trailing edge. */
+function sumsStrip(c) {
+  var dq = c.drafted > 0 ? '<span class="dq">' + c.drafted + '</span> ' : '';
+  return '<div class="sums">' +
+    '<div class="field">' +
+      '<span class="label">excl. ' + dq + 'Draft</span>' +
+      '<span class="value sum">' + c.excl + '<span class="of"> of ' + c.qty + '</span></span>' +
+    '</div>' +
+    '<div class="field">' +
+      '<span class="label">incl. ' + dq + 'Draft</span>' +
+      '<span class="value sum">' + c.incl + '<span class="of"> of ' + c.qty + '</span></span>' +
+    '</div>' +
+    '<div class="field right">' +
+      '<span class="label">Quantity unmatched</span>' +
+      '<span class="value sum">' +
+        '<span class="ink ' + inkClass(c.state) + '">' + c.ulabel + '</span>' +
+        '<span class="state">' + c.state + '</span>' +
+      '</span>' +
+    '</div>' +
+  '</div>';
+}
+
+function drawer(c) {
+  var fields =
+    '<div class="fields">' +
+      '<div class="field grow"><span class="label">Notes</span><span class="value">' + (c.notes || '-') + '</span></div>' +
+    '</div>';
+
+  var rows = (c.matches || []).map(matchRow).join('') ||
+    '<tr><td class="empty" colspan="6">No matches yet. Drag a livestock availability record onto this space.</td></tr>';
+
+  var table =
+    '<div class="table-wrap"><table class="matches">' +
+      '<thead><tr>' +
+        '<th class="num">Qty</th><th>Farmer &amp; location</th><th>Stock class</th>' +
+        '<th>Match status</th><th class="num">$/kg</th><th>Transport</th>' +
+      '</tr></thead>' +
+      '<tbody>' + rows + '</tbody>' +
+    '</table></div>';
+
+  var actions =
+    '<div class="actions">' +
+      '<button class="btn-outlined"' + (c.canConfirm ? '' : ' disabled') + '>Confirm space</button>' +
+      '<button class="btn-text">Edit</button>' +
+      '<button class="btn-text danger"' + (c.status === 'Cancelled' ? ' disabled' : '') + '>Cancel</button>' +
+      (c.why ? '<span class="why">' + c.why + '</span>' : '') +
+    '</div>';
+
+  return '<div class="exphost">' +
+    '<span class="spine ' + c.spine + '"></span>' +
+    '<div class="expansion">' + sumsStrip(c) + fields + table + actions + '</div>' +
+  '</div>';
+}
+
+function card(c, index) {
+  var open = c.openable && c.id === openId;
+  var zebra = (index + zebraOffset) % 2 === 1;
+  var hot = dragOn && c.id === neighbourId();
+  var hovered = (hoverMode === 'open' && open) || (hoverMode === 'neighbour' && c.id === neighbourId() && !dragOn);
+
+  var targetCls = ['target'];
+  if (dragOn) { targetCls.push(hot ? 'valid hot' : 'dim'); }
+
+  var overLabel = c.unmatched < 0 ? '<span class="over i-over">' + c.state + '</span>' : '';
+  var orphanMark = c.orphaned
+    ? '<span class="orphan-mark" title="A match on this record hangs off a cancelled record">' + SVG.blockSm + '</span>' : '';
+  var mcount = c.openable
+    ? '<button class="mcount" data-toggle="' + c.id + '">' + c.mcount + '</button>'
+    : '<span class="mcount">' + c.mcount + '</span>';
+
+  return '<div class="cardwrap' + (open ? ' expanded' : '') + '" data-id="' + c.id + '">' +
+    '<div class="' + targetCls.join(' ') + '">' +
+      '<div class="card' + (zebra ? ' zebra' : '') + (c.status === 'Cancelled' ? ' cancelled' : '') +
+           (hovered ? ' hovered' : '') + '">' +
+        '<span class="spine ' + c.spine + '"></span>' +
+        '<span class="grip" title="Drag onto a card in the other column to match">' + SVG.grip + '</span>' +
+        '<div class="cbody" data-toggle="' + (c.openable ? c.id : '') + '">' +
+          '<span class="name">' + c.plant + '</span>' +
+          '<span class="sclass">' + c.sclass + '</span>' +
+          '<span class="day">' + c.day + '</span>' +
+          '<span class="qty">' + c.qty + '</span>' +
+          meter(c) +
+          '<span class="meta">' + c.processor + (c.time ? ' · ' + c.time : '') + '</span>' +
+          '<span class="month">' + c.month + '</span>' +
+          '<span class="trail">' + overLabel + orphanMark + mcount +
+            '<span class="status">' + STATUS_GLYPH[c.status] + c.status + '</span>' +
+          '</span>' +
+        '</div>' +
+        '<button class="chev' + (c.orphaned ? ' orphaned' : '') + '" data-toggle="' + (c.openable ? c.id : '') + '">' +
+          (open ? SVG.chevUp : SVG.chevDown) + '</button>' +
+      '</div>' +
+    '</div>' +
+    (open ? drawer(c) : '') +
+  '</div>';
+}
+
+function column() {
+  var i = -1;
+  var bands = BANDS.map(function (b) {
+    return '<div class="band' + (b.current ? ' current' : '') + '">' +
+      '<div class="bhead">' +
+        '<span class="blabel">Week of <span class="dt">' + b.week + '</span></span>' +
+        (b.current ? '<span class="tag now">this week</span>' : '') +
+        '<span class="totals">' + b.totals + '</span>' +
+      '</div>' +
+      b.cards.map(function (c) { i += 1; return card(c, i); }).join('') +
+    '</div>';
+  }).join('');
+
+  return '<div class="column">' +
+    '<div class="chead">' +
+      '<span class="glyph">' + SVG.factory + '</span>' +
+      '<h2 class="ctitle">Processor Spaces</h2>' +
+      '<span class="showing">8 of 40</span>' +
+      '<button class="add">' + SVG.plus + ' Add space</button>' +
+      '<button class="help">' + SVG.qmark + '</button>' +
+    '</div>' +
+    '<div class="frow">' +
+      '<span class="chip set">Status: Booked ' + SVG.down + '</span>' +
+      '<span class="chip">Stock class: All ' + SVG.down + '</span>' +
+      '<span class="chip">Processor: All ' + SVG.down + '</span>' +
+      '<span class="chip">More ' + SVG.down + '</span>' +
+      '<span class="sortby">↓ Soonest</span>' +
+    '</div>' +
+    '<div class="list">' +
+      '<div class="strip">' +
+        '<span class="s-name">Plant</span>' +
+        '<span class="s-sclass">Stock class</span>' +
+        '<span class="s-date">Date</span>' +
+        '<span class="s-qty">Req</span>' +
+        '<span class="s-meter">Unmatched</span>' +
+        '<span class="s-chev"></span>' +
+      '</div>' +
+      bands +
+    '</div>' +
+  '</div>';
+}
+
+/* ============================================================================================
+   chrome
+   ============================================================================================ */
+function render() {
+  document.getElementById('board-base').innerHTML = column();
+  var prop = document.getElementById('board-prop');
+  prop.innerHTML = column();
+  prop.className = 'board ' + Array.from(on).map(function (k) { return 'i' + k; }).join(' ');
+
+  var list = Array.from(on).sort(function (a, b) { return (a === 0 ? 10 : a) - (b === 0 ? 10 : b); });
+  document.getElementById('activeout').textContent = list.length
+    ? list.map(function (k) { return 'i' + k; }).join(' + ') : 'baseline';
+
+  var preset = PRESETS.filter(function (p) {
+    return p.set.length === on.size && p.set.every(function (k) { return on.has(k); });
+  })[0];
+  document.getElementById('propwhat').textContent = preset ? preset.what
+    : (on.size ? list.length + (list.length === 1 ? ' idea on' : ' ideas on') : 'nothing on — identical to the left');
+
+  Array.prototype.forEach.call(document.querySelectorAll('#presets [data-preset]'), function (b) {
+    b.classList.toggle('on', PRESETS[+b.dataset.preset] === preset);
+  });
+  Array.prototype.forEach.call(document.querySelectorAll('#openctl button'), function (b) {
+    b.classList.toggle('on', BY_STATUS[b.dataset.status] === openId);
+  });
+  Array.prototype.forEach.call(document.querySelectorAll('#zebractl button'), function (b) {
+    b.classList.toggle('on', +b.dataset.z === zebraOffset);
+  });
+  Array.prototype.forEach.call(document.querySelectorAll('#hoverctl button'), function (b) {
+    b.classList.toggle('on', b.dataset.hover === hoverMode);
+  });
+  Array.prototype.forEach.call(document.querySelectorAll('#dragctl button'), function (b) {
+    b.classList.toggle('on', (b.dataset.drag === 'on') === dragOn);
+  });
+  Array.prototype.forEach.call(document.querySelectorAll('.note'), function (n) {
+    n.classList.toggle('on', on.has(+n.dataset.k));
+  });
+
+  location.replace('#' + list.concat([openId, 'z' + zebraOffset]).join(','));
+}
+
+function toggle(k) {
+  if (on.has(k)) on.delete(k); else on.add(k);
+  render();
+}
+
+/* presets row */
+var presetsEl = document.getElementById('presets');
+PRESETS.forEach(function (p, i) {
+  var b = document.createElement('button');
+  b.textContent = p.name;
+  b.dataset.preset = i;
+  b.onclick = function () { on = new Set(p.set); render(); };
+  presetsEl.insertBefore(b, presetsEl.querySelector('.sep'));
+});
+
+/* Open row — one openable card per status, because the leading-edge ideas turn on the spine and
+   Cancelled greyscales the whole row. */
+var openctl = document.getElementById('openctl');
+['Booked', 'Pending', 'Confirmed', 'Cancelled'].forEach(function (s) {
+  var b = document.createElement('button');
+  b.textContent = s;
+  b.dataset.status = s;
+  b.title = s === 'Booked' ? 'A 3px spine — the weakest case for ideas 4 and 5'
+    : s === 'Cancelled' ? 'grayscale(1) and 0.62 opacity: the row that eats every petrol idea'
+    : s === 'Pending' ? 'Carries the red cancelled-partner badge on its chevron — idea 8 collides here'
+    : 'A solid petrol 6px spine';
+  b.onclick = function () { openId = BY_STATUS[s]; render(); };
+  openctl.appendChild(b);
+});
+
+/* Stripe — which parity the open row lands on. Idea 7 is a no-op on one of the two. */
+var zebractl = document.getElementById('zebractl');
+[{ z: 1, t: 'White' }, { z: 0, t: 'Grey' }].forEach(function (o) {
+  var b = document.createElement('button');
+  b.textContent = o.t;
+  b.dataset.z = o.z;
+  b.title = 'Which zebra parity the open row lands on';
+  b.onclick = function () { zebraOffset = o.z; render(); };
+  zebractl.appendChild(b);
+});
+
+/* Hover — pinned, so open and hovered can be compared without a pointer. Note that any idea
+   painting the row's background outranks .hovered on specificity, exactly as it would in the app. */
+var hoverctl = document.getElementById('hoverctl');
+[{ h: 'none', t: 'Off' }, { h: 'neighbour', t: 'Next row' }, { h: 'open', t: 'The open row' }].forEach(function (o) {
+  var b = document.createElement('button');
+  b.textContent = o.t;
+  b.dataset.hover = o.h;
+  b.title = o.h === 'open'
+    ? 'Ideas 3, 7 and 9 paint this row and outrank hover — that is the real cascade'
+    : 'The real #F5F9FB hover state, pinned for comparison';
+  b.onclick = function () { hoverMode = o.h; render(); };
+  hoverctl.appendChild(b);
+});
+
+/* Drag — the Phase 9 state: `valid hot` on the card below the open one, `dim` on everything else */
+var dragctl = document.getElementById('dragctl');
+[{ d: 'off', t: 'Off' }, { d: 'on', t: 'In flight' }].forEach(function (o) {
+  var b = document.createElement('button');
+  b.textContent = o.t;
+  b.dataset.drag = o.d;
+  b.title = 'Phase 9: only the card under the pointer is painted, and the rest recede';
+  b.onclick = function () { dragOn = o.d === 'on'; render(); };
+  dragctl.appendChild(b);
+});
+
+/* notes, which are also the toggles */
+IDEAS.forEach(function (idea) {
+  var el = document.createElement('button');
+  el.className = 'note';
+  el.dataset.k = idea.k;
+  el.innerHTML = '<span class="n"><span class="k">' + idea.k + '</span>' + idea.name + '</span>' +
+                 '<p class="d">' + idea.d + '</p><p class="r">' + idea.r + '</p>';
+  el.onclick = function () { toggle(idea.k); };
+  document.getElementById('group-' + idea.group).appendChild(el);
+});
+
+/* the cards themselves open and close, on both boards at once — one per column, as it ships */
+document.addEventListener('click', function (e) {
+  var t = e.target.closest('[data-toggle]');
+  if (!t || !t.dataset.toggle) return;
+  openId = openId === t.dataset.toggle ? null : t.dataset.toggle;
+  render();
+});
+
+document.addEventListener('keydown', function (e) {
+  if (e.metaKey || e.ctrlKey || e.altKey) return;
+  if (/^[0-9]$/.test(e.key)) { toggle(+e.key); e.preventDefault(); }
+});
+
+/* The hash carries a set, the open card and the stripe parity, so a combination worth keeping can
+   be pasted back into a chat. */
+var tokens = location.hash.slice(1).split(',').map(function (s) { return s.trim(); });
+var fromHash = tokens.filter(function (s) { return /^\d$/.test(s); }).map(Number);
+var idTok = tokens.filter(function (s) { return FLAT.indexOf(s) !== -1; })[0];
+var zTok = tokens.filter(function (s) { return /^z[01]$/.test(s); })[0];
+on = new Set(fromHash);
+if (idTok) openId = idTok;
+if (zTok) zebraOffset = +zTok[1];
+render();
+</script>
+</body>
+</html>

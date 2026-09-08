@@ -1,4 +1,5 @@
 using Apg.Api.Seeding;
+using Apg.Domain.Matching;
 using Apg.Domain.Time;
 
 namespace Apg.Api.Tests;
@@ -214,6 +215,71 @@ public class SeedConfigurationTests
         Assert.Equal(2693262067u, rng.NextUInt());
         Assert.Equal(11749833u, rng.NextUInt());
         Assert.Equal(2265367787u, rng.NextUInt());
+    }
+
+    /// <summary>
+    /// Every seeded stock class, on both sides, has an explicit entry in the domain's compatibility
+    /// table.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// This is the half of <c>StockClassCompatibility</c> that its own unit tests cannot see. The
+    /// table fails <em>open</em> — a class it has never heard of is compatible with everything — so a
+    /// missing entry breaks nothing, shows up nowhere, and quietly turns "Filter on drag" into a
+    /// no-op for that class. The only way to notice is to ask, from the side that owns the
+    /// vocabularies.
+    /// </para>
+    /// <para>
+    /// It lives here rather than in <c>Apg.Domain.Tests</c> because the vocabularies are
+    /// <see cref="SeedConfig"/>'s and the domain deliberately does not know them: it maps whatever
+    /// name it is handed. When APG swap these lists for their real ones, this test is what says which
+    /// new classes the table has not been told about.
+    /// </para>
+    /// </remarks>
+    [Fact]
+    public void Every_seeded_stock_class_is_known_to_the_compatibility_table()
+    {
+        var classes = SeedConfig.ProcessorSpaceStockClasses
+            .SelectMany(p => p.StockClasses)
+            .Concat(SeedConfig.AvailabilityStockClasses)
+            .Distinct()
+            .ToList();
+
+        var unknown = classes.Where(c => !StockClassCompatibility.IsKnown(c)).ToList();
+
+        Assert.Empty(unknown);
+    }
+
+    /// <summary>
+    /// Every seeded Processor Space class except Deer has somewhere to come from, and every seeded
+    /// availability class has somewhere to go.
+    /// </summary>
+    /// <remarks>
+    /// A pairing test over the real lists rather than over hand-picked names, so a class whose entry
+    /// exists but pairs with nothing — a typo'd tag, an en dash in <c>Nat Beef - Ultra</c> — is caught
+    /// as well as a missing one. Deer is the deliberate exception: Alliance Group books deer and the
+    /// supply vocabulary has none, so grabbing a Deer space empties the far column, and the matching
+    /// screen draws that state rather than treating it as an error.
+    /// </remarks>
+    [Fact]
+    public void Every_seeded_class_has_a_counterpart_except_Alliance_Groups_Deer()
+    {
+        var spaceClasses = SeedConfig.ProcessorSpaceStockClasses
+            .SelectMany(p => p.StockClasses)
+            .Distinct()
+            .ToList();
+
+        var pairable = spaceClasses
+            .Where(space => SeedConfig.AvailabilityStockClasses
+                .Any(availability => StockClassCompatibility.AreCompatible(space, availability)))
+            .ToList();
+
+        Assert.Equal(spaceClasses.Where(c => c != "Deer"), pairable);
+
+        Assert.All(SeedConfig.AvailabilityStockClasses, availability =>
+            Assert.Contains(
+                spaceClasses,
+                space => StockClassCompatibility.AreCompatible(space, availability)));
     }
 
     [Fact]

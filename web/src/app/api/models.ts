@@ -257,6 +257,17 @@ export interface ProcessorSpaceDto {
    * drafts") are not recoverable from a boolean. The wording is the domain's.
    */
   readonly confirmBlockedReason: string | null;
+  /**
+   * The stock-class compatibility tags, from the domain's `StockClassCompatibility` — what
+   * "Filter on drag" compares between the grabbed card and the cards on the far side.
+   *
+   * Two records are compatible when these two lists intersect, and that membership test is the only
+   * thing the client does with them. The table, the fail-open rule for a class the domain has never
+   * heard of, and the decision that Lamb and Mutton are not interchangeable are all server-side.
+   * **Nothing is gated on it**: compatibility is a human judgement, so no drop is ever refused for
+   * disagreeing, and switching the aid off puts every record back.
+   */
+  readonly stockClassGroups: readonly string[];
   /** Live matches only — cancelled ones never reach the client. */
   readonly matches: readonly MatchDto[];
 }
@@ -317,6 +328,17 @@ export interface LivestockAvailabilityDto {
   /** The Sunday of the available-from week. ISO `yyyy-MM-dd`. */
   readonly weekCommencing: string;
   readonly weekCommencingLabel: string;
+  /**
+   * The stock-class compatibility tags, from the domain's `StockClassCompatibility` — what
+   * "Filter on drag" compares between the grabbed card and the cards on the far side.
+   *
+   * Two records are compatible when these two lists intersect, and that membership test is the only
+   * thing the client does with them. The table, the fail-open rule for a class the domain has never
+   * heard of, and the decision that Lamb and Mutton are not interchangeable are all server-side.
+   * **Nothing is gated on it**: compatibility is a human judgement, so no drop is ever refused for
+   * disagreeing, and switching the aid off puts every record back.
+   */
+  readonly stockClassGroups: readonly string[];
   readonly matches: readonly MatchDto[];
 }
 
