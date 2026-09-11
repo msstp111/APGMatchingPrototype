@@ -62,7 +62,14 @@ import {
   // `open`, not `expanded`: the class is what card-shell's `:host(.open)` frame hangs off, and the
   // frame is a visual state on the row. `expanded()` is the source either way — the chevron's
   // aria-expanded and this read the same signal, so they cannot disagree.
-  host: { '[class.open]': 'expanded()' },
+  host: {
+    '[class.open]': 'expanded()',
+    // The handle the cross-column reveal scrolls to (`match/reveal-record.ts`). A data attribute
+    // rather than an element registry: cards are created and destroyed on every filter change, and
+    // a registry with a lifecycle is a registry that can hold a destroyed element. The column's
+    // own scroll container is the only thing that has to be registered, and it never goes away.
+    '[attr.data-record-id]': 'space().id',
+  },
   templateUrl: './space-card.html',
   styleUrl: './space-card.scss',
 })
@@ -129,6 +136,19 @@ export class SpaceCard {
    */
   readonly dragName = computed(() => spaceName(this.space()));
 
+  /**
+   * The figure the drag chip carries: **what is left to match, not the record's size**.
+   *
+   * A named computed rather than `space().unmatched` inline in the template, for the reason
+   * {@link dragName} is one — the chip is created inside a `cdkDragPreview`, which only exists
+   * during a real CDK drag and therefore never in jsdom. This is the seam a test can reach, and
+   * `card-drag-chrome.spec.ts` uses it to hold the two cards to the same field.
+   *
+   * It was `quantityRequired` until 2026-09-10. See `DragPreview.headCount` for why the
+   * total was the wrong number and what it did to the outcome pill.
+   */
+  readonly dragHeadCount = computed(() => this.space().unmatched);
+
   readonly dragCard = computed<DragCard>(() => ({ side: 'demand', space: this.space() }));
 
   /** How this card should look to the drag in flight — nothing at all unless it could receive it. */
@@ -194,6 +214,14 @@ export class SpaceCard {
    * the same question.
    */
   readonly dragAnywhere = this.preferences.dragAnywhere;
+
+  /**
+   * Whether this card draws its 30px grip.
+   *
+   * The store's answer, not this card's: it is the conjunction of two preferences and a safety rule
+   * (see `MatchingPreferences.gripsVisible`), and deriving it here would be deriving it twice.
+   */
+  readonly gripsVisible = this.preferences.gripsVisible;
 
   /**
    * Whether CDK started a drag during the press now in progress.

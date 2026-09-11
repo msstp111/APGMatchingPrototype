@@ -58,19 +58,59 @@
     card for a reason (a click that drifted lifted it), and because the two or three people who run
     this screen should be able to put it back the moment it gets in the way.
   -->
-  <button
-    type="button"
-    class="pref-toggle drag-anywhere"
-    [class.on]="dragAnywhere()"
-    [attr.aria-pressed]="dragAnywhere()"
-    (click)="toggleDragAnywhere()"
-    [title]="dragAnywhereTitle()"
-  >
-    <span class="material-symbols-outlined" aria-hidden="true">{{
-      dragAnywhere() ? 'drag_pan' : 'drag_indicator'
-    }}</span>
-    Drag anywhere
-  </button>
+  <!--
+    A COMPOUND CONTROL (2026-09-10), not two buttons. The main half switches the gesture on; the
+    18px half on its trailing edge decides whether the cards keep their grips once it is on.
+
+    They are folded into one control because they are one decision with a rider — "drag from the
+    row, and (since you can) drop the glyph that used to be the only way". Two separate chrome
+    buttons would have put a control in the bar that is inert most of the time, which is exactly
+    the odd experience a disabled top-bar button produces.
+
+    A <button> cannot contain a <button>, so the shell is a div with role="group" and the two real
+    buttons sit inside it. The .pref-toggle shape is unchanged — this is still one 26px chrome
+    control on the bar, and `.on` is still the one definition of the filled state.
+  -->
+  <div class="pref-toggle compound" role="group" aria-label="Drag anywhere" [class.on]="dragAnywhere()">
+    <button
+      type="button"
+      class="main"
+      [attr.aria-pressed]="dragAnywhere()"
+      (click)="toggleDragAnywhere()"
+      [title]="dragAnywhereTitle()"
+    >
+      <span class="material-symbols-outlined" aria-hidden="true">{{
+        dragAnywhere() ? 'drag_pan' : 'drag_indicator'
+      }}</span>
+      Drag anywhere
+    </button>
+
+    <!--
+      Grips on or off, and it is only live while the gesture beside it is. Disabled rather than
+      hidden: a control that appears and disappears as its neighbour is pressed is harder to find
+      than one that greys, and its title says why it is grey.
+
+      The tooltip is shown EXPLICITLY on click, because the state it reports changes under a pointer
+      that is already resting on the button — and a `title` will not re-appear without the pointer
+      moving away and back. It is the only feedback the press has: the cards it changes are in the
+      list below, and the operator is looking at the top bar.
+    -->
+    <button
+      type="button"
+      class="sub"
+      #gripTip="matTooltip"
+      [matTooltip]="keepGripsTitle()"
+      matTooltipPosition="below"
+      [class.on]="keepGrips()"
+      [disabled]="!dragAnywhere()"
+      [attr.aria-pressed]="keepGrips()"
+      aria-label="Keep drag grips on the cards"
+      [title]="dragAnywhere() ? '' : 'Turn on Drag anywhere to hide the cards’ grips'"
+      (click)="toggleKeepGrips(gripTip)"
+    >
+      <span class="material-symbols-outlined" aria-hidden="true">drag_indicator</span>
+    </button>
+  </div>
 
   <span class="dev-flag"># DEV ENVIRONMENT #</span>
 </header>

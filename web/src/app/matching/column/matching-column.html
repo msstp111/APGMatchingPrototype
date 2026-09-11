@@ -3,7 +3,12 @@
   it and sticky at top: 0 so it survives scrolling. The strip's cells use the same widths as the
   cards, from _card-geometry.scss.
 -->
-<section class="column" [class.supply]="!isDemand()" [class.wash]="isDropTarget()">
+<section
+  class="column"
+  [class.supply]="!isDemand()"
+  [class.wash]="isDropTarget()"
+  [class.nogrip]="!gripsVisible()"
+>
   <header class="chead">
     <app-side-glyph class="glyph" [side]="side()" />
     <h2 class="ctitle">{{ title() }}</h2>
@@ -70,7 +75,7 @@
   <app-column-filters [side]="side()" [spaces]="spaces()" [availability]="availability()" />
 
   <div class="list-wrap">
-    <div class="list" columnAutoScroll>
+    <div class="list" columnAutoScroll #list>
       <div class="strip">
         <span class="s-name">{{ isDemand() ? 'Plant' : 'Location' }}</span>
         <span class="s-sclass">Stock class</span>
@@ -80,7 +85,12 @@
         screen never reached it. The fix is the shorter word rather than a wider column: nothing else
         in this strip is a date, and the 12px would have come straight off the plant's name.
       -->
-        <span class="s-date">{{ isDemand() ? 'Date' : 'From' }}</span>
+        <!--
+          'Day', not 'Date', on the demand side (2026-09-11): the cell under it holds a weekday now,
+          and the week it belongs to is the band header's to say. Supply still shows a date and still
+          says 'From'.
+        -->
+        <span class="s-date">{{ isDemand() ? 'Day' : 'From' }}</span>
         <span class="s-qty">{{ isDemand() ? 'Req' : 'Avail' }}</span>
         <span class="s-meter">Unmatched</span>
         <span class="s-chev"></span>

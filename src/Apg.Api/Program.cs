@@ -195,8 +195,56 @@ app.MapPut("/api/matches/{id:int}", async (
         cancellation);
 });
 
-// Drafted to Confirmed, in one step, because Notified has no UI transition in pass 1 (resolved
-// question 2).
+// Drafted to Notified (2026-09-11, amending resolved question 2), for an ANZCO match only —
+// notification is not part of Alliance Group's or SFF's process, so their matches are refused here
+// and never offered the button in the first place. The rule and its reasoning live in
+// Apg.Domain.Matching.ProcessorNotifications.
+//
+// IT SENDS NOTHING. No SMS, no email, no in-app notification, no outbound call of any kind — this
+// writes MatchStatus.Notified and saves. The notification mediums are deferred beyond pass 1, and
+// the status is worth having without them: it is APG's own record that this match has been put to
+// the processor and is waiting on their word, which is a distinction the board could not draw while
+// every unconfirmed match was a draft. If a later pass adds a real send, it goes in front of this
+// write and this comment goes with it.
+//
+// It takes the edit body for the same reason confirm does: a match with unsaved changes is saved and
+// notified in one validated write rather than two chained calls that can half-fail.
+app.MapPost("/api/matches/{id:int}/notify", async (
+        int id,
+        UpdateMatchRequest request,
+        ApgDbContext db,
+        WorkingSetLoader loader,
+        CancellationToken cancellation) =>
+{
+    var match = await db.Matches.FirstOrDefaultAsync(m => m.Id == id, cancellation);
+    var set = await loader.LoadAsync(cancellation);
+
+    if (MatchWriter.RejectNotify(set, match) is { } blocked)
+    {
+        return match is null
+            ? Results.NotFound(MatchResponses.Message(blocked))
+            : Results.Conflict(MatchResponses.Message(blocked));
+    }
+
+    if (MatchWriter.RejectUpdate(set, match, request) is { } invalid)
+    {
+        return Results.BadRequest(MatchResponses.Message(invalid));
+    }
+
+    MatchWriter.Apply(match!, request);
+    MatchLifecycle.Notify(match!);
+    await db.SaveChangesAsync(cancellation);
+
+    return await MatchResponses.WriteResultAsync(
+        loader,
+        match!.ProcessorSpaceId,
+        match.LivestockAvailabilityId,
+        match.Id,
+        cancellation);
+});
+
+// Drafted or Notified to Confirmed. Notifying is optional, so both live statuses are entries here and
+// a match that skipped the notify step confirms in one move exactly as every match did before.
 //
 // It takes the edit body so that a match with unsaved changes confirms in a single validated write
 // rather than in two chained calls with a half-applied state between them. A pristine form sends the
@@ -310,7 +358,15 @@ app.MapPost("/api/processor-spaces/{id:int}/confirm", async (
 // The vocabularies the forms pick from. Straight off SeedConfig, so APG's real lists stay a one-file
 // swap - and deliberately not derived from the loaded records, the way the filter row's options are:
 // a stock class nothing uses yet is still a valid choice for a new record.
-app.MapGet("/api/reference-data", () => RecordWriter.ReferenceData());
+//
+// The one thing here that IS derived from them is the week list backing the space form's
+// week-commencing picker, and it has to be: the picker must be able to express the delivery date of
+// any record Edit might be opened on. It loads the working set for that reason alone.
+app.MapGet("/api/reference-data", async (
+        WorkingSetLoader loader,
+        TimeProvider clock,
+        CancellationToken cancellation) =>
+    RecordWriter.ReferenceData(await loader.LoadAsync(cancellation), clock));
 
 // ~300 locations, each with the one farmer it belongs to (resolved question 10), so picking the
 // location in the availability form settles the farmer and the form can show back who was chosen.

@@ -39,8 +39,9 @@
   border-bottom: 1px solid lms.$lms-divider;
 }
 
+// Deeper than every other band, and deeper than $lms-drop-target — see the token.
 .band.current .bhead {
-  background: lms.$lms-petrol-tint;
+  background: lms.$lms-band-current;
 }
 
 // Phase 9: the same 55% the cards take, so the two read as one scrim rather than two effects.

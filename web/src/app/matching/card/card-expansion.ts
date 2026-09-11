@@ -1,9 +1,18 @@
-import { ChangeDetectionStrategy, Component, computed, inject, input } from '@angular/core';
-import { DecimalPipe } from '@angular/common';
+import {
+  ChangeDetectionStrategy,
+  Component,
+  computed,
+  inject,
+  input,
+  output,
+} from '@angular/core';
+import { DOCUMENT, DecimalPipe } from '@angular/common';
 import { MatButtonModule } from '@angular/material/button';
+import { MatTooltipModule } from '@angular/material/tooltip';
 import { LivestockAvailabilityDto, MatchStatus, ProcessorSpaceDto } from '../../api/models';
 import { MatchSide } from '../board/matching-board';
 import { MatchActions } from '../match/match-actions';
+import { RevealRecord } from '../match/reveal-record';
 import { RecordActions } from '../record/record-actions';
 import { matchStatusIcon, quantityClass, spineClass, transactionTypeLabel } from './card-chrome';
 
@@ -26,7 +35,7 @@ import { matchStatusIcon, quantityClass, spineClass, transactionTypeLabel } from
 @Component({
   selector: 'app-card-expansion',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [DecimalPipe, MatButtonModule],
+  imports: [DecimalPipe, MatButtonModule, MatTooltipModule],
   // Only the two elements meant to read as continuous with the row above use this — the rail and the
   // continued spine. The drawer's CONTENT stays at full strength deliberately: it is the most
   // interactive region on the card, and everything that recedes on this screen recedes because it is
@@ -38,6 +47,8 @@ import { matchStatusIcon, quantityClass, spineClass, transactionTypeLabel } from
 export class CardExpansion {
   private readonly actions = inject(MatchActions);
   private readonly records = inject(RecordActions);
+  private readonly reveal = inject(RevealRecord);
+  private readonly document = inject(DOCUMENT);
 
   readonly side = input.required<MatchSide>();
 
@@ -45,9 +56,39 @@ export class CardExpansion {
   readonly space = input<ProcessorSpaceDto | null>(null);
   readonly availability = input<LivestockAvailabilityDto | null>(null);
 
+  /**
+   * The sums strip was clicked and the card should close.
+   *
+   * An output rather than a call into `CardStateStore`, because this component does not own the
+   * expansion and must not learn to: the card above it holds the side and the record id, and it
+   * already has a `toggle()` that both the chevron and the match count go through. A third writer
+   * would be a third place the open state could be set from.
+   */
+  readonly collapse = output<void>();
+
   // Re-exposed for the template under different names, so neither line reads as assigning to itself.
   readonly transactionTypeText = transactionTypeLabel;
   readonly matchGlyph = matchStatusIcon;
+
+  /**
+   * The drawer's head is also its close control (2026-09-10).
+   *
+   * **Guarded on the selection**, and that is the whole of why this is not a bare `(click)`. The
+   * strip is nothing but figures, and figures are the one thing on this screen someone will want to
+   * drag-select and copy; a selection that ended by shutting the drawer would make the numbers
+   * unreadable in the act of reading them. A collapsed selection is a plain click.
+   *
+   * Nothing here is focusable. The chevron on the row above is the control carrying
+   * `aria-expanded`, and a second tab stop saying the same thing about the same card would only be
+   * one more thing to tab past — the same argument `.cbody` settles on the row itself.
+   */
+  collapseClicked(): void {
+    if (this.document.getSelection()?.isCollapsed === false) {
+      return;
+    }
+
+    this.collapse.emit();
+  }
 
   /**
    * Why Confirm is unavailable, from the DTO — never composed here.
@@ -102,6 +143,27 @@ export class CardExpansion {
    */
   openMatch(matchId: number): void {
     this.actions.open(matchId);
+  }
+
+  /**
+   * Follow a match to its counterparty in the other column (2026-09-10).
+   *
+   * Two methods rather than one with a side, because the id spaces are separate and the wrong one
+   * would resolve to a real record of the other kind rather than to nothing — a bug that shows up
+   * as the wrong card lighting, which is much harder to see than a card that does not light at all.
+   *
+   * `stopPropagation` because the row this cell sits in opens the match. Both handlers are real and
+   * both are wanted; what decides between them is where in the row the click landed.
+   */
+  revealSpace(spaceId: number, event: Event): void {
+    event.stopPropagation();
+    this.reveal.space(spaceId);
+  }
+
+  /** @see revealSpace */
+  revealAvailability(recordId: number, event: Event): void {
+    event.stopPropagation();
+    this.reveal.availability(recordId);
   }
 
   /**

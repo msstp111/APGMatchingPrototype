@@ -6,6 +6,7 @@ import {
   effect,
   inject,
   input,
+  viewChild,
 } from '@angular/core';
 import { DecimalPipe } from '@angular/common';
 import { MatDialog } from '@angular/material/dialog';
@@ -22,6 +23,7 @@ import { FilteredEmpty } from '../filters/filtered-empty';
 import { StatusLegend } from '../legend/status-legend';
 import { isDemandDefault, isSupplyDefault } from '../filters/filter-service';
 import { MatchingPreferences } from '../filters/matching-preferences';
+import { RevealRecord } from '../match/reveal-record';
 import { RecordActions } from '../record/record-actions';
 import { SideGlyph } from './side-glyph';
 
@@ -60,12 +62,30 @@ export class MatchingColumn {
   private readonly records = inject(RecordActions);
   private readonly dialog = inject(MatDialog);
   private readonly host = inject<ElementRef<HTMLElement>>(ElementRef);
+  private readonly reveal = inject(RevealRecord);
+
+  /**
+   * The scrolling element, handed to `RevealRecord` so the OTHER column can scroll this one to a
+   * record. The drag store already keeps the column host for its gutter test; this is the same
+   * arrangement one element deeper, because `.list` is what actually scrolls.
+   */
+  private readonly list = viewChild.required<ElementRef<HTMLElement>>('list');
+
+  /**
+   * Whether the cards in this column draw their grips — the switch behind `--apg-lead`.
+   *
+   * The column is where it is applied rather than each card, because the header strip has to move
+   * with them: the strip's leading pad and the card's are the same run, and design-system.md 16.10
+   * is the standing warning about what happens when the two disagree.
+   */
+  readonly gripsVisible = this.preferences.gripsVisible;
 
   constructor() {
     // The store needs to know where each column is to tell which side of the gutter the pointer is
     // on. An effect rather than a constructor call because `side` is an input and is not readable
     // until the first change detection; it settles once and never changes again.
     effect(() => this.drag.registerColumn(this.side(), this.host.nativeElement));
+    effect(() => this.reveal.registerList(this.side(), this.list().nativeElement));
   }
 
   readonly side = input.required<MatchSide>();

@@ -49,11 +49,23 @@ export function statusIcon(status: RecordStatus): string {
 }
 
 /**
- * `Drafted` borrows Pending's clock and `Confirmed` the filled tick, both in plain grey. **No hue** —
- * a match-status cell is one of the surfaces design-system.md 3 names explicitly.
+ * `Drafted` borrows Pending's clock, `Notified` the outbound `send`, `Confirmed` the filled tick —
+ * all in plain grey. **No hue** — a match-status cell is one of the surfaces design-system.md 3
+ * names explicitly.
+ *
+ * `Notified` earned its own glyph when it became reachable (2026-09-11). Sharing Drafted's clock
+ * would have left the one row that has moved looking identical to the ones that have not, which is
+ * the whole of what the status is for.
  */
 export function matchStatusIcon(status: MatchStatus): string {
-  return status === 'Confirmed' ? 'check_circle' : 'schedule';
+  switch (status) {
+    case 'Confirmed':
+      return 'check_circle';
+    case 'Notified':
+      return 'send';
+    default:
+      return 'schedule';
+  }
 }
 
 /**
@@ -127,6 +139,15 @@ export function matchSummaryLabel(matches: readonly MatchDto[]): string {
 
   if (drafts > 0) {
     return `${count} · ${drafts} draft${drafts === 1 ? '' : 's'}`;
+  }
+
+  // Drafts first, then notified: both are outstanding, and a draft is the one still entirely in
+  // APG's hands. Only one of the two is ever named, because this phrase drops from line 2 first when
+  // the card runs out of room (design-system.md 6.1) and a breakdown is what the hover title is for.
+  const notified = matches.filter((match) => match.status === 'Notified').length;
+
+  if (notified > 0) {
+    return `${count} · ${notified} notified`;
   }
 
   return matches.every((match) => match.status === 'Confirmed') ? `${count} · confirmed` : count;

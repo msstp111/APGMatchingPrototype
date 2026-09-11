@@ -18,7 +18,13 @@ public static class ProcessorSpaceRules
     /// Why a Booked space is not yet confirmable. design-system.md 15 quotes this string, so it lives
     /// as a constant rather than as a sentence the client retypes.
     /// </summary>
-    public const string NeedsConfirmedMatches = "Needs at least one confirmed match and no drafts";
+    /// <remarks>
+    /// It said "and no drafts" until 2026-09-11, which was true only while Notified was unreachable.
+    /// A space whose every match is Notified has no drafts at all and still cannot be confirmed, so
+    /// the sentence would have denied on screen exactly what the clause below asserts. The wording
+    /// now states that clause itself.
+    /// </remarks>
+    public const string NeedsConfirmedMatches = "Needs every match confirmed, and at least one";
 
     /// <summary>Why a space that is already Confirmed offers nothing to confirm.</summary>
     public const string AlreadyConfirmed = "Already confirmed";
@@ -42,7 +48,8 @@ public static class ProcessorSpaceRules
     /// Resolved question 12 words the match half as "at least one Confirmed match and no Drafted
     /// matches", written when Notified was out of scope. Notified is a live-but-not-yet-agreed status,
     /// so it blocks confirmation exactly as Drafted does; stating the rule as "every live match is
-    /// Confirmed" covers both and cannot rot when notifications arrive. The
+    /// Confirmed" covers both, and it did not rot when Notified became reachable on 2026-09-11 —
+    /// only the sentence above had to change. The
     /// <see cref="ProcessorSpaceStatus.Booked"/> clause is an addition: without it a Cancelled space,
     /// or one already Confirmed, would report that it could be confirmed, and the suppression would
     /// have to live in the client.

@@ -113,6 +113,9 @@ describe('Absent values never render raw, and never render blank', () => {
     space: emptySpace,
     availability: emptyAvailability,
     maximumQuantity: 90,
+    // True, so the notify caption is on screen for this sweep too. A field left null must not render
+    // the word `null` anywhere, and the half of the dialog that only a draft shows is no exception.
+    canNotify: true,
   };
 
   const dialogProviders = [

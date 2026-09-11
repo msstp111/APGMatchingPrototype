@@ -24,7 +24,10 @@ export type ProcessorSpaceStatus = 'Booked' | 'Confirmed' | 'Cancelled';
 /** Derived from the match set, except Cancelled which is stored. Note there is no `Pending` on the space side. */
 export type LivestockAvailabilityStatus = 'Booked' | 'Pending' | 'Confirmed' | 'Cancelled';
 
-/** `Notified` exists but is unreachable in pass 1. Cancelled matches never reach the client. */
+/**
+ * `Notified` became reachable on 2026-09-11 — the match modal's `Notify processor` sets it, and no
+ * message is sent by anything. Cancelled matches never reach the client.
+ */
 export type MatchStatus = 'Drafted' | 'Notified' | 'Confirmed' | 'Cancelled';
 
 export type MatchCancellationReason =
@@ -149,6 +152,16 @@ export interface MatchEditContextDto {
   readonly match: MatchDto;
   readonly space: ProcessorSpaceDto;
   readonly availability: LivestockAvailabilityDto;
+  /**
+   * Whether the modal offers `Notify processor`: an **ANZCO** match, still `Drafted`.
+   *
+   * Notification is not part of Alliance Group's or SFF's process at all, so for their matches the
+   * button is absent rather than disabled and the lifecycle really is `Drafted → Confirmed`. The
+   * rule is the domain's (`ProcessorNotifications`) and arrives here already answered — the client
+   * holds no list of which processors APG notifies, exactly as it holds no stock-class table.
+   */
+  readonly canNotify: boolean;
+
   /** The highest quantity this match may be edited to. There is no ceiling on the demand side. */
   readonly maximumQuantity: number;
 }
@@ -206,16 +219,19 @@ export interface ProcessorSpaceDto {
   readonly deliveryDate: string;
   readonly deliveryDateLabel: string;
   /**
-   * The two halves of the card's date cell — `26` and `Aug`.
+   * The card's date cell, whole — `Thu` (2026-09-11).
    *
-   * The 52px card row splits the date over the two lines it already has: the day on line 1, the month
-   * directly beneath it on line 2. Both halves ship preformatted because the client may not slice a
-   * date any more than it may construct one — `no-domain-arithmetic.spec.ts` forbids both, and one of
-   * `deliveryDateLabel`'s own substrings is still a date derived in TypeScript.
+   * It replaced a day-of-month over a month stacked across the row's two lines. A space is drawn in
+   * the band of its own delivery week and the band header names that week, so those two were restating
+   * it in the narrowest column on the screen; the weekday is the part the header does not carry, and
+   * the full `deliveryDateLabel` is the row's hover text.
+   *
+   * Preformatted, like every label: naming a weekday from `deliveryDate` means constructing a
+   * `Date`, which `no-domain-arithmetic.spec.ts` forbids. The **supply** card still splits its date
+   * into `availableFromDayLabel` and `availableFromMonthLabel`, because that column's bands are not
+   * a delivery schedule — an availability record is a state, not an event.
    */
-  readonly deliveryDayLabel: string;
-  /** `Aug`. The card upper-cases it in CSS; the wire keeps the readable form. */
-  readonly deliveryMonthLabel: string;
+  readonly deliveryWeekdayLabel: string;
   readonly deliveryTime: string | null;
   readonly notes: string | null;
   readonly status: ProcessorSpaceStatus;
@@ -294,9 +310,18 @@ export interface LivestockAvailabilityDto {
    * a Phase 4 filter chip would want.
    */
   readonly availableFromShortLabel: string;
-  /** The day half of the card's split date cell — `24`. See `deliveryDayLabel`. */
+  /**
+   * The day half of the card's split date cell — `24`, with `availableFromMonthLabel` directly
+   * beneath it on line 2.
+   *
+   * **The supply card alone since 2026-09-11.** The demand card's cell became a weekday, because a
+   * space is drawn in the band of its own delivery week and the header names that week. This column's
+   * bands are not a schedule: an availability record is a state rather than an event, the column has
+   * no week filter at all (resolved question 17), and its backlog is read by scrolling up through
+   * weeks — so here the day of the month is the figure that identifies the record.
+   */
   readonly availableFromDayLabel: string;
-  /** The month half — `Aug`. Both cards share one geometry, so both sides carry both halves. */
+  /** The month half — `Aug`. The card upper-cases it in CSS; the wire keeps the readable form. */
   readonly availableFromMonthLabel: string;
   readonly availabilityDetails: string | null;
   readonly transactionType: TransactionType;
@@ -360,6 +385,49 @@ export interface ReferenceDataDto {
   readonly processors: readonly ProcessorOptionDto[];
   readonly availabilityStockClasses: readonly string[];
   readonly transactionTypes: readonly TransactionType[];
+  /**
+   * The weeks the space form's delivery-date pair may pick from — the one list here that is a
+   * calendar rather than a vocabulary, and so the one the server derives from the loaded records as
+   * well as from the clock. It covers every record the form might be opened on, and reaches a quarter
+   * past the last of them.
+   */
+  readonly weeks: readonly WeekOptionDto[];
+}
+
+/**
+ * One selectable delivery week, with the seven dates it contains.
+ *
+ * The space form asks for a delivery date in two parts: the week commencing, then the weekday. It
+ * submits `week.days[index].date` — **a lookup, never a sum**. That is the whole reason the seven
+ * days ship rather than just the Sunday: advancing an ISO string by a weekday's offset is date
+ * arithmetic, and `no-domain-arithmetic.spec.ts` forbids it here.
+ *
+ * Not `WeekBandDto`, which is the columns' calendar scaffold. That one is sent on every screen load
+ * and carries no days; this one is sent once a session, to a dialog.
+ */
+export interface WeekOptionDto {
+  /** The Sunday the week commences. ISO `yyyy-MM-dd`, and the option's identity. */
+  readonly weekCommencing: string;
+  /**
+   * LMS's `dd-MM-yy` — what the picker shows. The year is why it is this and not the band's
+   * `16 Aug`: the list runs past a December, and two unqualified `3 Jan`s a year apart is the one
+   * ambiguity a date picker may not have.
+   */
+  readonly weekCommencingLabel: string;
+  /** The week containing today in New Zealand. Exactly one option in the list has it set. */
+  readonly isCurrentWeek: boolean;
+  /** Sunday first — seven of them, always, in order. */
+  readonly days: readonly DayOptionDto[];
+}
+
+/** One day of a `WeekOptionDto`: the date, and the two ways it is written. */
+export interface DayOptionDto {
+  /** ISO `yyyy-MM-dd` — what the form submits, straight through, unmodified. */
+  readonly date: string;
+  /** `Thu`. The same label the demand card's date cell renders. */
+  readonly weekdayLabel: string;
+  /** LMS's `dd-MM-yy`, beside the weekday, so the option names the date it means. */
+  readonly dateLabel: string;
 }
 
 /** One processor with the two lists that are its own — choosing it selects both. */

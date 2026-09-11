@@ -14,7 +14,7 @@ import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInputModule } from '@angular/material/input';
 import { catchError, of } from 'rxjs';
 import { ApiClient } from '../../api/api-client';
-import { MatchEditContextDto, UpdateMatchRequest } from '../../api/models';
+import { MatchEditContextDto, MatchStatus, UpdateMatchRequest } from '../../api/models';
 import { quantityClass, spaceName, spineClass, transactionTypeLabel } from '../card/card-chrome';
 import { SideGlyph } from '../column/side-glyph';
 
@@ -25,6 +25,7 @@ import { SideGlyph } from '../column/side-glyph';
  */
 export type MatchModalResult =
   | { readonly action: 'save'; readonly request: UpdateMatchRequest }
+  | { readonly action: 'notify'; readonly request: UpdateMatchRequest }
   | { readonly action: 'confirm'; readonly request: UpdateMatchRequest }
   | { readonly action: 'delete' }
   | { readonly action: 'cancel' };
@@ -43,7 +44,12 @@ export type MatchModalResult =
  *   remedy for a mis-drag: the match is gone, and it is not a cancellation.
  * - **Cancel is offered only past `Drafted`**, and goes through its own dialog for the reason and the
  *   warning. The two are never both available.
- * - **Confirm is offered only at `Drafted`**, because pass 1 skips `Notified` (resolved question 2).
+ * - **Notify is offered only on an ANZCO match at `Drafted`**, and **Confirm at `Drafted` and
+ *   `Notified`** — notifying is a step APG may take, not one it must, so the direct draft-to-confirmed
+ *   move survives it, and for Alliance Group and SFF it is the only move there has ever been.
+ *   `Notify processor` **sends nothing**: it writes the status, and the caption under the fields says
+ *   so, because a button with that word on it in front of a processor's own staff must not be allowed
+ *   to imply a message went out.
  *
  * Both parent blocks are read-only and fixed at creation (spec p.23), and they are **stacked, supply
  * above demand with an arrow between**, the same way the drop prompt stacks them — the dialog that
@@ -86,11 +92,11 @@ export class MatchModal {
   /**
    * The title says what this dialog is asking to be done, and which slot it is about.
    *
-   * A `Drafted` match is here to be confirmed — that is the footer's filled button and the reason the
-   * operator opened it — so the title says `Confirm match — ANZCO Rangitikei`. Past `Drafted` there
-   * is nothing left to confirm and the dialog is an editor, so it says `Edit match — …`. Naming the
-   * act is what tells the two match dialogs apart: the drop prompt drafts a match, and this one
-   * confirms it.
+   * It names whatever the footer's filled button does, which since 2026-09-11 is one of three
+   * things: a `Drafted` match is here to be **notified** (`Notify match: ANZCO Rangitikei`), a
+   * `Notified` one to be **confirmed**, and past that there is nothing left to move and the dialog is
+   * an editor (`Edit match: …`). Naming the act is what tells the two match dialogs apart: the drop
+   * prompt drafts a match, and this one moves it along.
    *
    * **The match id used to be here and is not any more** (Mark's call, 2026-09-07). `Confirm match
    * #3` named the row in the `Matches` table, which no operator has ever seen and no other screen
@@ -98,7 +104,7 @@ export class MatchModal {
    * spaces differ only by plant and date. The two parent blocks below still carry their own record
    * ids, so nothing identifying has left the dialog.
    */
-  readonly title = `${this.match.status === 'Drafted' ? 'Confirm' : 'Edit'} match: ${this.spaceName}`;
+  readonly title = `${titleVerb(this.match.status, this.data.canNotify)} match: ${this.spaceName}`;
 
   /**
    * The availability's unmatched quantity **plus this match's own current quantity** (resolved
@@ -199,8 +205,30 @@ export class MatchModal {
   /** Past Drafted, and with a reason. Never available at the same time as delete. */
   readonly canCancel = this.match.status !== 'Drafted';
 
-  /** Drafted to Confirmed, one step, because pass 1 has no transition into `Notified`. */
-  readonly canConfirm = this.match.status === 'Drafted';
+  /**
+   * **The server's answer, not a status test.** An ANZCO match, still Drafted.
+   *
+   * Two clauses, and only one of them is about this match: notifying twice is not a second act, and
+   * notification is not part of Alliance Group's or SFF's process at all. The second is why this
+   * cannot be `status === 'Drafted'` any more — the list of processors APG notifies is a domain rule
+   * (`ProcessorNotifications`), and a copy of it in TypeScript would be the first thing to drift when
+   * a second processor signs up.
+   */
+  readonly canNotify = this.data.canNotify;
+
+  /** Both live statuses, because notifying is optional (2026-09-11, amending resolved question 2). */
+  readonly canConfirm = this.match.status === 'Drafted' || this.match.status === 'Notified';
+
+  /**
+   * The caption under the fields, on a draft only.
+   *
+   * The word `Notify` on a button is a promise, and this prototype cannot keep it: the mediums are
+   * deferred, so the write moves a status and stops. Saying so where the button is is the difference
+   * between a demo that shows a lifecycle and one that misleads the room about what the system does.
+   */
+  readonly notifyNote =
+    'Notifying records that this match has been put to the processor. No message is sent — ' +
+    'in-app, SMS and email notifications are not part of this prototype.';
 
   /** Nothing to save is not an error, so Save is simply inert until something differs. */
   readonly changed = computed(
@@ -216,6 +244,15 @@ export class MatchModal {
     }
 
     this.dialogRef.close({ action: 'save', request: this.request() });
+  }
+
+  /** Carries the form's values for the same reason {@link confirm} does. It sends nothing. */
+  notify(): void {
+    if (this.quantity.invalid) {
+      return;
+    }
+
+    this.dialogRef.close({ action: 'notify', request: this.request() });
   }
 
   /**
@@ -253,6 +290,21 @@ export class MatchModal {
 
     return typed === '' ? null : typed;
   }
+}
+
+/**
+ * The verb in the title: whatever the footer's filled button does.
+ *
+ * It reads `canNotify` rather than testing for `Drafted`, so an Alliance Group or SFF draft — which
+ * has no notify step and whose filled button is `Confirm match` — is titled `Confirm match: …`. A
+ * title naming an act the footer does not offer is worse than a generic one.
+ */
+function titleVerb(status: MatchStatus, canNotify: boolean): string {
+  if (canNotify) {
+    return 'Notify';
+  }
+
+  return status === 'Drafted' || status === 'Notified' ? 'Confirm' : 'Edit';
 }
 
 function integerHeads(control: AbstractControl): ValidationErrors | null {

@@ -10,11 +10,17 @@ import { MatchModal, MatchModalResult } from './match-modal';
 describe('Match modal', () => {
   const closed = vi.fn();
 
+  /**
+   * `canNotify` defaults the way the server answers for the fixture's ANZCO space: true on a draft
+   * and false at every other status. A test about Alliance Group or SFF overrides it to false, which
+   * is exactly what those records arrive with — the client is never told the processor list.
+   */
   function context(
     status: MatchStatus = 'Drafted',
     overrides: Partial<MatchEditContextDto> = {},
   ): MatchEditContextDto {
     return {
+      canNotify: status === 'Drafted',
       match: aMatch({
         id: 12,
         status,
@@ -119,13 +125,20 @@ describe('Match modal', () => {
    * processor and plant name the slot in front of them; both parent blocks still carry their own
    * record ids.
    */
-  it('asks to confirm a draft, to edit anything past it, and names the space', async () => {
+  it('names the act at each status, and the space, and never the match id', async () => {
     const drafted = await mount(context('Drafted'));
     const draftedTitle =
       (drafted.nativeElement as HTMLElement).querySelector('[mat-dialog-title]')?.textContent ?? '';
 
-    expect(draftedTitle).toContain('Confirm match: ANZCO Rangitikei');
+    // A draft's next move is the notify step, so that is what the title offers.
+    expect(draftedTitle).toContain('Notify match: ANZCO Rangitikei');
     expect(draftedTitle).not.toContain('#12');
+
+    const notified = await mount(context('Notified'));
+
+    expect(
+      (notified.nativeElement as HTMLElement).querySelector('[mat-dialog-title]')?.textContent,
+    ).toContain('Confirm match: ANZCO Rangitikei');
 
     const confirmed = await mount(context('Confirmed'));
 
@@ -252,20 +265,99 @@ describe('Match modal', () => {
    * Both say `Cancel match`; the ellipsis is the only difference, and it is the whole difference —
    * the drafted one acts on the press, the other asks for a reason first.
    */
-  it('offers Cancel match and Confirm match on a drafted match, and no reason-asking cancel', async () => {
+  it('offers Cancel match, Notify processor and Confirm match on a drafted match', async () => {
     const labels = buttons(await mount(context('Drafted')));
 
     expect(labels).toContain('Cancel match');
+    expect(labels).toContain('Notify processor');
+    // Confirm survives the notify step's arrival: notifying is optional, so the direct move stays.
     expect(labels).toContain('Confirm match');
     expect(labels).not.toContain('Cancel match…');
   });
 
-  it('offers Cancel match… on a confirmed match, and neither delete nor confirm', async () => {
+  /**
+   * Notification is not part of Alliance Group's or SFF's process, so their drafts never offer it —
+   * absent, not disabled, because there is no condition an operator could go and satisfy. The
+   * lifecycle for those two really is `Drafted → Confirmed`, so Confirm is what the footer proposes
+   * and what the title names.
+   *
+   * The whole question is answered by one server-supplied boolean: the fixture gives the modal no
+   * processor name to test against, and that is the point — the client holds no such list.
+   */
+  it('offers no notify step for a processor that does not receive notifications', async () => {
+    const fixture = await mount(
+      context('Drafted', {
+        canNotify: false,
+        space: aSpace({ id: 4, processor: 'SFF', plant: 'Finegand' }),
+      }),
+    );
+
+    const host = fixture.nativeElement as HTMLElement;
+    const labels = buttons(fixture);
+
+    expect(labels).not.toContain('Notify processor');
+    expect(labels).toContain('Confirm match');
+
+    // No button means no promise to qualify, so the caption goes with it.
+    expect(host.querySelector('.dispatch')).toBeNull();
+
+    // And the title names what the footer actually offers, rather than the step this one skips.
+    expect(host.querySelector('[mat-dialog-title]')?.textContent).toContain('Confirm match: SFF');
+  });
+
+  /**
+   * Past Drafted the processor has been told, so there is nothing left to notify — and the remedy is
+   * cancel-with-reason rather than delete, because the match has been communicated to somebody.
+   */
+  it('offers Confirm match but no second notify on a notified match', async () => {
+    const labels = buttons(await mount(context('Notified')));
+
+    expect(labels).toContain('Confirm match');
+    expect(labels).toContain('Cancel match…');
+    expect(labels).not.toContain('Notify processor');
+    expect(labels).not.toContain('Cancel match');
+  });
+
+  it('offers Cancel match… on a confirmed match, and neither delete, notify nor confirm', async () => {
     const labels = buttons(await mount(context('Confirmed')));
 
     expect(labels).toContain('Cancel match…');
     expect(labels).not.toContain('Cancel match');
     expect(labels).not.toContain('Confirm match');
+    expect(labels).not.toContain('Notify processor');
+  });
+
+  /**
+   * The one thing this dialog must not do is imply a message went out. The mediums are deferred, so
+   * the write moves a status and stops — and the caption saying so is on the draft, where the button
+   * is, rather than in a tooltip only a suspicious operator would find.
+   */
+  it('says on a draft that notifying sends nothing, and says it nowhere else', async () => {
+    const drafted = await mount(context('Drafted'));
+    const note = (drafted.nativeElement as HTMLElement).querySelector('.dispatch');
+
+    expect(note?.textContent).toContain('No message is sent');
+    expect(note?.textContent).toContain('SMS');
+
+    const notified = await mount(context('Notified'));
+
+    expect((notified.nativeElement as HTMLElement).querySelector('.dispatch')).toBeNull();
+  });
+
+  it('closes with the notify action and the edited values', async () => {
+    const fixture = await mount(context('Drafted'));
+
+    fixture.componentInstance.quantity.setValue(300);
+    fixture.componentInstance.notify();
+
+    expect(closed).toHaveBeenCalledWith({
+      action: 'notify',
+      request: {
+        quantityMatched: 300,
+        pricePerKg: 6.1,
+        transportCompany: 'Kaikoura Carriers',
+      },
+    } satisfies MatchModalResult);
   });
 
   it('closes with the action and the edited values', async () => {
@@ -305,6 +397,7 @@ describe('Match modal', () => {
 
     fixture.componentInstance.quantity.setValue(999);
     fixture.componentInstance.save();
+    fixture.componentInstance.notify();
     fixture.componentInstance.confirm();
 
     expect(closed).not.toHaveBeenCalled();

@@ -87,6 +87,10 @@ export class MatchActions {
         this.save(context, result.request);
         break;
 
+      case 'notify':
+        this.notifyMatch(context, result.request);
+        break;
+
       case 'confirm':
         this.confirmMatch(context, result.request);
         break;
@@ -118,9 +122,29 @@ export class MatchActions {
   }
 
   /**
-   * Drafted to Confirmed, carrying the form's values so an edited match is saved and confirmed in one
-   * write. There is no prompt: the match has been communicated to nobody yet, which is what `Drafted`
-   * means.
+   * Drafted to Notified, carrying the form's values like every other forward move.
+   *
+   * **The snack says no message went out**, and it is the second place this is stated after the
+   * dialog's own caption. That is not belt and braces: the dialog is gone by the time the snack
+   * appears, and the snack is what an operator sees when they press the button a second time on a
+   * different match without reading anything. There is no prompt in front of it — nothing leaves the
+   * building, so there is nothing to think twice about.
+   */
+  private notifyMatch(context: MatchEditContextDto, request: UpdateMatchRequest): void {
+    this.api.notifyMatch(context.match.id, request).subscribe({
+      next: (result) =>
+        this.applyWrite(
+          result,
+          `Match notified to ${context.space.processor} — no message sent`,
+        ),
+      error: (error: unknown) => this.report(error),
+    });
+  }
+
+  /**
+   * Drafted or Notified to Confirmed, carrying the form's values so an edited match is saved and
+   * confirmed in one write. There is no prompt: nothing has been agreed with anybody yet, which is
+   * what both of those statuses mean.
    */
   private confirmMatch(context: MatchEditContextDto, request: UpdateMatchRequest): void {
     this.api.confirmMatch(context.match.id, request).subscribe({

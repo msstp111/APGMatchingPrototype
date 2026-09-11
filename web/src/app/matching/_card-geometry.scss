@@ -82,19 +82,27 @@ $col-gap: 8px;
 // no room to spell a class out. Nothing abbreviates a stock class anywhere now: every place one
 // appears, it appears in words.
 $col-stock-class: 96px;
-// UNCHANGED at 50px, and worth saying why, because this change began as a complaint about it.
-// 50px was never too small for a date. It was too small for `dd-MM-yy` (~56px) and for the word
-// DELIVERY (~62px in micro-caps), which is why the value clipped to `26-08-…` and its heading to
-// `DELIVE…` at every viewport. Splitting the date over the card's two rows drops the content to a
-// two-digit day over a three-letter month, and shortening the heading to DATE drops that too; both
-// now sit inside 50px with room to spare.
+// UNCHANGED at 50px through two changes to what it holds, and worth saying why, because the first of
+// them began as a complaint about it. 50px was never too small for a date. It was too small for
+// `dd-MM-yy` (~56px) and for the word DELIVERY (~62px in micro-caps), which is why the value clipped
+// to `26-08-…` and its heading to `DELIVE…` at every viewport. Splitting the date over the card's two
+// rows dropped the content to a two-digit day over a three-letter month, and shortening the heading
+// dropped that too.
 //
-// The room to spare is not waste. Row 2 only spends $col-month of this column, and the trailing run
-// borrows the rest — see `.trail`. Narrowing this column would take that back off line 2 and start
-// truncating match counts, which is the trade the 40px version of this change made and lost.
+// SINCE 2026-09-11 THE DEMAND CARD SPENDS IT ON A WEEKDAY ALONE — `Thu`, under a DAY heading, with
+// nothing beneath it — because that card is drawn inside the band of its own delivery week and the
+// band header names the week. The supply card still splits its date, so the column keeps both jobs
+// and both fit: three letters at 13px/600 is ~30px.
+//
+// The room to spare is not waste. Row 2 spends at most $col-month of this column, and the trailing
+// run borrows the rest — see `.trail`. Narrowing this column would take that back off line 2 and
+// start truncating match counts, which is the trade the 40px version of this change made and lost.
 $col-date: 50px;
 // A month abbreviation is always three letters, so the cell holding one can be a fixed width rather
-// than a shrink-to-fit. It exists so `.trail` has an exact landmark to stop against.
+// than a shrink-to-fit. It exists so `.trail` has an exact landmark to stop against — which is why it
+// is still spent on the demand card, whose row 2 has held nothing in this column since 2026-09-11:
+// giving that side its 34px back would make line 2 measure differently on the two sides of one
+// screen, to buy a few characters of match count that already fit.
 $col-month: 26px;
 $col-quantity: 40px;
 $col-meter-block: 112px; // 66 meter + 6 gap + 40 numeral
@@ -327,6 +335,57 @@ $meter-gap: 6px;
 // ---------------------------------------------------------------------------------------------
 
 @mixin card-shell {
+  // ---------------------------------------------------------------------------------------------
+  // THE REVEAL FLASH (2026-09-10) — match/reveal-record.ts
+  //
+  // A card the operator has just been taken to, from a match in the other column. 1500ms, a bold
+  // petrol wash and a 2px petrol ring, both animating to nothing.
+  //
+  // IT SPENDS NO TOKEN, and that is the whole reason it can be this loud on a screen whose petrol
+  // ladder is full (see $open-rail's comment in _lms-tokens.scss). It ends at transparent, so it is
+  // never a state anything has to be told apart from — it is a gesture, and by the time the eye has
+  // finished following it, it is gone.
+  //
+  // It is also the one moving thing on this screen, which design-system.md 10 otherwise forbids. The
+  // exception is narrow and deliberate: nothing moves UNDER THE POINTER, because the pointer is in
+  // the other column on the cell that was clicked, and this is the answer arriving somewhere the
+  // operator has just asked to be taken. The card itself does not move or resize; only its colour
+  // does. `prefers-reduced-motion` turns it off, and the scroll goes instant with it.
+  //
+  // The class is added and removed by the service, so the animation restarts on a second click — a
+  // class already present animates nothing, and asking twice deserves an answer twice.
+  // ---------------------------------------------------------------------------------------------
+  @keyframes apg-reveal {
+    from {
+      background-color: rgb(0 86 126 / 30%);
+      box-shadow: inset 0 0 0 2px lms.$lms-petrol;
+    }
+
+    to {
+      background-color: rgb(0 86 126 / 0%);
+      box-shadow: inset 0 0 0 2px rgb(0 86 126 / 0%);
+    }
+  }
+
+  // On the CARD, not the host: the card is the 52px box with the zebra stripe and the status spine,
+  // and a wash on the host would also cover an open card's whole drawer.
+  :host(.apg-revealed) .card {
+    animation: apg-reveal 1500ms ease-out;
+  }
+
+  // The sticky strip owns the first 28px of the scroll container and a sticky band header the 30px
+  // under it, so a card scrolled flush to the top parks behind both. `block: 'center'` handles the
+  // ordinary case; this handles the ends of the list, where centring has nowhere left to go.
+  :host {
+    scroll-margin-top: $header-strip-height + $band-header-height;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    :host(.apg-revealed) .card {
+      animation: none;
+    }
+  }
+
   @include spines;
 
   // The height is explicit, not summed from padding: 17 + 3 + 14 = 34px of content centred in a 51px
@@ -398,6 +457,15 @@ $meter-gap: 6px;
   // open < droppable — a card under the pointer is more urgent than a card that is merely open.
   //
   // Nothing here touches a dimension: the grip is 30px open or closed, and $card-height is untouched.
+  // ONE FLAT STROKE, and it took two days and a lab to end up back where it started. See
+  // $open-rail in _lms-tokens.scss for the full arc — tint, then solid petrol, then tint again —
+  // and for the collision the current value knowingly accepts.
+  //
+  // What must NOT come back is the separator. For one afternoon this carried a 1px white hairline
+  // at x=6, so a Confirmed record's petrol spine could not merge into a petrol grip. On a Booked
+  // card that drew 3px of spine, 3px of fill, the hairline, and then the rest — a visible double
+  // line on all four statuses to solve a problem one status in four had. With a pale fill the
+  // problem does not exist at all: every spine, petrol included, reads against #DDEAF1.
   :host(.open) .grip {
     background: lms.$open-rail;
     color: lms.$open-rail-ink;
@@ -409,10 +477,16 @@ $meter-gap: 6px;
   // the glyph from petrol to muted grey, which is a downgrade under the pointer. Hence `.card` in
   // the middle of the selector, which is there for weight and nothing else.
   //
+  // The grip's own hover, restated for an open card — and it has to out-weigh BOTH of the rules
+  // below, `.grip:hover` and `.card:hover .grip`, or the handle on the one card an operator is most
+  // likely to drag from gives no feedback at all: the fill swallows the first and the second drops
+  // the glyph from petrol to muted grey, which is a downgrade under the pointer. Hence `.card` in
+  // the middle of the selector, which is there for weight and nothing else.
+  //
   // $lms-hover and not the $lms-surface a closed card's grip uses. #FAFAFA is a near-white and it
-  // punches a grey hole in the column exactly where the pointer is, which is against the whole point
-  // of a stroke that runs through. $lms-hover is the screen's existing "you are pointing at this",
-  // it is in the same blue family, and it is a legible step up from $open-rail. No new token.
+  // punches a grey hole in the column exactly where the pointer is, which is against the whole
+  // point of a stroke that runs through. $lms-hover is the screen's existing "you are pointing at
+  // this", it is in the same blue family, and it is a legible step up from $open-rail. No new token.
   :host(.open) .card .grip:hover {
     background: lms.$lms-hover;
     color: lms.$open-rail-ink;
@@ -567,7 +641,11 @@ $meter-gap: 6px;
     row-gap: 3px;
     align-content: center;
     align-items: center;
-    padding: 0 $card-edge;
+    // Leading padding is the column's `--apg-lead` LESS the grip that sits before it, so the two
+    // add up to the same run the header strip spends. With the grip drawn that is the 8px it has
+    // always been; with the grip gone the body absorbs the whole 14px itself, spine included.
+    // The fallback is the with-grip value, so a card rendered outside a column still lines up.
+    padding: 0 $card-edge 0 var(--apg-card-lead, #{$card-edge});
   }
 
   // Every cell truncates rather than wrapping: a card must never grow a third line
@@ -590,8 +668,11 @@ $meter-gap: 6px;
     color: lms.$lms-text-muted;
   }
 
-  // The day of the month, at the card's primary size and a step heavier, because it is the figure the
-  // eye lands on when scanning a band for a delivery. Its month sits directly beneath it.
+  // The date cell. On the demand card it is a weekday, whole (`Thu`, 2026-09-11); on the supply card
+  // it is a day of the month with its own month directly beneath it. One class either way: both are
+  // the same cell in the same column at the card's primary size, a step heavier, because this is the
+  // figure the eye lands on when scanning a band. `numerals` is for the supply card's digits and does
+  // nothing to a weekday.
   .day {
     grid-area: 1 / 3;
     @include card-primary;
@@ -616,8 +697,9 @@ $meter-gap: 6px;
     @include card-meta;
   }
 
-  // The month, under its own day. Micro-caps rather than the meta size: it is a label on the figure
-  // above it, not a second piece of prose, and at 11.5px sentence case it read as one.
+  // The month, under its own day — the SUPPLY card only since 2026-09-11; the demand card renders no
+  // element here. Micro-caps rather than the meta size: it is a label on the figure above it, not a
+  // second piece of prose, and at 11.5px sentence case it read as one.
   .month {
     grid-area: 2 / 3;
     justify-self: start;

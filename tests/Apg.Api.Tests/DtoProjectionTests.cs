@@ -1,6 +1,7 @@
 using Apg.Api.Contracts;
 using Apg.Domain.Entities;
 using Apg.Domain.Matching;
+using Apg.Domain.Time;
 
 namespace Apg.Api.Tests;
 
@@ -121,32 +122,51 @@ public class DtoProjectionTests
     }
 
     /// <summary>
-    /// The card splits the date over its two lines, so both halves ship preformatted. The client may
-    /// not slice <c>DeliveryDateLabel</c> to get them: taking a substring of a date is date handling,
-    /// and it belongs here with every other date rule.
+    /// The demand card's date cell is the weekday alone, so it ships preformatted. The client may not
+    /// name a weekday from the ISO value: that means constructing a <c>Date</c> in TypeScript, which is
+    /// date handling, and it belongs here with every other date rule.
     /// </summary>
     [Fact]
-    public void A_space_carries_its_delivery_date_split_into_a_day_and_a_month()
+    public void A_space_carries_the_weekday_its_delivery_date_falls_on()
     {
         var dto = Space();
 
-        Assert.Equal("27", dto.DeliveryDayLabel);
-        Assert.Equal("Aug", dto.DeliveryMonthLabel);
+        // 27 August 2026 is a Thursday.
+        Assert.Equal("Thu", dto.DeliveryWeekdayLabel);
     }
 
     /// <summary>
-    /// The day is unpadded. It is set at the card's primary size directly above its month, and a
-    /// leading zero there reads as the first digit of a longer number that has been cut off.
+    /// Three letters, whatever the day. The cell is 50px and has no truncation rule of its own, so a
+    /// format that ever yielded <c>Thursday</c> would clip against the quantity beside it.
     /// </summary>
     [Fact]
-    public void A_single_digit_day_carries_no_leading_zero()
+    public void Every_weekday_label_is_three_letters()
+    {
+        var set = Fixture();
+
+        // A full week from a Sunday, so every weekday is covered and Sunday is not skipped.
+        for (var offset = 0; offset < 7; offset++)
+        {
+            var date = new DateOnly(2026, 8, 30).AddDays(offset);
+            var dto = Space(set with { Spaces = [SpaceOn(set.Spaces[0].Id, date)] });
+
+            Assert.Equal(3, dto.DeliveryWeekdayLabel.Length);
+            Assert.Equal(NzTime.WeekdayLabel(date), dto.DeliveryWeekdayLabel);
+        }
+    }
+
+    /// <summary>
+    /// The full date did not leave the contract with the cell. It is the card's hover text and every
+    /// wider surface's value, and losing it would make the weekday the only date on the demand side.
+    /// </summary>
+    [Fact]
+    public void A_space_still_carries_its_full_delivery_date_label()
     {
         var set = Fixture();
         var dto = Space(set with { Spaces = [SpaceOn(set.Spaces[0].Id, new DateOnly(2026, 9, 4))] });
 
-        Assert.Equal("4", dto.DeliveryDayLabel);
-        Assert.Equal("Sep", dto.DeliveryMonthLabel);
         Assert.Equal("04-09-26", dto.DeliveryDateLabel);
+        Assert.Equal("Fri", dto.DeliveryWeekdayLabel);
     }
 
     [Fact]

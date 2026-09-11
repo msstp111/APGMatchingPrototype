@@ -104,9 +104,11 @@
   @if (isSource()) {
     <div class="card stay" [class.zebra]="zebra()" aria-hidden="true">
       <span class="spine" [class]="spine()"></span>
-      <span class="grip" aria-hidden="true">
-        <span class="material-symbols-outlined">drag_indicator</span>
-      </span>
+      @if (gripsVisible()) {
+        <span class="grip" aria-hidden="true">
+          <span class="material-symbols-outlined">drag_indicator</span>
+        </span>
+      }
       <div class="cbody">
         <ng-container [ngTemplateOutlet]="lines" />
       </div>
@@ -153,15 +155,17 @@
       later would leave every surviving card somewhere CDK does not believe it is, and the drop would
       land nowhere. When the aid is switched off the handler returns immediately.
     -->
-    <span
-      class="grip"
-      cdkDragHandle
-      title="Drag onto a card in the other column to match"
-      aria-hidden="true"
-      (pointerdown)="grabbed($event)"
-    >
-      <span class="material-symbols-outlined">drag_indicator</span>
-    </span>
+    @if (gripsVisible()) {
+      <span
+        class="grip"
+        cdkDragHandle
+        title="Drag onto a card in the other column to match"
+        aria-hidden="true"
+        (pointerdown)="grabbed($event)"
+      >
+        <span class="material-symbols-outlined">drag_indicator</span>
+      </span>
+    }
 
     <!--
       The body is the expand target, and since 2026-09-09 it is a drag target too when "Drag anywhere"
@@ -215,14 +219,11 @@
     </button>
 
     <!--
-      Phase 9. A 200px chip rather than a copy of the card, and no `matchSize`: at full card width the
+      Phase 9. A 232px chip rather than a copy of the card, and no `matchSize`: at full card width the
       preview sat over the row being aimed at, which is half of why the target was hard to read.
     -->
     <ng-template cdkDragPreview>
-      <app-drag-preview
-        [name]="record().locationName || '-'"
-        [headCount]="record().quantityAvailable"
-      />
+      <app-drag-preview [name]="record().locationName || '-'" [headCount]="dragHeadCount()" />
     </ng-template>
   </div>
 
@@ -240,5 +241,5 @@
 </div>
 
 @if (expanded()) {
-  <app-card-expansion side="supply" [availability]="record()" />
+  <app-card-expansion side="supply" [availability]="record()" (collapse)="toggle()" />
 }

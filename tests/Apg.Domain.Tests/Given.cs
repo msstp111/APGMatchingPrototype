@@ -11,14 +11,20 @@ internal static class Given
     /// <summary>Sunday 23 August 2026 — the same pinned week the seed tests use.</summary>
     public static readonly DateOnly Week = new(2026, 8, 23);
 
+    /// <summary>
+    /// The processor defaults to ANZCO, which is not an arbitrary default any more: it is the only
+    /// one APG notifies (<c>ProcessorNotifications</c>), so a test about notifying has to name the
+    /// other two explicitly rather than getting them by accident.
+    /// </summary>
     public static ProcessorSpace Space(
         int quantityRequired,
         int id = 1,
-        ProcessorSpaceStatus status = ProcessorSpaceStatus.Booked) =>
+        ProcessorSpaceStatus status = ProcessorSpaceStatus.Booked,
+        string processor = "ANZCO") =>
         new()
         {
             Id = id,
-            Processor = "ANZCO",
+            Processor = processor,
             Plant = "Rangitikei",
             StockClass = "Nat Beef - Premium",
             QuantityRequired = quantityRequired,

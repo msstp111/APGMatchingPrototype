@@ -42,15 +42,25 @@ public sealed record ProcessorSpaceDto
     public required string DeliveryDateLabel { get; init; }
 
     /// <summary>
-    /// The day of the month alone — <c>26</c>. The matching card's date cell splits the date over the
-    /// two lines the card already has: this on line 1, <see cref="DeliveryMonthLabel"/> directly
-    /// beneath it. Both halves ship because neither is derivable client-side and the pair replaces one
-    /// clipped <c>dd-MM-yy</c> in a 50px cell.
+    /// The abbreviated weekday — <c>Thu</c>. The matching card's date cell, whole (2026-09-11).
     /// </summary>
-    public required string DeliveryDayLabel { get; init; }
-
-    /// <summary>The abbreviated month — <c>Aug</c>. The card upper-cases it; the wire does not.</summary>
-    public required string DeliveryMonthLabel { get; init; }
+    /// <remarks>
+    /// <para>
+    /// It replaces the day-of-month and month pair the cell used to stack over the card's two lines.
+    /// A space is drawn in the band of its own delivery week and that band header names the week, so
+    /// the date's other two parts were restating it in the narrowest column on the screen; the weekday
+    /// is the part the band does not carry. <see cref="WeekCommencing"/> and
+    /// <see cref="DeliveryDateLabel"/> are both still here, and the card's hover text is the latter —
+    /// the full date is a title away, not gone.
+    /// </para>
+    /// <para>
+    /// It ships preformatted for the same reason every label does: naming a weekday from an ISO string
+    /// means constructing a <c>Date</c> in TypeScript, and the supply card's
+    /// <see cref="LivestockAvailabilityDto.AvailableFromDayLabel"/> pair is unchanged because that
+    /// column has no delivery week to lean on — an availability record is a state, not an event.
+    /// </para>
+    /// </remarks>
+    public required string DeliveryWeekdayLabel { get; init; }
 
     public required string? DeliveryTime { get; init; }
 
@@ -120,8 +130,8 @@ public sealed record ProcessorSpaceDto
     /// </summary>
     /// <remarks>
     /// Tags rather than a list of the other vocabulary's class names, because one generic class
-    /// (Alliance Group's <c>Cattle</c>) stands over several specific ones and the cross product does
-    /// not belong on the wire. Two records are compatible when their two tag lists intersect, which is
+    /// (an unqualified <c>Lamb</c>, over ANZCO's three lamb programmes) stands over several specific
+    /// ones and the cross product does not belong on the wire. Two records are compatible when their two tag lists intersect, which is
     /// the only test the client performs on them; the table itself, the fail-open rule for a class it
     /// has never heard of, and the decision that Lamb and Mutton are not interchangeable all stay in
     /// the domain. <b>Nothing is gated on this.</b> Compatibility is a human judgement — the two
@@ -239,8 +249,8 @@ public sealed record LivestockAvailabilityDto
     /// </summary>
     /// <remarks>
     /// Tags rather than a list of the other vocabulary's class names, because one generic class
-    /// (Alliance Group's <c>Cattle</c>) stands over several specific ones and the cross product does
-    /// not belong on the wire. Two records are compatible when their two tag lists intersect, which is
+    /// (an unqualified <c>Lamb</c>, over ANZCO's three lamb programmes) stands over several specific
+    /// ones and the cross product does not belong on the wire. Two records are compatible when their two tag lists intersect, which is
     /// the only test the client performs on them; the table itself, the fail-open rule for a class it
     /// has never heard of, and the decision that Lamb and Mutton are not interchangeable all stay in
     /// the domain. <b>Nothing is gated on this.</b> Compatibility is a human judgement — the two
@@ -506,6 +516,18 @@ public sealed record MatchEditContextDto
 
     /// <summary>The highest quantity this match may be edited to. There is no ceiling on demand.</summary>
     public required int MaximumQuantity { get; init; }
+
+    /// <summary>
+    /// Whether the modal offers <c>Notify processor</c>: an ANZCO match, still Drafted.
+    /// </summary>
+    /// <remarks>
+    /// It ships computed for the usual reason — the client may not hold a list of which processors
+    /// APG notifies, any more than it may hold the stock-class table. Composing it here as
+    /// <c>space.Processor == "ANZCO" &amp;&amp; match.Status == "Drafted"</c> would put half of
+    /// <c>MatchLifecycle</c> into TypeScript, and the half that would drift first is the half that
+    /// changes when a second processor signs up.
+    /// </remarks>
+    public required bool CanNotify { get; init; }
 }
 
 /// <summary>
@@ -577,6 +599,65 @@ public sealed record ReferenceDataDto
     public required IReadOnlyList<string> AvailabilityStockClasses { get; init; }
 
     public required IReadOnlyList<TransactionType> TransactionTypes { get; init; }
+
+    /// <summary>
+    /// The weeks the space form's delivery-date pair may pick from, each with its own seven days.
+    /// </summary>
+    /// <remarks>
+    /// <b>The one list here that is a calendar rather than a vocabulary</b>, and so the one derived
+    /// from the loaded records as well as from the clock — see
+    /// <c>RecordWriter.SelectableWeeks</c> for why it has to be.
+    /// </remarks>
+    public required IReadOnlyList<WeekOptionDto> Weeks { get; init; }
+}
+
+/// <summary>
+/// One selectable delivery week, with the seven dates it contains.
+/// </summary>
+/// <remarks>
+/// <para>
+/// The space form asks for a delivery date in two parts (2026-09-11): the week commencing, then the
+/// weekday. It submits <c>week.Days[index].Date</c> — <b>a lookup, never a sum</b>. That is the whole
+/// reason the seven days ship rather than just the Sunday: adding a weekday's offset to an ISO string
+/// is date arithmetic, and <c>no-domain-arithmetic.spec.ts</c> forbids it in <c>web/</c>.
+/// </para>
+/// <para>
+/// Deliberately <b>not</b> <see cref="WeekBandDto"/>, which the columns' calendar scaffold uses. That
+/// one is sent on every screen load and carries no days; this one is sent once per session to two
+/// dialogs. Folding the days into the band list would put seven dates per week on the hot path to buy
+/// nothing for the surface that actually reads it.
+/// </para>
+/// </remarks>
+public sealed record WeekOptionDto
+{
+    /// <summary>The Sunday the week commences. ISO <c>yyyy-MM-dd</c>, and the option's identity.</summary>
+    public required DateOnly WeekCommencing { get; init; }
+
+    /// <summary>
+    /// LMS's <c>dd-MM-yy</c> form — what the picker shows. The year is why it is this format and not
+    /// <c>WeekBandDto.WeekOfLabel</c>'s <c>16 Aug</c>: the list runs past a December, and two
+    /// unqualified <c>3 Jan</c>s a year apart is the one ambiguity a date picker may not have.
+    /// </summary>
+    public required string WeekCommencingLabel { get; init; }
+
+    /// <summary>The week containing today in New Zealand. Exactly one option in the list has it set.</summary>
+    public required bool IsCurrentWeek { get; init; }
+
+    /// <summary>Sunday first — seven of them, always, in order.</summary>
+    public required IReadOnlyList<DayOptionDto> Days { get; init; }
+}
+
+/// <summary>One day of a <see cref="WeekOptionDto"/>: the date, and the two ways it is written.</summary>
+public sealed record DayOptionDto
+{
+    /// <summary>ISO <c>yyyy-MM-dd</c> — what the form submits, straight through, unmodified.</summary>
+    public required DateOnly Date { get; init; }
+
+    /// <summary>The abbreviated weekday — <c>Thu</c>. The same label the card's date cell renders.</summary>
+    public required string WeekdayLabel { get; init; }
+
+    /// <summary>LMS's <c>dd-MM-yy</c>, beside the weekday, so the option names the date it means.</summary>
+    public required string DateLabel { get; init; }
 }
 
 /// <summary>One processor, with the two lists that are its own: its plants and its stock classes.</summary>

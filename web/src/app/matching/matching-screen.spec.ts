@@ -24,8 +24,7 @@ import { aMatch, anAvailability, aSpace, weeks } from './testing/dto-fixtures';
 describe('Matching screen', () => {
   const space: ProcessorSpaceDto = aSpace({
     deliveryDateLabel: 'THE-LABEL',
-    deliveryDayLabel: 'THE-DAY',
-    deliveryMonthLabel: 'THE-MONTH',
+    deliveryWeekdayLabel: 'THE-WEEKDAY',
     matchedInclDraft: 70,
     matchedExclDraft: 40,
     unmatched: 999,
@@ -131,17 +130,17 @@ describe('Matching screen', () => {
   });
 
   /**
-   * The card row prints the date as the server's two halves — the day on line 1, the month directly
-   * beneath it — and keeps the whole `dd-MM-yy` label as the hover text on both, which is where the
-   * year lives now. Every one of those four strings is the DTO's; none is composed here, and the ISO
-   * value still reaches the screen nowhere at all.
+   * The two columns spend their date cell differently, and the specimens say so. Demand prints the
+   * weekday alone — its band header already names the week — and renders no month element at all;
+   * supply still prints the day on line 1 with its month directly beneath it. Both keep the whole
+   * `dd-MM-yy` label as hover text, which is where the year lives. Every one of these strings is the
+   * DTO's; none is composed here, and the ISO value still reaches the screen nowhere at all.
    */
   it('renders the supplied date labels and never the raw ISO values', async () => {
     const element = await render();
     const rendered = element.textContent ?? '';
 
-    expect(rendered).toContain('THE-DAY');
-    expect(rendered).toContain('THE-MONTH');
+    expect(rendered).toContain('THE-WEEKDAY');
     expect(rendered).toContain('THE-FROM-DAY');
     expect(rendered).toContain('THE-FROM-MONTH');
 
@@ -150,8 +149,15 @@ describe('Matching screen', () => {
       ['app-availability-card', 'THE-FROM-LABEL'],
     ]) {
       expect(element.querySelector(`${selector} .day`)?.getAttribute('title')).toBe(label);
-      expect(element.querySelector(`${selector} .month`)?.getAttribute('title')).toBe(label);
     }
+
+    expect(element.querySelector('app-availability-card .month')?.getAttribute('title')).toBe(
+      'THE-FROM-LABEL',
+    );
+
+    // The demand card's row 2 has nothing in the date column any more. Asserted rather than assumed:
+    // an orphaned month element would print the record's month under a weekday that is not its day.
+    expect(element.querySelector('app-space-card .month')).toBeNull();
 
     expect(rendered).not.toContain('2026-08-27');
     expect(rendered).not.toContain('2026-08-24');

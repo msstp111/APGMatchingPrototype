@@ -100,13 +100,19 @@ public class SeedDeterminismTests
         Assert.Equal(SeedDataGenerator.ProcessorSpaceCount, SeedFixture.Data.ProcessorSpaces.Count);
         Assert.Equal(SeedDataGenerator.AvailabilityCount, SeedFixture.Data.Availabilities.Count);
         Assert.Equal(SeedDataGenerator.TargetMatchCount, SeedFixture.Data.Matches.Count);
-        Assert.Equal(182, SeedFixture.Data.Prices.Count);
+        // One series per processor x its own stock classes, over the thirteen weeks the price table
+        // spans: (10 ANZCO + 6 Alliance Group + 3 SFF) x 13. It was 182 until the 2026-09-11 stock
+        // class revision added ANZCO's three lamb programmes and split Alliance Group's Cattle.
+        Assert.Equal(247, SeedFixture.Data.Prices.Count);
 
-        // The match status split is recorded in the build log; Phase 1's tests are written against
-        // these numbers, so a change to the seed has to be a change to the log too.
+        // The match status split is pinned so that a change to the seed is a deliberate one. It was
+        // 8 / 15 / 2 until the 2026-09-11 stock class revision: the new classes lengthen the price
+        // series and the per-processor walks, which moves the shared PRNG stream on, so the filler
+        // pass draws different statuses. The demonstration spine's own matches are scripted and are
+        // unaffected; only the filler moved.
         var byStatus = SeedFixture.Data.Matches.GroupBy(m => m.Status).ToDictionary(g => g.Key, g => g.Count());
-        Assert.Equal(8, byStatus[MatchStatus.Drafted]);
-        Assert.Equal(15, byStatus[MatchStatus.Confirmed]);
+        Assert.Equal(11, byStatus[MatchStatus.Drafted]);
+        Assert.Equal(12, byStatus[MatchStatus.Confirmed]);
         Assert.Equal(2, byStatus[MatchStatus.Cancelled]);
 
         // Space statuses are pinned the same way, and for the same reason: the matching screen's

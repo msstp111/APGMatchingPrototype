@@ -4,6 +4,7 @@ import {
   cancelledPartnerTitle,
   matchBreakdown,
   matchCountLabel,
+  matchStatusIcon,
   matchSummaryLabel,
 } from './card-chrome';
 
@@ -23,6 +24,34 @@ describe('Match affordance', () => {
 
   it('says confirmed only when every live match is', () => {
     expect(matchSummaryLabel([aMatch({ status: 'Confirmed' })])).toBe('1 match · confirmed');
+  });
+
+  /**
+   * Notified became reachable on 2026-09-11. It is outstanding work like a draft, so it is named —
+   * but after drafts, and never alongside them: this phrase is the first thing to drop from line 2
+   * when the card runs out of room, so it stays one clause. The hover breakdown is where all three
+   * states appear together.
+   */
+  it('names notified matches once no drafts are left, and never both at once', () => {
+    const notified = [aMatch({ id: 1, status: 'Notified' }), aMatch({ id: 2, status: 'Confirmed' })];
+
+    expect(matchSummaryLabel(notified)).toBe('2 matches · 1 notified');
+    expect(matchBreakdown(notified)).toBe('1 notified · 1 confirmed');
+
+    const both = [aMatch({ id: 1, status: 'Drafted' }), aMatch({ id: 2, status: 'Notified' })];
+
+    expect(matchSummaryLabel(both)).toBe('2 matches · 1 draft');
+    expect(matchBreakdown(both)).toBe('1 drafted · 1 notified');
+  });
+
+  /**
+   * A notified match must not wear a draft's clock. It is the one row on the card that has moved,
+   * and a glyph shared with the rows that have not is the same as no glyph at all.
+   */
+  it('gives each match status its own glyph', () => {
+    expect(matchStatusIcon('Drafted')).toBe('schedule');
+    expect(matchStatusIcon('Notified')).toBe('send');
+    expect(matchStatusIcon('Confirmed')).toBe('check_circle');
   });
 });
 

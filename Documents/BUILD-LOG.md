@@ -4094,3 +4094,120 @@ bundle 994.83 kB against the 1 MB warn budget — **5 kB of headroom, and worth 
 jsdom cannot say whether eight pixels is actually generous enough for a real trackpad click, nor
 whether a drag started mid-row still lands where it is aimed. Those are the two questions the feature
 turns on and only a pointer can answer them.
+
+---
+
+## Post-pass-1 change — Notify processor, 2026-09-11
+
+**This overturns a resolved question, which is why it is here.** Resolved question 2 said `Notified`
+was not used in pass 1 and had no UI transition into it. Mark asked for the button: *"add that button
+in without any actual communication going out, but it pushes the status to 'notify'."* The roadmap's
+question 2 is amended in place with its old text kept, and deferred item 5 is narrowed to the
+mediums.
+
+**Why the original decision was right, and why it stopped being.** Pass 1 skipped the status because
+the notification mediums — in-app, SMS, email, their per-event configuration, the history view — are
+out of scope, and a status called Notified with nothing behind it is worse than no status at all. The
+thing that argument missed is that the status carries information independently of how the message
+travels: *this match has been put to the processor and we are waiting on their word*. The board could
+not draw that distinction while every unconfirmed match was a draft, and drafts are the column APG
+scans for work still entirely in its own hands. So the status shipped; the mediums did not.
+
+**What was built.** Six files of production code and no new abstraction:
+
+- `MatchLifecycle.CanNotify` (Drafted only) and `Notify(match)`, which sets the status and does
+  nothing else. It is one line and has a test of its own precisely because of that: the temptation
+  with a status called Notified is to have it also stamp a sent-at, queue a message or touch the
+  parents, and every one of those would be a claim this prototype cannot back.
+- **`CanConfirm` now names both live statuses** rather than testing "not Confirmed". The pass-1
+  comment here warned against Notified inheriting Drafted's transition silently; it is named instead,
+  because notifying is optional and a match that skipped it must still confirm in one move. A
+  Notified match that could only be cancelled would be a dead end on the board.
+- `MatchWriter.RejectNotify` and `POST /api/matches/{id}/notify`, taking the edit body exactly as
+  confirm does, so a dirty form saves and notifies in one validated write.
+- The modal's footer, its title verb, and `MatchActions.notifyMatch`.
+- `matchStatusIcon` gained `send` for Notified. Sharing Drafted's clock would leave the one row that
+  has moved looking identical to the rows that have not, which is the whole of what the status is
+  for. `matchSummaryLabel` gained `· 1 notified`, after drafts and never alongside them — the phrase
+  is the first thing to drop from line 2 when the card runs out of room.
+
+**Three sentences say nothing is sent, and each is load-bearing on its own.** The `.dispatch` caption
+under the modal's fields is what the operator reads; the snack (`Match notified to ANZCO — no message
+sent`) is what they see when they press it again without reading; the comment above the endpoint is
+what the next developer sees before adding a send. `Notify` on a button is a promise, and a demo room
+that includes processor staff will take it at face value unless told otherwise. The caption is muted
+prose rather than a warning colour because it states scope, not risk.
+
+**One string had to change and it was not obvious.** `ProcessorSpaceRules.NeedsConfirmedMatches` read
+`Needs at least one confirmed match and no drafts`, which was true only while Notified was
+unreachable — a space whose every match is Notified has no drafts at all and still cannot be
+confirmed, so the sentence beside the disabled button would have denied exactly what the gate was
+doing. **The gate itself is untouched**: it has always read "every live match is Confirmed", written
+that way in Phase 6 against the possibility of this day. It is now
+`Needs every match confirmed, and at least one`, updated in DEMO.md, the browser checklist,
+design-system.md §16 and two web fixtures. The labs under `Documents/*.html` keep the old wording and
+are historical.
+
+**The seeder was deliberately not touched.** It creates no Notified match and
+`SeedDemonstrationCaseTests` still pins that at zero, so the demo's opening state is exactly what it
+was and the only way into the status is an operator pressing the button.
+
+**State at close.** .NET **353 tests** (218 domain, 135 API — up 5), Angular **399 tests across 33
+files** (up 8), `dotnet build` and `npm run build` both clean with no warnings, bundle 1.01 MB against
+the 1.2 MB warn budget. The endpoint was exercised against the running API: a draft notified (200,
+status `Notified`), the same match notified again refused (409, `Only a drafted match can be
+notified`).
+
+**Unrun.** `browser-checklist.md` gains a five-item `Notify processor` section. What jsdom cannot say
+is whether exactly one of the two right-hand buttons reads as filled, whether the new caption
+collides with the wrapping hints above it, and whether `send` renders as a glyph rather than as the
+word.
+
+---
+
+## Post-pass-1 change — notification is ANZCO's step alone, 2026-09-11
+
+Same day as the entry above, and a correction to it: *"Notify Processor should only show for ANZCO.
+It's not part of the lifecycle of a match for SFF or Alliance Group."* The button shipped gated on
+status alone, which was wrong in a way no test would have caught, because status was the only clause
+the requirements document spells out.
+
+**It is not a carve-out, and that matters for where the code went.** The requirements already
+describe per-processor visibility — ANZCO sees the most, SFF a restricted set only once the space is
+Confirmed, Alliance Group no matches at all. Read against that, notification could never have been
+universal: a notification to Alliance Group points at something they can never open, and one to SFF
+at `Drafted` — the only status it can be sent from — arrives before there is anything for them to
+look at. So this is the first visible piece of a model that was already written down, not a new rule
+on top of it. Roles and the rest of the gating stay deferred (roadmap item 4).
+
+**`ProcessorNotifications` is a new file in `Apg.Domain`**, name-keyed and case-insensitive, holding
+one name. Three decisions inside it:
+
+- **The domain, not `SeedConfig`.** It is a rule about processors, not a list of them — the same
+  argument that put `StockClassCompatibility`'s table in the domain. The cost is that a rename in
+  `SeedConfig.Processors` would leave the rule matching nobody and every card silently losing its
+  button, so `ProcessorNotificationTests` in the API project asserts the two agree. That test exists
+  because the failure is invisible, not because the coupling is complicated.
+- **It fails closed**, where `StockClassCompatibility` fails open, and the asymmetry is deliberate:
+  an unrecognised stock class hidden from a drag is supply an operator cannot see, whereas an
+  unrecognised processor offered a Notify button is APG telling a room that a meatworks gets
+  notified when nobody has agreed that it does.
+- **The processor clause is reported before the status clause** in `NotifyBlockedReason`. For a
+  confirmed SFF match both are true, and "only a drafted match can be notified" would send the
+  operator looking for a draft — when no SFF match at any status is ever notifiable.
+
+**`MatchLifecycle.CanNotify` now takes the space**, so it is `CanNotify(match, space)` expressed over
+`NotifyBlockedReason`, the shape `ProcessorSpaceRules.CanConfirm` has had since Phase 6. The client
+learns the answer from **`MatchEditContextDto.canNotify`**, set from `RejectNotify` so the footer's
+gate and the endpoint's are one answer asked once — `MatchEditTests` asserts that over every live
+seeded match. There is no processor name in `web/` and there must not be one.
+
+**Two smaller consequences.** The title verb reads `canNotify` rather than testing for `Drafted`, or
+an SFF draft would be titled `Notify match:` above a footer offering no such thing; and `Confirm
+match` is filled on those drafts, which the existing `canNotify ? 'text' : 'filled'` binding already
+did for free.
+
+**State at close.** .NET **375 tests** (223 domain, 152 API — up 22), Angular **405 across 33 files**
+(up 6), both builds clean, bundle unchanged at 1.01 MB. Verified against the running API over all
+three processors: ANZCO `canNotify: true` and `POST /notify` → 200; Alliance Group and SFF
+`canNotify: false` and 409 naming the processor.

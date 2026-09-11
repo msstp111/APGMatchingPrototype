@@ -147,6 +147,10 @@ describe('Matching preferences', () => {
     expect(preferences.flipped()).toBe(true);
     expect(preferences.filterOnDrag()).toBe(false);
     expect(preferences.dragAnywhere()).toBe(false);
+    expect(preferences.keepGrips()).toBe(false);
+    // The derived answer has to be safe for an object that predates the flag entirely: grips shown,
+    // because the gesture that would replace them is off.
+    expect(preferences.gripsVisible()).toBe(true);
   });
 
   it('carries both drag toggles across a reload, independently', () => {
@@ -157,6 +161,42 @@ describe('Matching preferences', () => {
 
     expect(reloaded.dragAnywhere()).toBe(true);
     expect(reloaded.filterOnDrag()).toBe(false);
+  });
+
+  it('carries the grips override across a reload with the gesture that needs it', () => {
+    const first = store();
+    first.toggleDragAnywhere();
+    first.toggleKeepGrips();
+
+    const reloaded = store();
+
+    expect(reloaded.keepGrips()).toBe(true);
+    expect(reloaded.gripsVisible()).toBe(true);
+  });
+
+  /**
+   * `gripsVisible` is the conjunction, and this is the table of it. The row that matters is the
+   * last one: the override stored on its own must NOT hide the grips, because with the gesture off
+   * they are the only way to start a drag and a screen that cannot be dragged from is the one
+   * failure this feature must not have.
+   */
+  it.each([
+    { dragAnywhere: false, keepGrips: false, visible: true },
+    { dragAnywhere: true, keepGrips: false, visible: false },
+    { dragAnywhere: true, keepGrips: true, visible: true },
+    { dragAnywhere: false, keepGrips: true, visible: true },
+  ])('shows the grips for %o', ({ dragAnywhere, keepGrips, visible }) => {
+    const preferences = store();
+
+    if (dragAnywhere) {
+      preferences.toggleDragAnywhere();
+    }
+
+    if (keepGrips) {
+      preferences.toggleKeepGrips();
+    }
+
+    expect(preferences.gripsVisible()).toBe(visible);
   });
 
   /**
