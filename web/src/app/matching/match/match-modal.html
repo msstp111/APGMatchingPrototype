@@ -143,7 +143,18 @@
       <mat-hint>{{ priceHint }}</mat-hint>
     </mat-form-field>
 
-    <mat-form-field appearance="fill" class="f-transport" subscriptSizing="dynamic">
+    <!--
+      `floatLabel="always"`: the field is optional and usually empty, and an auto-floating
+      label renders an empty one as a large centred placeholder — the row then reads as two
+      labelled fields and one unlabelled box. Pinned up, the three labels sit on one line
+      whatever is in them.
+    -->
+    <mat-form-field
+      appearance="fill"
+      class="f-transport"
+      subscriptSizing="dynamic"
+      floatLabel="always"
+    >
       <mat-label>Transport company</mat-label>
       <input matInput [formControl]="transport" [matAutocomplete]="carriers" />
       <mat-autocomplete #carriers="matAutocomplete">
@@ -154,6 +165,19 @@
       <mat-hint>Optional</mat-hint>
     </mat-form-field>
   </div>
+
+  @if (canNotify) {
+    <!--
+      What `Notify processor` actually does, said next to the button that does it.
+
+      The notification mediums are deferred beyond pass 1, so the write moves the status and stops.
+      A button reading `Notify` in front of a room that includes processor staff would otherwise be
+      taken at its word — and the one thing a prototype must never do is imply an outbound message it
+      does not send. It is stated here rather than in a tooltip because a tooltip is only read by
+      someone already suspicious.
+    -->
+    <p class="dispatch">{{ notifyNote }}</p>
+  }
 </mat-dialog-content>
 
 <mat-dialog-actions class="footer">
@@ -187,8 +211,25 @@
   </button>
 
   @if (canConfirm) {
-    <button matButton="filled" type="button" [disabled]="quantity.invalid" (click)="confirm()">
+    <!--
+      Filled only when it is the step in front of the operator. On a draft the lifecycle's next move
+      is `Notify processor`, so this drops to a text button — confirming straight from Drafted stays
+      available (notifying is optional) but stops being the thing the dialog proposes. On a notified
+      match there is nothing else to do and it is filled again.
+    -->
+    <button
+      [matButton]="canNotify ? 'text' : 'filled'"
+      type="button"
+      [disabled]="quantity.invalid"
+      (click)="confirm()"
+    >
       Confirm match
+    </button>
+  }
+
+  @if (canNotify) {
+    <button matButton="filled" type="button" [disabled]="quantity.invalid" (click)="notify()">
+      Notify processor
     </button>
   }
 </mat-dialog-actions>

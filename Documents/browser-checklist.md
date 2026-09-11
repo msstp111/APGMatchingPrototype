@@ -223,7 +223,7 @@ it is a claim about every dialog rather than one screen.
 - [ ] **`Confirm space` is enabled on #37, #26, #32, #38, #21, #22** and disabled everywhere else with
       its reason printed beside it. Requirement 5.3 — the one that most directly stops a non-technical
       user concluding the app is broken.
-      - `Needs at least one confirmed match and no drafts` — space **#1**, on screen by default
+      - `Needs every match confirmed, and at least one` — space **#1**, on screen by default
         (it holds drafts #3 and #4).
       - `Already confirmed` — spaces **#2**, **#3**, **#6**, **#9**.
       - `This space is cancelled` — spaces **#7** and **#16**, and note #7 still holds two live
@@ -575,6 +575,162 @@ Turn the toggle **on** for all of this unless a row says otherwise. It is off by
 | The cursor turns `grabbing` while a card is in flight | `apg-dragging` on `document.body` | Drag from the middle and watch the cursor cross the gutter: `pointer` at rest, `grabbing` once moving, `no-drop` over the source column, `not-allowed` over a full target. The last two must still win |
 | Both toggles are independent | separate fields on one stored object | Turn on `Filter on drag` only, then `Drag anywhere` only, then both. Reload between each: each state must come back as it was left |
 | An older browser profile is not disturbed | `dragAnywhere` was added to `apg.matching.preferences.v2` without a version bump, because the reader falls back field by field | With filters already set from before today, reload. The filters must survive and the new toggle must read **off** |
+
+---
+
+## L. 2026-09-10 — RUN, in headless Chrome over CDP
+
+**The first section of this checklist that has actually been run.** Driven through the DevTools
+Protocol against the live dev server (Node's built-in `WebSocket`, no dependencies), reading real
+`getBoundingClientRect` values and dispatching real `Input.dispatchMouseEvent` drags. Every row
+below is a recorded measurement, not a claim.
+
+Where a number is given twice it is *grips shown / grips hidden*.
+
+| Claim | Result | Measured |
+| --- | --- | --- |
+| The header strip's first heading and the card's name sit on one x | **PASS** | 241 / 217, agreeing in both states |
+| The open drawer's first label sits on that same x | **PASS** | 241 / 217 |
+| Hiding the grips moves the whole leading run by exactly the grip's width | **PASS** | 38px → 14px on `--apg-lead`; 241 − 217 = 24 = 30 − 6 |
+| Nothing else in the row moves when the grips go | **PASS** | stock class 448, meter right edge 770, card height 52 — identical in all three states |
+| The drawer's rail disappears with the grip it continues | **PASS** | `::before` computed `display: none`; sheet padding 29px → 5px |
+| The grip returns without switching the gesture off | **PASS** | sub-button click → grip present, `dragAnywhere` still true |
+| The grips switch is inert while the gesture is off | **PASS** | `disabled`, and the grips stay drawn |
+| The drag chip states what is in hand | **PASS** | Matai Bank Pastoral, 800 total / 305 unmatched → chip reads `305 head` |
+| The outcome pill appears only when the far side caps the drop | **PASS** | supply→demand 81 in hand, target capped at 39 → `Match 39 head`; demand→supply 39 in hand onto 81 → no pill |
+| The hot card lights and ghosts the proposal | **PASS** | one `.target.valid.hot`, one `.ghost`, on every drag tried |
+| `Filter on drag` narrows without breaking the drop | **PASS** | demand 34 → 8, header chip `Lamb only`, hot card and pill both still correct |
+| The counterparty name cell reveals; the rest of the row opens the match | **PASS** | name cell → snack, no dialog. Another cell → `Edit match: ANZCO Rangitikei` |
+| A hidden counterparty is offered, not revealed silently | **PASS** | `Cedar Spruce Crossing is hidden by that column's filters` + `SHOW IT` |
+| `SHOW IT` widens only what was hiding it | **PASS** | supply statuses gained `Confirmed` and kept `Booked`/`Pending`; `hasUnmatched` cleared; nothing else touched. 41 → 50 cards |
+| The revealed card scrolls into view and flashes | **PASS** | `.list` scrollTop 0 → 1689, `apg-reveal` running on record 35 |
+| The flash clears itself | **PASS** | `.apg-revealed` gone 1.8s later |
+
+### Two things this run found that no test would have
+
+1. **Angular's style shim scopes every compound selector, not just the last.**
+   `.nogrip .expansion::before` compiled to
+   `.nogrip[_ngcontent-x] .expansion[_ngcontent-x]::before`, so it demanded a `.nogrip` inside the
+   drawer's own template and never matched the one on `.column`. The rule sat in the stylesheet doing
+   nothing and the rail stayed painted. It is a host class now. **A component's stylesheet cannot
+   select on an ancestor outside itself** — reach for a host binding or an inherited custom property.
+2. **The drag pill was not broken.** It was reported as a regression; it works in every direction and
+   with `Filter on drag` on. What was wrong was the chip's *number* — the record's total rather than
+   its unmatched — which made the pill's withholding rule fire and fall silent for reasons invisible
+   on screen. Recorded here because the next person to look will otherwise start where this started.
+
+### Second pass, same day — the palette decision
+
+Run after the rail went solid petrol and the bands went blue.
+
+| Claim | Result | Measured |
+| --- | --- | --- |
+| Every non-current band header is the light blue | **PASS** | past and future both `rgb(232,241,246)` = `#E8F1F6` |
+| The current week is deeper, and clears the drop target | **PASS** | `rgb(198,220,232)` = `#C6DCE8`, against `$lms-drop-target` `#D1E1E8` |
+| The open grip and the drawer rail are solid petrol with a white glyph | **PASS** | both `linear-gradient(... rgb(0,86,126) 0 6px, rgba(255,255,255,.55) 6px 7px ...)`; glyph `rgb(255,255,255)` |
+| The status hairline lands at x=6 on the grip and the rail | **PASS** | same gradient on both, so a Confirmed spine cannot merge into the fill |
+| **The drawer keeps its rail when the grips are hidden** | **PASS** | `::before` still displayed, sheet padding still 29px |
+| The drawer's content stays inset past the rail | **PASS** | first label x=241 with grips and x=241 without |
+| The row's name moves and the drawer's does not | **PASS, and intended** | name 241 → 217, drawer label 241 → 241. They deliberately no longer align — see §6.2 |
+
+Screenshots taken at 1366px, deviceScaleFactor 2: the full screen, and the open card in both grip
+states. **This is the first visual record this build has produced outside the Phase 2 canvas.**
+
+### Third pass, 2026-09-11 — the rail settled at #DDEAF1
+
+Solid petrol was reverted (too heavy for what it says, and its separator hairline drew a double line
+on every card). The rail is `#DDEAF1` again, which means it is knowingly close to two other blues.
+**That adjacency is the row worth keeping.**
+
+| Claim | Result | Measured |
+| --- | --- | --- |
+| The open grip and the drawer rail are one flat `#DDEAF1` with a petrol glyph | **PASS** | both `rgb(221,234,241)`; glyph `rgb(0,86,126)`; rail edge `rgb(224,224,224)` |
+| No separator hairline anywhere in the stroke | **PASS** | flat `background-color`, no gradient on either |
+| **An open card and a hot drop target two rows apart stay distinguishable** | **PASS** | screenshot: the open rail is a 29px vertical cell in `#DDEAF1`; the target is a full-width row in `#D1E1E8` **plus** a 2px petrol ring **plus** a hatched ghost in its meter. Shape separates them, not value |
+| A Booked spine still reads against the rail | **PASS** | 3px `#E0E0E0` over `#DDEAF1`, visible |
+| The drawer keeps its rail with the grips hidden | **PASS** | unchanged from the second pass |
+
+**The standing risk, written down so it is not rediscovered:** `#DDEAF1` (~15% petrol) is three
+points from `$lms-drop-target` `#D1E1E8` (~18%) and one step from `$lms-band` `#E8F1F6` (~9%). It
+works because a drop target is never just its fill and a band header is never the same shape. **If
+the drop target ever loses its petrol ring or its ghost, this value has to be revisited.**
+
+### Still unrun
+
+Everything in sections A–K that is a judgement rather than a measurement: whether the drawer reads as
+one object, whether the density target is met at 1366×768, whether the four blues separate. **No
+screenshot has been taken yet** — the run above was headless and read numbers, not pixels.
+
+
+## Notify processor (2026-09-11) — unrun
+
+Five claims, none of which jsdom can settle. The specs cover which buttons exist and what the modal
+closes with; what is left is what the operator sees.
+
+0. **Open a drafted Alliance Group or SFF match first**, because this is the item most likely to be
+   forgotten. There is **no `Notify processor` button at all** — absent, not greyed — no caption
+   under the fields, and the title says `Confirm match: …`, with `Confirm match` filled. Then open a
+   drafted **ANZCO** match for everything below. At the seed's 70/20/10 mix both cases are on screen
+   without hunting.
+1. **Open a drafted ANZCO match.** The footer reads `Cancel match` · … · `Close` · `Save changes` ·
+   `Confirm match` · `Notify processor`, and **exactly one of the last two is filled** — Notify. The
+   spec asserts the appearance binding's *input*, not the class Material puts on the element, so this
+   is where "filled only when it is the step in front of the operator" is actually checked
+   (design-system.md §11.4).
+2. **The `.dispatch` caption sits under the three fields and does not collide with a wrapped hint.**
+   The quantity and price hints both wrap in a 640px dialog, and they push the rest of the dialog
+   down only because of `subscriptSizing="dynamic"` — a caption that overlaps them means that
+   mechanism has been broken by the new paragraph rather than that the paragraph is wrong.
+3. **Press it.** The match's row in the expanded table shows `send` and the word `Notified`, in grey,
+   **no hue** (§3, §11.4a). Confirm the glyph renders as a symbol and not as the ligature text
+   `send`, which is what a missing Material Symbols font looks like.
+4. **The card's line 2 reads `… · 1 notified`** where it read `… · 1 draft`, and the card is the same
+   52px. The phrase is the first thing to drop when the row runs out of room, so check it at
+   1366×768 on a long plant name rather than only on a short one.
+5. **Re-open the same match.** The title now says `Confirm match: …`, `Notify processor` is gone,
+   `Confirm match` is filled, and the destructive button has become `Cancel match…` with its
+   ellipsis — the notified match is cancelled with a reason, never deleted.
+
+Nothing should arrive anywhere. That is not an item to check so much as the thing to say out loud
+while checking the rest.
+
+
+## The weekday date cell and the two-part date picker (2026-09-11) — RUN, headless Chrome over CDP
+
+Both halves of this change were measured in the running app at 1440x900, against the real seed. What
+was checked, and what came back:
+
+1. **The demand column's heading is `DAY`, the supply column's is still `FROM`.** Confirmed.
+2. **A space card's date cell is the weekday alone, and there is no month element under it.** `Wed`,
+   hover `26-08-26`, `.month` **null** on every demand card. The supply card is untouched: `23` over
+   `Aug`, both hovering `23-08-26`.
+3. **The heading still sits over its own values.** The strip's `DAY` cell and the card's `.day` both
+   start at x=525, and the cell is 50px on both sides — the column did not move when its content
+   changed (§6.1, §16.10).
+4. **No weekday truncates and no card grew a line.** The widest rendered weekday measures **26.0px**
+   in the 50px cell, and every demand card is 52px.
+5. **`Add processor space` holds `Week commencing` and `Weekday` where `Delivery date` was**, side by
+   side on one grid row, 248px each, and **zero `input[type=date]` remain in that dialog**. The
+   weekday menu is empty with `Choose a week first` beneath it until a week is picked.
+6. **The week menu offers 21 options**, `09-08-26` to `27-12-26`, with `06-09-26 · this week` marked;
+   the weekday menu offers seven, `Sun · 06-09-26` to `Sat · 12-09-26`.
+7. **Round trip.** Picking `06-09-26 · this week` + `Thu · 10-09-26` and adding the space put the card
+   in the **Week of 6 Sep / This week** band reading `Thu`, hover `10-09-26`; the API stored
+   `2026-09-10`.
+8. **The edit path opens on the record's own pair** — `06-09-26 · this week`, `Thu · 10-09-26` — with
+   processor and stock class still read-only, and **changing the week alone carried the weekday
+   across**: the weekday control went straight to `Thu · 17-09-26` and saving moved the card to the
+   **Week of 13 Sep** band, still `Thu`. That is the whole argument for the control holding an index
+   rather than a date.
+
+The demo database was reset afterwards, so nothing from this run is in it.
+
+Two things a rerun should know. The card body has **no `(click)` binding** — `CardPress` reads the
+pointer sequence — so `element.click()` on `.cbody` opens nothing and the chevron is the way in from a
+script. And the seeded delivery dates are Monday to Friday only
+(`SeedDataGenerator`'s `rng.Next(1, 6)`), so `Sun` and `Sat` appear in the picker and never on a
+seeded card; that is the seed, not a bug.
+
 
 ## Recording the result
 

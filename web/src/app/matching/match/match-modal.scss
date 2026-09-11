@@ -197,6 +197,16 @@
   @include geo.numerals;
 }
 
+// What `Notify processor` does and does not do. Muted 12px prose, the same treatment every other
+// explanatory line in this dialog takes — it is a statement of scope, not a warning, and dressing it
+// as one would make the operator hesitate over a write that is entirely safe.
+.dispatch {
+  margin: 4px 0 0;
+  font-size: 12px;
+  line-height: 16px;
+  color: lms.$lms-text-muted;
+}
+
 // Destructive left, constructive right (design-system.md 11.4). The spacer is what holds them apart
 // whichever of the two destructive buttons this match's status offers.
 .footer {

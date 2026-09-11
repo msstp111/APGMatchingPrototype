@@ -111,6 +111,15 @@ describe('The card’s grip and its clickable body', () => {
     await settle(fixture);
   }
 
+  /** Puts the grips back while the gesture stays on, the way the compound toggle's sub-button does. */
+  async function keepGrips(fixture: ComponentFixture<unknown>): Promise<void> {
+    TestBed.inject(MatchingPreferences).toggleKeepGrips();
+    await settle(fixture);
+  }
+
+  const gripElement = (fixture: ComponentFixture<unknown>) =>
+    card(fixture).querySelector<HTMLElement>('.grip');
+
   /**
    * A whole press: down here, up `travel` pixels away.
    *
@@ -154,12 +163,46 @@ describe('The card’s grip and its clickable body', () => {
     { name: 'supply', open: mountSupply },
   ]) {
     describe(`on the ${side.name} card`, () => {
-      it('always drags from the grip, whatever the preference says', async () => {
+      /**
+       * **Wherever the grip is drawn, it drags** — and that is the whole of what survives of the
+       * 2026-09-07 promise that it "never switches off".
+       *
+       * It does switch off now, but only in the one state where it has become redundant: with
+       * "Drag anywhere" on, the ~478px beside it do the same job, and the 30px cell was costing the
+       * name column a third of its width to advertise a gesture available everywhere. What makes
+       * that safe is that the two conditions are a conjunction in one place
+       * (`MatchingPreferences.gripsVisible`), so "no grip and no body drag" is unreachable.
+       *
+       * The third case is the one worth having: the grip comes back on request WITHOUT the gesture
+       * going away, which is what the compound toggle's sub-button is for.
+       */
+      it('drags wherever it is drawn, and is drawn unless the row itself can drag', async () => {
         const fixture = await side.open();
 
+        expect(gripElement(fixture)).not.toBeNull();
         expect(handleOn(fixture, '.grip')?.disabled).toBe(false);
 
         await enableDragAnywhere(fixture);
+        expect(gripElement(fixture)).toBeNull();
+        expect(handleOn(fixture, '.cbody')?.disabled).toBe(false);
+
+        await keepGrips(fixture);
+        expect(gripElement(fixture)).not.toBeNull();
+        expect(handleOn(fixture, '.grip')?.disabled).toBe(false);
+        expect(handleOn(fixture, '.cbody')?.disabled).toBe(false);
+      });
+
+      /**
+       * The safety rule, asserted from the card rather than from the store: turning the override on
+       * while the gesture is off must not take the grip away, because it is then the only drag path
+       * on the screen.
+       */
+      it('keeps the grip when the override is set but the gesture is off', async () => {
+        const fixture = await side.open();
+
+        await keepGrips(fixture);
+
+        expect(gripElement(fixture)).not.toBeNull();
         expect(handleOn(fixture, '.grip')?.disabled).toBe(false);
       });
 

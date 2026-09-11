@@ -1,6 +1,7 @@
 using Apg.Api.Seeding;
 using Apg.Domain.Entities;
 using Apg.Domain.Matching;
+using Apg.Domain.Time;
 
 namespace Apg.Api.Contracts;
 
@@ -49,14 +50,38 @@ public static class RecordWriter
     public const string NoSuchLocation = "There is no such location";
 
     /// <summary>
-    /// The vocabularies the two forms pick from, straight off <see cref="SeedConfig"/>.
+    /// How far past the last record the space form's week picker reaches. A quarter: APG book slots a
+    /// season ahead, and a picker that stops at the last record already entered could never be the one
+    /// that enters the first record of a new week.
+    /// </summary>
+    public const int WeeksAhead = 13;
+
+    /// <summary>
+    /// How far before the earliest record it reaches. Small on purpose — the backlog is what the
+    /// records themselves supply, and this is only the cushion for entering one a little earlier still.
+    /// </summary>
+    public const int WeeksBehind = 2;
+
+    /// <summary>
+    /// The vocabularies the two forms pick from, straight off <see cref="SeedConfig"/>, plus the weeks
+    /// the space form's delivery-date pair may pick from.
     /// </summary>
     /// <remarks>
-    /// Deliberately not derived from the loaded records the way the filter row's options are. A stock
-    /// class no space happens to use today is still a valid choice for a new one, and a form that
-    /// offered only what already exists could never introduce anything.
+    /// <para>
+    /// The vocabularies are deliberately not derived from the loaded records the way the filter row's
+    /// options are. A stock class no space happens to use today is still a valid choice for a new one,
+    /// and a form that offered only what already exists could never introduce anything.
+    /// </para>
+    /// <para>
+    /// <b>The weeks are the exception, and have to be.</b> They are a calendar, not a vocabulary, and
+    /// the picker has to be able to express the date of every record it might be opened on: a week
+    /// missing from the list is an <c>Edit</c> that opens with an empty week control and cannot be
+    /// saved until the operator moves the delivery date. So the span covers every loaded record and the
+    /// current week both, exactly as <see cref="MatchingProjection.WeekBands"/> does, and then reaches
+    /// <see cref="WeeksAhead"/> weeks past the end of it — see <see cref="SelectableWeeks"/>.
+    /// </para>
     /// </remarks>
-    public static ReferenceDataDto ReferenceData() =>
+    public static ReferenceDataDto ReferenceData(WorkingSet set, TimeProvider clock) =>
         new()
         {
             Processors = SeedConfig.Processors
@@ -69,7 +94,54 @@ public static class RecordWriter
                 .ToList(),
             AvailabilityStockClasses = SeedConfig.AvailabilityStockClasses.ToList(),
             TransactionTypes = SeedConfig.TransactionTypes.ToList(),
+            Weeks = SelectableWeeks(set, clock),
         };
+
+    /// <summary>
+    /// Every week the space form may book into, each carrying its own seven days.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// The span is <see cref="WeeksBehind"/> weeks before the earliest date anything holds to
+    /// <see cref="WeeksAhead"/> weeks after the latest, with today's week folded in so the range is
+    /// never empty and never entirely historic. Both ends look at the availability records as well as
+    /// the spaces: the two columns are drawn from one calendar, and a form whose reach stopped at the
+    /// demand side would refuse a delivery date the supply column is already showing stock for.
+    /// </para>
+    /// <para>
+    /// The seven days come from <see cref="NzTime.DaysOfWeek"/> rather than from a loop here, because
+    /// the Sunday start is a week rule and this file keeps none of those.
+    /// </para>
+    /// </remarks>
+    public static IReadOnlyList<WeekOptionDto> SelectableWeeks(WorkingSet set, TimeProvider clock)
+    {
+        var currentWeek = NzTime.CurrentWeekCommencing(clock);
+
+        var dates = set.Spaces.Select(space => space.DeliveryDate)
+            .Concat(set.Availabilities.Select(availability => availability.AvailableFrom))
+            .Append(currentWeek)
+            .ToList();
+
+        var first = NzTime.PlusWeeks(dates.Min(), -WeeksBehind);
+        var last = NzTime.PlusWeeks(dates.Max(), WeeksAhead);
+
+        return NzTime.WeeksFrom(first, last)
+            .Select(week => new WeekOptionDto
+            {
+                WeekCommencing = week,
+                WeekCommencingLabel = NzTime.DateLabel(week),
+                IsCurrentWeek = week == currentWeek,
+                Days = NzTime.DaysOfWeek(week)
+                    .Select(day => new DayOptionDto
+                    {
+                        Date = day,
+                        WeekdayLabel = NzTime.WeekdayLabel(day),
+                        DateLabel = NzTime.DateLabel(day),
+                    })
+                    .ToList(),
+            })
+            .ToList();
+    }
 
     /// <summary>
     /// Every location, with the farmer it belongs to, ordered by name for the type-ahead.

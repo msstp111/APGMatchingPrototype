@@ -16,9 +16,10 @@ namespace Apg.Domain.Matching;
 /// <para>
 /// The relation is expressed as <b>group tags</b> rather than as a pair list, and compatibility is
 /// "the two tag sets intersect". That is what lets one generic class sit over several specific ones
-/// without writing the cross product down: Alliance Group's <c>Cattle</c> carries every bovine tag,
-/// so it is offered for a Cow, a Bull, a Prime and both Nat Beef grades, and none of those four had
-/// to know it exists.
+/// without writing the cross product down: an unqualified <c>Lamb</c> carries every lamb tag, so it
+/// is offered for ANZCO's <c>Lamb ABF</c>, <c>Lamb QA</c> and <c>Lamb ANZCO-owned</c> spaces as well
+/// as for the plain <c>Lamb</c> that Alliance Group and SFF book, and none of those four had to know
+/// it exists. A generic cattle class works the same way over the bovine tags.
 /// </para>
 /// <para>
 /// <b>One table serves both sides.</b> The names barely overlap — <c>Cows</c> against <c>Cow</c>,
@@ -47,6 +48,15 @@ public static class StockClassCompatibility
     // The tags. Species where species is all that is being said; the beef programmes separately,
     // because a Nat Beef / GFNB slot is a graded programme and not simply "some cattle".
     public const string Lamb = "lamb";
+
+    // ANZCO's three lamb programmes, each its own tag. They deliberately do NOT share a single
+    // "lamb" tag: compatibility is set intersection, so one shared tag would make ABF, QA and
+    // ANZCO-owned compatible with each other as well as with the generic class — the opposite of
+    // what the aid is for. The generic class reaches all three by carrying all four tags, exactly
+    // as a generic cattle class carries every bovine one.
+    public const string LambAbf = "lamb-abf";
+    public const string LambQa = "lamb-qa";
+    public const string LambAnzcoOwned = "lamb-anzco-owned";
     public const string Mutton = "mutton";
     public const string Deer = "deer";
     public const string BeefPrime = "beef-prime";
@@ -57,7 +67,13 @@ public static class StockClassCompatibility
 
     /// <summary>Every tag, which is what an unrecognised class is given. See the remarks.</summary>
     public static readonly IReadOnlyList<string> AllGroups =
-        [Lamb, Mutton, Deer, BeefPrime, BeefCow, BeefBull, BeefUltra, BeefPremium];
+    [
+        Lamb, LambAbf, LambQa, LambAnzcoOwned, Mutton, Deer,
+        BeefPrime, BeefCow, BeefBull, BeefUltra, BeefPremium,
+    ];
+
+    /// <summary>Every lamb tag — what an unqualified <c>Lamb</c> class carries, on either side.</summary>
+    private static readonly string[] AnyLamb = [Lamb, LambAbf, LambQa, LambAnzcoOwned];
 
     /// <summary>Every bovine tag — what a generic cattle class carries.</summary>
     private static readonly string[] AnyCattle =
@@ -74,14 +90,25 @@ public static class StockClassCompatibility
     private static readonly Dictionary<string, string[]> Table = new(StringComparer.OrdinalIgnoreCase)
     {
         // --- sheep, on both sides ---
-        ["Lamb"] = [Lamb],
-        ["Lambs"] = [Lamb],
+        // Unqualified Lamb is the generic: it stands over the three ANZCO programmes, so a plain
+        // lamb line is offered for an ABF, QA or ANZCO-owned space, and a record of any of those
+        // three is offered for every plain Lamb space — which is what Alliance Group and SFF book.
+        // The three programmes do not reach one another.
+        ["Lamb"] = AnyLamb,
+        ["Lambs"] = AnyLamb,
+        ["Lamb ABF"] = [LambAbf],
+        ["Lamb QA"] = [LambQa],
+        ["Lamb ANZCO-owned"] = [LambAnzcoOwned],
         ["Mutton"] = [Mutton],
 
         // --- deer: Alliance Group's demand class, with no supply class to meet it ---
         ["Deer"] = [Deer],
 
         // --- cattle, demand side ---
+        // Alliance Group's list carried a generic "Cattle" until APG replaced it with Cow, Prime and
+        // Sire Bull (2026-09-11). The entry stays: GroupsFor fails open, so a class the table has
+        // never heard of is hidden by nothing, and keeping the generic costs one line against the
+        // day a processor books one again.
         ["Cattle"] = AnyCattle,
         ["Cows"] = [BeefCow],
         ["Bulls"] = [BeefBull],

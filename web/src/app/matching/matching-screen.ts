@@ -18,6 +18,7 @@ import {
 } from './filters/filter-service';
 import { MatchingPreferences } from './filters/matching-preferences';
 import { RecordPatch, RecordPatches } from './match/record-patches';
+import { RevealRecord } from './match/reveal-record';
 
 /**
  * The matching screen: Processor Spaces and Livestock Availability as week-banded card lists, either
@@ -55,6 +56,13 @@ export class MatchingScreen {
   private readonly preferences = inject(MatchingPreferences);
   private readonly narrowing = inject(DragNarrowing);
   private readonly patches = inject(RecordPatches);
+
+  /**
+   * Both loaded sets are handed to `RevealRecord` so a match can be followed to its counterparty
+   * in the other column. The signals themselves, not copies: the reveal has to judge the same
+   * records the columns are rendering, and every write already patches these two.
+   */
+  private readonly reveal = inject(RevealRecord);
 
   readonly spaces = signal<readonly ProcessorSpaceDto[]>([]);
   readonly availability = signal<readonly LivestockAvailabilityDto[]>([]);
@@ -113,6 +121,7 @@ export class MatchingScreen {
   readonly loading = computed(() => !this.ready() && this.error() === null);
 
   constructor() {
+    this.reveal.registerRecords(this.spaces, this.availability);
     this.load();
 
     this.patches.patches.pipe(takeUntilDestroyed()).subscribe((patch) => this.applyPatch(patch));

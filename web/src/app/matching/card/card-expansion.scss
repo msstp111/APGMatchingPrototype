@@ -129,6 +129,14 @@
   box-shadow: 0 3px 8px -3px rgb(0 0 0 / 30%);
   // The leading rail: the sheet's content starts where the card's own name starts. See
   // $expansion-rail — the number is 29 and the reason it is not 30 is written there.
+  // The rail's width, always — the drawer keeps its rail whether or not the row above still has a
+  // grip (Mark, 2026-09-10). The rail is the drawer's own leading edge, not merely the continuation
+  // of a cell that may not be there, and the sheet's content is indented past it in both states.
+  //
+  // The consequence is deliberate and worth stating: with the grips hidden the row's name sits at
+  // x=14 and the drawer's first label at x=38, so the two no longer line up. That alignment was the
+  // 2026-09-09 rail's whole argument; what replaces it is that the rail is now a solid petrol stroke
+  // and reads as the drawer's edge on its own account. See $expansion-rail for the 29-not-30.
   padding-left: geo.$expansion-rail;
 }
 
@@ -154,7 +162,11 @@
   bottom: 0;
   left: 0;
   width: geo.$expansion-rail - 1px;
+  // One flat stroke, matching the grip above it — see the note on `:host(.open) .grip` in
+  // _card-geometry.scss for the hairline that used to be here and why it must not come back.
   background: lms.$open-rail;
+  // The grip's own trailing rule, continued. A pale fill needs it: without the hairline the rail
+  // and the white sheet meet on a two-point difference in value and the rail loses its edge.
   border-right: 1px solid lms.$lms-divider;
 }
 
@@ -229,7 +241,11 @@
 //     drawer's head — and the eye enters the sheet from the leading edge, where the card's own name
 //     is. The unmatched figure stays right on its own, because it is the one figure the row above
 //     also ends with.
+// Clicking the strip closes the card (2026-09-10). The cursor is the only affordance it gets: the
+// figures are the reason the drawer was opened, and a button treatment on them would make the
+// answer look like a control.
 .sums {
+  cursor: pointer;
   display: flex;
   align-items: flex-start;
   gap: 26px;
@@ -445,6 +461,23 @@
   background: lms.$lms-hover;
 }
 
+// The counterparty cell does something else — it reveals that record in the other column — so it
+// says so under the pointer with a deeper step of the same blue (2026-09-10). Two identical-looking
+// cells in one row doing two different things is the failure this avoids; a whole second treatment
+// would have been more than the difference is worth.
+//
+// $lms-drop-target rather than a new value: nothing else on this screen is a "you are pointing at
+// the thing that will move" mark, and the ladder has no room for a sixth petrol tint. It cannot be
+// confused with the drop target itself — that paints a 52px card row in a column, this paints a
+// 30px cell inside a sheet, and the two are never on screen in the same place.
+.openable td.reveal {
+  cursor: pointer;
+}
+
+.openable:hover td.reveal {
+  background: lms.$lms-drop-target;
+}
+
 // design-system.md 6.2, item 4. The reason sits beside the button in card-meta type whenever the
 // button is disabled — a control that greys out in silence is what makes people think the app is
 // broken (Phase 6, 5.3).
@@ -456,22 +489,50 @@
   padding-left: geo.$card-edge;
 }
 
+// Why Confirm is unavailable (2026-09-10). It was a sentence printed in full beside the buttons —
+// the longest thing in the row, present only when the control it explains is already greyed out.
+// It is a button rather than a bare glyph because that is what makes the tooltip reachable by
+// keyboard and by touch; the hover-only version would have traded the sentence for nothing.
+//
+// Sized down from Material's 40px icon button: this row is 30px buttons and a 40px control in it
+// sets the row's height on its own.
 .why {
-  font-size: 11.5px;
+  --mat-icon-button-state-layer-size: 28px;
+
+  width: 28px;
+  height: 28px;
+  padding: 0;
   color: lms.$lms-text-muted;
 }
 
-// The two debug controls, quieter than Confirm beside them: text buttons rather than stroked, so the
-// scaffolding never outranks the real action on the card (design-system.md 14's reasoning, applied
-// inside a card instead of a header).
+.why .material-symbols-outlined {
+  font-size: 18px;
+  line-height: 18px;
+}
+
+// The two debug controls (Phase 7), OUTLINED since 2026-09-10 — they read as disabled as text
+// buttons, which is the one thing a live control must never do.
+//
+// The hierarchy §14 asks for survives because Confirm went to FILLED in the same change: filled is
+// the real action, outlined is the scaffolding beside it. Note where it does NOT survive — the
+// supply drawer has no Confirm, so these two are the only controls in that row and they are now the
+// loudest thing in it. That is a real cost of the change and it is accepted, not overlooked.
+//
+// Petrol on a #BDBDBD ring is deliberately §14's own treatment for the '+ Add' buttons in the column
+// headers, so the debug affordances on this screen are one family rather than two.
 .dbg {
-  --mat-button-text-label-text-color: #{lms.$lms-text-muted};
+  --mat-outlined-button-label-text-color: #{lms.$lms-petrol};
+  --mat-outlined-button-outline-color: #{lms.$lms-rule-strong};
   font-size: 12px;
 }
 
 .dbg.danger {
-  --mat-button-text-label-text-color: #{lms.$lms-error};
+  --mat-outlined-button-label-text-color: #{lms.$lms-error};
 }
+
+// The ring stays at full strength when Cancel is disabled and only the LABEL dims. Overriding the
+// disabled outline token as well would leave a control that looks exactly like the two live ones
+// beside it — which is how a button that cannot be pressed comes to look like a bug.
 
 // A cancelled counterparty, on a match that is still live.
 //

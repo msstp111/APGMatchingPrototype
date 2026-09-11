@@ -1,9 +1,40 @@
 import { provideZonelessChangeDetection } from '@angular/core';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { MAT_DIALOG_DATA, MatDialogRef } from '@angular/material/dialog';
-import { ProcessorSpaceDto, ReferenceDataDto } from '../../api/models';
+import { ProcessorSpaceDto, ReferenceDataDto, WeekOptionDto } from '../../api/models';
 import { aSpace } from '../testing/dto-fixtures';
 import { SpaceForm, SpaceFormData, SpaceFormResult } from './space-form';
+
+/**
+ * Three real weeks, shaped the way the server ships them: a Sunday, and its seven days each carrying
+ * the ISO date the form submits. aSpace's default record is 27 August 2026 - a Thursday, index 4 - in
+ * the week commencing the 23rd, which is why that week is the middle one here.
+ *
+ * Written out in full rather than generated, because a helper that added days to a date would be the
+ * very arithmetic the two-control design exists to keep out of web/. If these dates are wrong the
+ * tests fail; a wrong generator would agree with the bug.
+ */
+const WEEKDAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+
+const WEEKS: readonly WeekOptionDto[] = [
+  aWeek('2026-08-16', ['16-08', '17-08', '18-08', '19-08', '20-08', '21-08', '22-08']),
+  aWeek('2026-08-23', ['23-08', '24-08', '25-08', '26-08', '27-08', '28-08', '29-08']),
+  aWeek('2026-08-30', ['30-08', '31-08', '01-09', '02-09', '03-09', '04-09', '05-09']),
+];
+
+/** Each day is written 'dd-MM'; the two forms of it on the wire are both derived from that string. */
+function aWeek(commencing: string, days: readonly string[]): WeekOptionDto {
+  return {
+    weekCommencing: commencing,
+    weekCommencingLabel: days[0] + '-26',
+    isCurrentWeek: commencing === '2026-08-23',
+    days: days.map((day, index) => ({
+      date: '2026-' + day.slice(3) + '-' + day.slice(0, 2),
+      weekdayLabel: WEEKDAYS[index],
+      dateLabel: day + '-26',
+    })),
+  };
+}
 
 const REFERENCE: ReferenceDataDto = {
   processors: [
@@ -12,6 +43,7 @@ const REFERENCE: ReferenceDataDto = {
   ],
   availabilityStockClasses: ['Prime', 'Sire Bull'],
   transactionTypes: ['FinanceStock', 'GrazingStock', 'Other'],
+  weeks: WEEKS,
 };
 
 describe('Add and edit a processor space (debug form)', () => {
@@ -108,7 +140,8 @@ describe('Add and edit a processor space (debug form)', () => {
     fixture.componentInstance.onProcessorChange();
     form.controls.plant.setValue('Kokiri');
     form.controls.stockClass.setValue('Cows');
-    form.controls.deliveryDate.setValue('2026-09-10');
+    form.controls.weekCommencing.setValue('2026-08-30');
+    form.controls.weekday.setValue(4);
     form.controls.quantityRequired.setValue(0.5);
     await fixture.whenStable();
 
@@ -130,7 +163,8 @@ describe('Add and edit a processor space (debug form)', () => {
       plant: 'Kokiri',
       stockClass: 'Cows',
       quantityRequired: 60,
-      deliveryDate: '2026-09-10',
+      // That week's Thursday, read straight off the server's own list. Nothing composed it.
+      deliveryDate: '2026-09-03',
       // An empty box is no value, not "".
       deliveryTime: null,
       notes: null,
@@ -146,13 +180,109 @@ describe('Add and edit a processor space (debug form)', () => {
     form.controls.plant.setValue('Kokiri');
     form.controls.stockClass.setValue('Cows');
     form.controls.quantityRequired.setValue(40);
-    form.controls.deliveryDate.setValue('2020-01-05');
+    // The earliest week the server offered, which is behind the current one. Nothing in the form
+    // ranks the options: how far back the list reaches is the server's decision and the whole of it.
+    form.controls.weekCommencing.setValue('2026-08-16');
+    form.controls.weekday.setValue(0);
     await fixture.whenStable();
 
     fixture.componentInstance.save();
 
     expect((closed.mock.calls[0][0] as SpaceFormResult).request).toMatchObject({
-      deliveryDate: '2020-01-05',
+      deliveryDate: '2026-08-16',
+    });
+  });
+
+  /**
+   * The pair's whole reason for being: the date is an index into a list the server sent. If this ever
+   * needs a new Date to pass, the design has been lost.
+   */
+  it('composes the delivery date by looking the weekday up in the chosen week', async () => {
+    const fixture = await mount(null);
+    const form = fixture.componentInstance.form;
+
+    form.controls.weekCommencing.setValue('2026-08-23');
+    form.controls.weekday.setValue(0);
+    await fixture.whenStable();
+
+    expect(fixture.componentInstance.deliveryDate()).toBe('2026-08-23');
+
+    form.controls.weekday.setValue(6);
+    await fixture.whenStable();
+
+    expect(fixture.componentInstance.deliveryDate()).toBe('2026-08-29');
+  });
+
+  /**
+   * Changing the week keeps the weekday, which is what makes "the same slot, a week later" one click.
+   * It is also why the control holds an index rather than a date: a date would have to be recomputed
+   * against the new week, and recomputing it is the one thing this form may not do.
+   */
+  it('carries the weekday across a change of week', async () => {
+    const fixture = await mount(null);
+    const form = fixture.componentInstance.form;
+
+    form.controls.weekCommencing.setValue('2026-08-23');
+    form.controls.weekday.setValue(4);
+    await fixture.whenStable();
+
+    expect(fixture.componentInstance.deliveryDate()).toBe('2026-08-27');
+
+    form.controls.weekCommencing.setValue('2026-08-30');
+    await fixture.whenStable();
+
+    expect(form.controls.weekday.value).toBe(4);
+    expect(fixture.componentInstance.deliveryDate()).toBe('2026-09-03');
+  });
+
+  /** No week, no days - the same empty menu and hint the plant picker uses. */
+  it('offers no weekday until a week is chosen', async () => {
+    const fixture = await mount(null);
+
+    expect(fixture.componentInstance.days()).toEqual([]);
+    expect(fixture.componentInstance.deliveryDate()).toBeNull();
+
+    fixture.componentInstance.form.controls.weekCommencing.setValue('2026-08-23');
+    await fixture.whenStable();
+
+    expect(fixture.componentInstance.days().length).toBe(7);
+    expect(fixture.componentInstance.days()[0].weekdayLabel).toBe('Sun');
+  });
+
+  /** Half a date is no date, whatever the rest of the form says. */
+  it('refuses to submit a week with no weekday', async () => {
+    const fixture = await mount(null);
+    const form = fixture.componentInstance.form;
+
+    form.controls.processor.setValue('ANZCO');
+    fixture.componentInstance.onProcessorChange();
+    form.controls.plant.setValue('Kokiri');
+    form.controls.stockClass.setValue('Cows');
+    form.controls.quantityRequired.setValue(40);
+    form.controls.weekCommencing.setValue('2026-08-23');
+    await fixture.whenStable();
+
+    fixture.componentInstance.save();
+    expect(closed).not.toHaveBeenCalled();
+  });
+
+  /**
+   * An edit opens on the record's own date, decomposed the same way it is composed - by lookup. This
+   * is the case the server's week list has to be wide enough for: a record whose week was left out of
+   * it would open with an empty pair and could not be saved without moving the delivery date.
+   */
+  it('opens an edit on the week and weekday the record already holds', async () => {
+    const fixture = await mount(aSpace({ id: 5 }));
+    const form = fixture.componentInstance.form;
+
+    // 27 August 2026 is the Thursday of the week commencing the 23rd.
+    expect(form.controls.weekCommencing.value).toBe('2026-08-23');
+    expect(form.controls.weekday.value).toBe(4);
+
+    fixture.componentInstance.save();
+
+    expect((closed.mock.calls[0][0] as SpaceFormResult).request).toMatchObject({
+      deliveryDate: '2026-08-27',
     });
   });
 

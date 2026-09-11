@@ -17,6 +17,14 @@ public class StockClassCompatibilityTests
     [Theory]
     [InlineData("Lamb", "Lamb")]
     [InlineData("Mutton", "Mutton")]
+    // ANZCO's three lamb programmes. Each meets its own name on the supply side, and each meets the
+    // plain "Lamb" that Alliance Group and SFF book — which is the generic standing over all three.
+    [InlineData("Lamb ABF", "Lamb ABF")]
+    [InlineData("Lamb QA", "Lamb QA")]
+    [InlineData("Lamb ANZCO-owned", "Lamb ANZCO-owned")]
+    [InlineData("Lamb", "Lamb ABF")]
+    [InlineData("Lamb", "Lamb QA")]
+    [InlineData("Lamb", "Lamb ANZCO-owned")]
     // ANZCO's and SFF's specific cattle classes against the supply names for the same animals.
     [InlineData("Cows", "Cow")]
     [InlineData("Prime", "Prime")]
@@ -48,6 +56,12 @@ public class StockClassCompatibilityTests
     // neither vocabulary has a class that spans them.
     [InlineData("Lamb", "Mutton")]
     [InlineData("Mutton", "Lamb")]
+    // The three lamb programmes stay apart from one another. A QA line is not an ABF line, and the
+    // reason APG asked for the split is that they have to tell ANZCO which one a load is.
+    [InlineData("Lamb ABF", "Lamb QA")]
+    [InlineData("Lamb QA", "Lamb ANZCO-owned")]
+    [InlineData("Lamb ANZCO-owned", "Lamb ABF")]
+    [InlineData("Lamb ABF", "Mutton")]
     // No species crossing.
     [InlineData("Lamb", "Cow")]
     [InlineData("Cows", "Lamb")]
@@ -80,7 +94,7 @@ public class StockClassCompatibilityTests
         string[] supply =
         [
             "GFNB ultra", "GFNB premium", "Prime", "Cow", "Sire Bull", "Bull", "Mixed Cattle",
-            "Lamb", "Mutton",
+            "Lamb", "Lamb ABF", "Lamb QA", "Lamb ANZCO-owned", "Mutton",
         ];
 
         Assert.All(supply, s => Assert.False(StockClassCompatibility.AreCompatible("Deer", s)));
@@ -128,6 +142,9 @@ public class StockClassCompatibilityTests
     /// </remarks>
     [Theory]
     [InlineData("Lamb")]
+    [InlineData("Lamb ABF")]
+    [InlineData("Lamb QA")]
+    [InlineData("Lamb ANZCO-owned")]
     [InlineData("Mutton")]
     [InlineData("Deer")]
     [InlineData("Cattle")]

@@ -31,7 +31,25 @@ $lms-card: #ffffff; // a card's own background
 $lms-card-zebra: #f5f5f5; // alternate card — one step lighter than LMS's #EEEEEE, because a card
 // carries a patterned spine and a desaturated Cancelled state, and
 // #EEEEEE under both muddies them
-$lms-band: #f0f0f0; // week band header
+// --- the week bands (blue since 2026-09-10) ---
+// Every band header was #F0F0F0 with the current week alone tinted. Mark asked for the whole
+// calendar to read as blue chrome, with the current week deeper than the rest.
+//
+// $lms-band is the SAME value as $lms-petrol-tint and deliberately a separate token: they mean
+// different things (a band ground against an info panel or an active chip), they are never adjacent,
+// and one is now free to move without dragging the other with it.
+//
+// $lms-band-current must stay DEEPER than $lms-drop-target #D1E1E8, and that is not a preference.
+// The drop target was pushed below the tint in the first place because at equal strength "a target
+// three rows down" and "this is the week you are in" were indistinguishable at a glance; a current
+// week at or above the target's value recreates exactly that. It is ~24% petrol against the target's
+// ~18%.
+//
+// Note what item 7 costs, accepted with it: past and future bands used to differ by ground as well
+// as by ink. They are one colour now, so the `Past` tag and the #9E9E9E label are the only things
+// left saying which side of today a band falls on. See design-system.md 8.6.
+$lms-band: #e8f1f6; // week band header
+$lms-band-current: #c6dce8; // the current week — deeper than $lms-drop-target, see above
 $lms-petrol-tint: #e8f1f6; // current-week band, info panels
 $lms-drop-target: #d1e1e8; // a card the drag may land on — deliberately DEEPER than the tint above,
 // which is ~9% petrol and was previously used for both. At the same
@@ -40,18 +58,34 @@ $lms-drop-target: #d1e1e8; // a card the drag may land on — deliberately DEEPE
 $lms-hover: #f5f9fb; // card hover
 $lms-column-wash: #f6fafc; // the opposite column during a drag
 
-// --- the open card's grip column (2026-09-09, design-system.md 6.2) ---
+// --- the open card's grip column and drawer rail ---
 // The 30px grip on an open row and the 29px rail down its sheet, filled as one unbroken stroke.
 //
-// NOT $lms-petrol-tint, and that is the whole of why this token exists: the tint is the current-week
-// band's ground, so a card inside the current week would have a grip the same colour as the header
-// directly above it. One step deeper than the tint and one step lighter than $lms-drop-target, so the
-// order in the column reads open (#DDEAF1) < droppable (#D1E1E8) — a card under the pointer is more
-// urgent than a card that happens to be open, and the two never mean the same thing.
+// THIS VALUE WENT AWAY AND CAME BACK, over two days, and the round trip is worth recording because
+// the obvious reading of it is wrong.
 //
-// It is a fourth petrol value in the list and the case for it is that it is the only one attached to
-// a CELL rather than to a row: the grip is the one column carrying no status and no quantity, so
-// nothing had to be displaced to say "open". Do not add a fifth.
+// It was chosen (2026-09-09) to sit one step deeper than $lms-petrol-tint and one step lighter than
+// $lms-drop-target, so the column read open < droppable. That argument assumed exactly ONE band was
+// tinted; items 7 and 8 tinted all of them (2026-09-10), which left no free step between "this
+// week" and "you may drop here". Four answers were drawn in Documents/week-band-lab.html and solid
+// petrol shipped — a value off the ladder entirely, so no band colour could ever be confused with
+// an open card.
+//
+// Solid petrol lasted a day. On screen it was simply too heavy for what it says: an open card is
+// the most ordinary state on this list, and a full-strength brand-coloured column announced it like
+// a selection. It also collided with the Confirmed spine (both petrol, one 36px slab) and the 1px
+// hairline that fixed that drew a visible double line on all four statuses to solve a problem one
+// of them has. Mark reverted to #DDEAF1 on 2026-09-11 after seeing both in the lab.
+//
+// SO THE COLLISION THE 2026-09-09 COMMENT WARNED ABOUT IS NOW LIVE, and is accepted rather than
+// overlooked. #DDEAF1 (~15% petrol) sits between $lms-band #E8F1F6 (~9%) and $lms-band-current
+// #C6DCE8 (~24%), and within three points of $lms-drop-target #D1E1E8 (~18%). Two mitigations carry
+// it, and if either is ever removed this value has to be revisited:
+//
+//   * a drop target is never JUST its fill — it also carries a 2px petrol outline and a ghosted
+//     segment in its meter, so it is distinguishable from an open rail even at arm's length;
+//   * a band header is a 30px full-width horizontal row and this is a 29px vertical cell inside a
+//     card, so the two are never the same shape even when they are nearly the same colour.
 $open-rail: #ddeaf1;
 $open-rail-ink: #00567e; // = $lms-petrol. The glyph comes up with its ground.
 
@@ -125,6 +159,7 @@ $lms-attention-bg: #f5f5f5; // the panel behind a consequential warning
   --lms-card: #{$lms-card};
   --lms-card-zebra: #{$lms-card-zebra};
   --lms-band: #{$lms-band};
+  --lms-band-current: #{$lms-band-current};
   --lms-petrol-tint: #{$lms-petrol-tint};
   --lms-drop-target: #{$lms-drop-target};
   --lms-hover: #{$lms-hover};

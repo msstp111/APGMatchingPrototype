@@ -301,8 +301,35 @@ Decided 2026-08-27 and 2026-08-28. **These override the .doc where they conflict
    remaining need (negative unmatched → blue, "Over-filled"). It is **hard-capped** at the Livestock
    Availability's remaining supply. The pink "Over-committed" state stays unreachable and exists only
    as a bug indicator.
-2. **`Notified` is not used in pass 1.** Lifecycle is `Drafted → Confirmed`, plus `Cancelled`.
-   `Notified` remains a member of the status type with no UI transition into it.
+2. **~~`Notified` is not used in pass 1.~~ Amended 2026-09-11, at Mark's request.** It read:
+   *"Lifecycle is `Drafted → Confirmed`, plus `Cancelled`. `Notified` remains a member of the status
+   type with no UI transition into it."*
+
+   The lifecycle is now **`Drafted → Notified → Confirmed`**, with `Drafted → Confirmed` still
+   permitted — notifying is a step APG may take, not one it must. `Notify processor` is the filled
+   button in the match modal's footer on a draft; `POST /api/matches/{id}/notify` performs it.
+
+   **And it is ANZCO's lifecycle only** (Mark, same day). Notification is not part of how APG works
+   with Alliance Group or SFF, so for their matches the lifecycle really is `Drafted → Confirmed`
+   and the button is **absent** rather than disabled — a greyed control invites the operator to hunt
+   for the condition that would enable it, and there is none. This is consistent with the
+   per-processor visibility model in "Users" rather than a carve-out on top of it: Alliance Group
+   sees no matches at all, so a notification would point at something they can never open, and SFF
+   sees a restricted set only once the space is Confirmed, so one sent at `Drafted` — the only
+   status it can be sent from — would arrive before there is anything for them to look at. The rule
+   is `Apg.Domain.Matching.ProcessorNotifications` and reaches the client as
+   `MatchEditContextDto.canNotify`; `web/` holds no processor list.
+
+   **What has not changed is why the question was resolved this way in the first place: nothing is
+   sent.** No SMS, no email, no in-app notification, no outbound call of any kind. The status is
+   APG's own record that a match has been put to the processor and is waiting on their word, which is
+   a distinction the board could not draw while every unconfirmed match was a draft. Deferred item 5
+   below — the notification **mediums** — is untouched and is still the larger half of the work.
+
+   Everything the pass-1 note promised about the rules held, and none of it needed changing when the
+   status became reachable: a Notified match counts in both matched sums and blocks confirmation on
+   both sides. The only sentence that had to move was `ProcessorSpaceRules.NeedsConfirmedMatches`,
+   which said "and no drafts" and would have been describing a state a notified match is not in.
 3. **Drafted matches can be plain-deleted.** Cancel-with-reason is for matches past Drafted; a mis-drag
    is simply removed.
 4. **Cancelled matches are visible only from the Match list view.** Hidden on the matching screen and
@@ -385,8 +412,11 @@ history instead of arriving disguised as filter work.
    **The `+ Add` buttons and the record forms are debug scaffolding and must not be mistaken for
    this** — they are marked three ways over precisely so they are not.
 4. Roles and per-processor visibility gating (ANZCO / SFF-after-Confirmed / Alliance-never).
-5. `Notified` status and the notification mediums (in-app, SMS, email). Note it is **not inert in the
-   rules** — it counts in both matched sums and blocks confirmation on both sides.
+5. The notification **mediums** (in-app, SMS, email), their per-event configuration, and the rules
+   about which later changes re-notify whom — several of which the requirements document itself
+   leaves open (`<Check which changes are processors interested in?>`). **The `Notified` status
+   itself shipped on 2026-09-11** (see resolved question 2) and sends nothing; what is deferred is
+   every part of it that would actually reach a processor, plus the notification history view.
 6. Default pricing maintenance.
 7. Weekly roll-up views on the two list screens.
 

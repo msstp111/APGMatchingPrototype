@@ -14,6 +14,33 @@
   min-width: 0;
   background: lms.$lms-card;
   border: 1px solid lms.$lms-divider;
+
+  // ------------------------------------------------------------------------------------------
+  // THE LEADING RUN — one number, three readers (2026-09-10)
+  //
+  // Where line 1 starts, measured from the card's own left edge. It is read by the header strip
+  // here, by `.cbody` in card-shell, and by `.expansion` in card-expansion.scss, and if any two of
+  // them disagree every heading on line 1 sits off its own values — the failure design-system.md
+  // 16.10 calls invisible in code review and glaring on screen. It became a custom property when
+  // "Drag anywhere" learned to hide the grips: three conditionals in three files is three places
+  // for the answer to differ, and a property set once on the column is inherited by all of them.
+  //
+  // 38px with the grip: its 30px cell plus the card's 8px padding.
+  // ------------------------------------------------------------------------------------------
+  --apg-lead: #{geo.$col-grip + geo.$card-edge};
+  // The body's share of it. With the grip drawn the grip spends the 30 and the body spends 8; with
+  // the grip gone the body spends the lot. Two properties rather than a calc in the card, so the
+  // card never has to know whether the grip is there.
+  --apg-card-lead: #{geo.$card-edge};
+}
+
+// 14px without it, NOT 8. The status spine is an absolutely positioned overlay 3px wide on a Booked
+// card and 6px on every other, so the name has to clear 6px whatever the status — which is exactly
+// what the grip's own `padding-left: $spine-width` reserves today. Drop to 8 and a Confirmed card's
+// name sits 2px inside its own spine.
+.column.nogrip {
+  --apg-lead: #{geo.$spine-width + geo.$card-edge};
+  --apg-card-lead: var(--apg-lead);
 }
 
 // --- 1. the column header ---
@@ -216,7 +243,7 @@
   // forgot this row's own gap, so `Unmatched` sat 8px left of the numerals beneath it from Phase 3
   // until 2026-09-07. The card carries a `padding-right: $card-edge` now and the two are 40 each.
   // If either end of this rule changes, measure the other one before believing it still lines up.
-  padding: 0 geo.$card-edge 0 (geo.$col-grip + geo.$card-edge);
+  padding: 0 geo.$card-edge 0 var(--apg-lead);
   background: lms.$lms-surface;
   border-bottom: 1px solid lms.$lms-divider;
   @include geo.micro-caps;

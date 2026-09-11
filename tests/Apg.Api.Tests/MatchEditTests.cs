@@ -169,19 +169,134 @@ public class MatchEditTests
         Assert.Null(match.PricePerKg);
     }
 
-    // --- confirm, cancel, delete ------------------------------------------------------------------
+    // --- notify, confirm, cancel, delete ------------------------------------------------------------
 
+    /// <summary>
+    /// Every match here is an ANZCO one, so the only clause under test is the status. The processor
+    /// clause has its own test below — picking "the first drafted match" would otherwise silently
+    /// become a test of whichever processor the seed happened to put first.
+    /// </summary>
     [Fact]
-    public void Confirm_is_refused_for_anything_but_a_draft()
+    public void Notify_is_refused_for_anything_but_a_draft()
     {
-        var drafted = Seed.Matches.First(m => m.Status == MatchStatus.Drafted);
-        var confirmed = Seed.Matches.First(m => m.Status == MatchStatus.Confirmed);
-        var cancelled = Seed.Matches.First(m => m.Status == MatchStatus.Cancelled);
+        var drafted = AnzcoMatch(MatchStatus.Drafted);
+        var confirmed = AnzcoMatch(MatchStatus.Confirmed);
+        var cancelled = AnzcoMatch(MatchStatus.Cancelled);
+
+        Assert.Null(MatchWriter.RejectNotify(Seed, drafted));
+        Assert.Equal(
+            MatchLifecycle.OnlyDraftedCanBeNotified,
+            MatchWriter.RejectNotify(Seed, confirmed));
+        Assert.Equal(
+            MatchLifecycle.OnlyDraftedCanBeNotified,
+            MatchWriter.RejectNotify(Seed, cancelled));
+        Assert.Equal(MatchWriter.NoSuchMatch, MatchWriter.RejectNotify(Seed, null));
+    }
+
+    /// <summary>
+    /// Notification is ANZCO's alone (Mark, 2026-09-11). The seed's 70/20/10 mix means there really
+    /// are drafted matches on all three processors' spaces, so this asserts over whatever the seed
+    /// produced rather than over a hand-built pair.
+    /// </summary>
+    [Fact]
+    public void Notify_is_refused_for_a_processor_that_does_not_receive_notifications()
+    {
+        var drafts = Seed.Matches.Where(m => m.Status == MatchStatus.Drafted).ToList();
+
+        var byProcessor = drafts
+            .Select(m => (Match: m, Space: Seed.Spaces.First(s => s.Id == m.ProcessorSpaceId)))
+            .ToList();
+
+        var notAnzco = byProcessor.Where(p => p.Space.Processor != "ANZCO").ToList();
+
+        // The case exists in the seed at all. Without this the test could pass on an empty sequence.
+        Assert.NotEmpty(notAnzco);
+
+        foreach (var (match, space) in notAnzco)
+        {
+            Assert.Equal(
+                $"{space.Processor} does not receive match notifications",
+                MatchWriter.RejectNotify(Seed, match));
+        }
+
+        Assert.All(
+            byProcessor.Where(p => p.Space.Processor == "ANZCO"),
+            p => Assert.Null(MatchWriter.RejectNotify(Seed, p.Match)));
+    }
+
+    /// <summary>
+    /// The footer's gate and the endpoint's are one answer, asked once. A modal that offered Notify
+    /// on a match the server would refuse is the kind of disagreement that only shows up in a demo.
+    /// </summary>
+    [Fact]
+    public void The_edit_context_carries_the_same_notify_gate_the_endpoint_enforces()
+    {
+        foreach (var match in Seed.Matches.Where(MatchQuantities.IsLive))
+        {
+            var context = MatchWriter.EditContext(Seed, match.Id);
+
+            Assert.NotNull(context);
+            Assert.Equal(MatchWriter.RejectNotify(Seed, match) is null, context!.CanNotify);
+        }
+    }
+
+    /// <summary>A seeded match at <paramref name="status"/> whose space is ANZCO's.</summary>
+    private static Match AnzcoMatch(MatchStatus status) =>
+        Seed.Matches.First(m =>
+            m.Status == status &&
+            Seed.Spaces.First(s => s.Id == m.ProcessorSpaceId).Processor == "ANZCO");
+
+    /// <summary>
+    /// Notified is an entry into Confirmed, and the seed has no Notified match to draw on — it never
+    /// creates one, because nothing but an operator pressing the button does. So this notifies a
+    /// draft first, which is also the sequence the modal produces. On a clone, since it mutates.
+    /// </summary>
+    [Fact]
+    public void Confirm_is_refused_for_anything_but_a_live_unconfirmed_match()
+    {
+        var set = Clone();
+        var drafted = set.Matches.First(m => m.Status == MatchStatus.Drafted);
+        var confirmed = set.Matches.First(m => m.Status == MatchStatus.Confirmed);
+        var cancelled = set.Matches.First(m => m.Status == MatchStatus.Cancelled);
 
         Assert.Null(MatchWriter.RejectConfirm(drafted));
-        Assert.Equal(MatchLifecycle.OnlyDraftedCanBeConfirmed, MatchWriter.RejectConfirm(confirmed));
-        Assert.Equal(MatchLifecycle.OnlyDraftedCanBeConfirmed, MatchWriter.RejectConfirm(cancelled));
+
+        MatchLifecycle.Notify(drafted);
+        Assert.Null(MatchWriter.RejectConfirm(drafted));
+
+        Assert.Equal(MatchLifecycle.OnlyALiveMatchCanBeConfirmed, MatchWriter.RejectConfirm(confirmed));
+        Assert.Equal(MatchLifecycle.OnlyALiveMatchCanBeConfirmed, MatchWriter.RejectConfirm(cancelled));
         Assert.Equal(MatchWriter.NoSuchMatch, MatchWriter.RejectConfirm(null));
+    }
+
+    /// <summary>
+    /// A notified match blocks its space's confirmation exactly as a draft does, and — the part worth
+    /// testing — the sentence beside the disabled button now says so. It read "and no drafts" until
+    /// Notified became reachable, which would have denied on screen what the gate was doing.
+    /// </summary>
+    [Fact]
+    public void A_notified_match_blocks_its_spaces_confirmation_and_the_reason_says_so()
+    {
+        var set = Clone();
+
+        // A Booked space, or the reason would be "already confirmed" / "this space is cancelled" and
+        // the test would pass without ever reaching the clause it is about.
+        var space = set.Spaces.First(s =>
+            s.Status == ProcessorSpaceStatus.Booked &&
+            set.Matches.Any(m => m.ProcessorSpaceId == s.Id && m.Status == MatchStatus.Drafted));
+
+        // Every live match on the space, so the block that remains is Notified's alone and the old
+        // wording would have been describing a state that no longer exists.
+        foreach (var live in set.Matches.Where(m =>
+            m.ProcessorSpaceId == space.Id && m.Status == MatchStatus.Drafted))
+        {
+            MatchLifecycle.Notify(live);
+        }
+
+        var reason = MatchWriter.RejectSpaceConfirm(set, space);
+
+        Assert.Equal(ProcessorSpaceRules.NeedsConfirmedMatches, reason);
+        Assert.DoesNotContain("draft", reason, StringComparison.OrdinalIgnoreCase);
     }
 
     [Fact]

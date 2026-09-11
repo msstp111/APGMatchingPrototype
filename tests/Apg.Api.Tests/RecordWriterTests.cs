@@ -2,6 +2,7 @@ using Apg.Api.Contracts;
 using Apg.Api.Seeding;
 using Apg.Domain.Entities;
 using Apg.Domain.Matching;
+using Apg.Domain.Time;
 
 namespace Apg.Api.Tests;
 
@@ -380,7 +381,7 @@ public class RecordWriterTests
     [Fact]
     public void The_reference_data_is_the_seed_configs_lists_and_keeps_the_two_vocabularies_apart()
     {
-        var data = RecordWriter.ReferenceData();
+        var data = RecordWriter.ReferenceData(Set(), Clock());
 
         Assert.Equal(SeedConfig.Processors, data.Processors.Select(p => p.Name));
         Assert.Equal(SeedConfig.AvailabilityStockClasses, data.AvailabilityStockClasses);
@@ -406,6 +407,79 @@ public class RecordWriterTests
         Assert.DoesNotContain("Deer", anzco);
     }
 
+    /// <summary>
+    /// The week picker has to be able to express the delivery date of every record it might be opened
+    /// on. A week missing from the list is an Edit that opens with an empty week control and cannot be
+    /// saved until the operator moves the date it was opened to look at.
+    /// </summary>
+    [Fact]
+    public void The_selectable_weeks_cover_every_loaded_record_and_the_current_week()
+    {
+        var set = Set();
+        var clock = Clock();
+        var weeks = RecordWriter.SelectableWeeks(set, clock)
+            .Select(week => week.WeekCommencing)
+            .ToHashSet();
+
+        foreach (var space in set.Spaces)
+        {
+            Assert.Contains(NzTime.WeekCommencing(space.DeliveryDate), weeks);
+        }
+
+        foreach (var availability in set.Availabilities)
+        {
+            Assert.Contains(NzTime.WeekCommencing(availability.AvailableFrom), weeks);
+        }
+
+        Assert.Contains(NzTime.CurrentWeekCommencing(clock), weeks);
+    }
+
+    /// <summary>
+    /// It reaches a quarter past the last record, because a picker that stopped there could never be
+    /// the form that enters the first record of a new week.
+    /// </summary>
+    [Fact]
+    public void The_selectable_weeks_reach_past_the_last_record_and_before_the_first()
+    {
+        var set = Set();
+        var weeks = RecordWriter.SelectableWeeks(set, Clock());
+
+        var latestRecord = NzTime.WeekCommencing(set.Spaces.Max(space => space.DeliveryDate));
+        var earliestRecord = NzTime.WeekCommencing(set.Spaces.Min(space => space.DeliveryDate));
+
+        Assert.Contains(weeks, week => week.WeekCommencing >= NzTime.PlusWeeks(latestRecord, RecordWriter.WeeksAhead));
+        Assert.Contains(weeks, week => week.WeekCommencing <= NzTime.PlusWeeks(earliestRecord, -RecordWriter.WeeksBehind));
+    }
+
+    /// <summary>
+    /// Seven days a week, Sunday first, each carrying the date the form actually submits. The form
+    /// picks a week and a weekday and reads <c>Days[index].Date</c> off this list — it may not compose
+    /// a date itself, so a short or misordered week is a date the client cannot express.
+    /// </summary>
+    [Fact]
+    public void Every_selectable_week_carries_its_seven_days_from_its_own_sunday()
+    {
+        var weeks = RecordWriter.SelectableWeeks(Set(), Clock());
+
+        Assert.All(weeks, week =>
+        {
+            Assert.Equal(DayOfWeek.Sunday, week.WeekCommencing.DayOfWeek);
+            Assert.Equal(7, week.Days.Count);
+            Assert.Equal(week.WeekCommencing, week.Days[0].Date);
+
+            for (var day = 0; day < 7; day++)
+            {
+                Assert.Equal(week.WeekCommencing.AddDays(day), week.Days[day].Date);
+                Assert.Equal(NzTime.WeekdayLabel(week.Days[day].Date), week.Days[day].WeekdayLabel);
+                Assert.Equal(NzTime.DateLabel(week.Days[day].Date), week.Days[day].DateLabel);
+            }
+        });
+
+        // Ordered and gapless, so the picker is a calendar rather than a set of the weeks in use.
+        Assert.Equal(weeks.OrderBy(week => week.WeekCommencing).Select(w => w.WeekCommencing), weeks.Select(w => w.WeekCommencing));
+        Assert.Single(weeks, week => week.IsCurrentWeek);
+    }
+
     [Fact]
     public void Every_location_offers_the_one_farmer_it_belongs_to()
     {
@@ -419,6 +493,13 @@ public class RecordWriterTests
             locations.Select(l => l.Name).OrderBy(name => name, StringComparer.OrdinalIgnoreCase),
             locations.Select(l => l.Name));
     }
+
+    /// <summary>
+    /// The seed's own anchor week, so "the current week" here is the week the fixture was built around
+    /// rather than whichever week the suite happens to run in.
+    /// </summary>
+    private static FixedClock Clock() =>
+        new(new DateTimeOffset(SeedFixture.Anchor.ToDateTime(TimeOnly.MinValue).AddHours(12), TimeSpan.FromHours(12)));
 
     private static CreateLivestockAvailabilityRequest Create(string stockClass) =>
         new()

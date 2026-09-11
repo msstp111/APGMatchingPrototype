@@ -1,4 +1,5 @@
 import { ChangeDetectionStrategy, Component, computed, inject, output } from '@angular/core';
+import { MatTooltip, MatTooltipModule } from '@angular/material/tooltip';
 import { DemoReset } from '../demo-reset/demo-reset';
 import { MatchingPreferences } from '../../matching/filters/matching-preferences';
 
@@ -14,6 +15,7 @@ import { MatchingPreferences } from '../../matching/filters/matching-preferences
 @Component({
   selector: 'app-top-bar',
   changeDetection: ChangeDetectionStrategy.OnPush,
+  imports: [MatTooltipModule],
   templateUrl: './top-bar.html',
   styleUrl: './top-bar.scss',
 })
@@ -70,5 +72,28 @@ export class TopBar {
 
   toggleDragAnywhere(): void {
     this.preferences.toggleDragAnywhere();
+  }
+
+  readonly keepGrips = this.preferences.keepGrips;
+
+  readonly keepGripsTitle = computed(() =>
+    this.keepGrips()
+      ? 'Grips shown. Every card keeps its 30px handle at the left. Click to hide them and give ' +
+        'those 30px back to the name.'
+      : 'Grips hidden. Cards drag from the row itself, and the name column is 30px wider. Click ' +
+        'to put the handles back.',
+  );
+
+  /**
+   * Flips the grips and then shows the tooltip, which is the whole of the press's feedback.
+   *
+   * The thing that changes is in the list below and the operator is looking at the top bar, so
+   * without this the button reports its new state only to someone who moves the pointer away and
+   * back. `show()` rather than a snack: it is a one-line statement about the control just pressed,
+   * and it belongs on that control.
+   */
+  toggleKeepGrips(tooltip: MatTooltip): void {
+    this.preferences.toggleKeepGrips();
+    tooltip.show();
   }
 }

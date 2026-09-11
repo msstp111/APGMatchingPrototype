@@ -12,6 +12,10 @@ import {
 } from './filter-defaults';
 import {
   activeDemandFilters,
+  clausesHidingAvailability,
+  clausesHidingSpace,
+  widenForAvailability,
+  widenForSpace,
   activeSupplyFilters,
   demandMoreCount,
   filterAvailability,
@@ -382,5 +386,119 @@ describe('Sorting', () => {
     ]);
     expect(board.demand[0].spaces.map((space) => space.id)).toEqual([2, 1]);
     expect(board.demand[1].spaces.map((space) => space.id)).toEqual([3]);
+  });
+});
+/**
+ * The reveal's pure half (2026-09-10): which clauses hide a record, and the smallest widening that
+ * stops them.
+ *
+ * Shaped this way for the reason `column-auto-scroll.ts` exports `scrollStep` — the interesting
+ * decision is arithmetic-free data in, data out, and jsdom has no layout engine to test the scroll
+ * through. The scroll and the flash are a browser-checklist row; this is the part a test can hold.
+ */
+describe('Revealing a record the filters hide', () => {
+  it('names no clause when the record is already visible', () => {
+    const space = aSpace({ status: 'Booked', unmatched: 40 });
+
+    expect(clausesHidingSpace(space, DEFAULT_DEMAND_FILTERS)).toEqual([]);
+    expect(filterSpaces([space], DEFAULT_DEMAND_FILTERS)).toHaveLength(1);
+  });
+
+  /**
+   * The case that makes the whole feature necessary: the default demand filter is `Booked`, so a
+   * CONFIRMED space — which is what a finished match points at — is hidden by definition.
+   */
+  it('names the status clause for a confirmed space under the defaults', () => {
+    const space = aSpace({ status: 'Confirmed', unmatched: 0 });
+
+    expect(clausesHidingSpace(space, DEFAULT_DEMAND_FILTERS)).toEqual(['statuses']);
+  });
+
+  /** And its supply equivalent: allocated in full, so `unmatched > 0` drops it. */
+  it('names the unmatched clause for a fully allocated availability record', () => {
+    const record = anAvailability({ status: 'Pending', unmatched: 0 });
+
+    expect(clausesHidingAvailability(record, DEFAULT_SUPPLY_FILTERS)).toEqual(['hasUnmatched']);
+  });
+
+  it('names every clause that excludes it, not just the first', () => {
+    const space = aSpace({ status: 'Cancelled', processor: 'SFF', unmatched: 0 });
+    const filters: DemandFilters = {
+      ...DEFAULT_DEMAND_FILTERS,
+      processors: ['ANZCO'],
+      hasUnmatched: true,
+    };
+
+    expect(clausesHidingSpace(space, filters)).toEqual(['statuses', 'processors', 'hasUnmatched']);
+  });
+
+  /**
+   * The load-bearing assertion, and the reason widening ADDS rather than replaces: an operator who
+   * filtered the column to ANZCO still has their filter afterwards. Phase 7's `SHOW IT` made the
+   * same choice for the same reason.
+   */
+  it('widens only the clauses that were hiding it, and keeps what was already selected', () => {
+    // Its stock class matches the filter deliberately: the point of the test is that a clause
+    // which is NOT hiding the record comes back untouched, and a fixture the clause excludes would
+    // have proved the opposite while looking the same.
+    const space = aSpace({
+      status: 'Confirmed',
+      processor: 'SFF',
+      plant: 'Te Aroha',
+      stockClass: 'Lamb',
+    });
+    const filters: DemandFilters = {
+      ...DEFAULT_DEMAND_FILTERS,
+      processors: ['ANZCO'],
+      stockClasses: ['Lamb'],
+    };
+
+    const widened = widenForSpace(space, filters);
+
+    expect(widened.statuses).toContain('Confirmed');
+    expect(widened.statuses).toContain('Booked');
+    expect(widened.processors).toEqual(['ANZCO', 'SFF']);
+    // Untouched, because it was never what was hiding this record.
+    expect(widened.stockClasses).toEqual(['Lamb']);
+    expect(filterSpaces([space], widened)).toHaveLength(1);
+  });
+
+  /**
+   * A week and "must have unmatched quantity" are all-or-nothing: there is no value to add that
+   * would let one more record through, so the smallest change that works is to clear them.
+   */
+  it('clears the clauses that cannot be widened by addition', () => {
+    const space = aSpace({ status: 'Booked', weekCommencing: '2026-08-16', unmatched: 0 });
+    const filters: DemandFilters = {
+      ...DEFAULT_DEMAND_FILTERS,
+      weekCommencing: '2026-08-23',
+      hasUnmatched: true,
+    };
+
+    const widened = widenForSpace(space, filters);
+
+    expect(widened.weekCommencing).toBeNull();
+    expect(widened.hasUnmatched).toBe(false);
+    expect(filterSpaces([space], widened)).toHaveLength(1);
+  });
+
+  it('widens the supply side the same way', () => {
+    const record = anAvailability({ status: 'Confirmed', unmatched: 0 });
+    const widened = widenForAvailability(record, DEFAULT_SUPPLY_FILTERS);
+
+    expect(filterAvailability([record], widened)).toHaveLength(1);
+    expect(widened.statuses).toContain('Booked');
+    expect(widened.statuses).toContain('Pending');
+  });
+
+  /**
+   * Widening is idempotent and never fires when it is not needed — the caller checks
+   * `clausesHiding*` first, and this is the guarantee that makes doing so safe rather than merely
+   * tidy: a widen on a visible record must not quietly relax anything.
+   */
+  it('changes nothing when the record was already visible', () => {
+    const space = aSpace({ status: 'Booked', unmatched: 40 });
+
+    expect(widenForSpace(space, DEFAULT_DEMAND_FILTERS)).toEqual(DEFAULT_DEMAND_FILTERS);
   });
 });

@@ -79,8 +79,7 @@ export function aSpace(overrides: Partial<ProcessorSpaceDto> = {}): ProcessorSpa
       quantityRequired: 100,
       deliveryDate: '2026-08-27',
       deliveryDateLabel: '27-08-26',
-      deliveryDayLabel: '27',
-      deliveryMonthLabel: 'Aug',
+      deliveryWeekdayLabel: 'Thu',
       deliveryTime: 'Morning',
       notes: null,
       status: 'Booked',
@@ -96,7 +95,7 @@ export function aSpace(overrides: Partial<ProcessorSpaceDto> = {}): ProcessorSpa
       canConfirm: false,
       // Not null: the default space has no matches, so Confirm is blocked and has to say why. A fixture
       // whose canConfirm and confirmBlockedReason disagreed would be a state the API cannot produce.
-      confirmBlockedReason: 'Needs at least one confirmed match and no drafts',
+      confirmBlockedReason: 'Needs every match confirmed, and at least one',
       /**
        * The tags the server would ship beside this stock class — `Nat Beef - Premium` is the graded
        * beef programme, so it carries that one tag and nothing else.

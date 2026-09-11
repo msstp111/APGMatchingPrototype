@@ -10,7 +10,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 Pass 1 is **complete**. Phases 0 to 8 are done: the solution, the Angular app, EF Core + SQLite and the deterministic seeder are in place, the LMS shell (top bar + sidebar) is built, every computed quantity, status and date rule lives in `Apg.Domain` and reaches the client on the DTO contract, Phase 2 settled the visual language in `Documents/design-system.md`, Phase 3 built the matching screen's two week-banded card lists with expand/collapse, Phase 3b removed the carry-over cards it had shipped and replaced them with the trimmed backlog (resolved question 17), Phase 4 added per-column filters, sorting within the bands, the column flip and reset-to-default, Phase 5 added drag-to-match (CDK across the two columns, quantity prompt, Drafted matches, undo), Phase 6 gave a match the rest of its life — open from either side, edit, delete a draft, cancel with a reason, confirm, and confirm a Processor Space, Phase 7 added the debug record forms: + Add on both columns, Edit and Cancel on every card, and the counterparty flag that shows a cancelled record has not taken its matches with it, and Phase 8 closed pass 1 — Reset demo data in the top bar, the empty/loading/error states, the quantity ramp made consistent everywhere, the grab glyph, and `Documents/DEMO.md`. See `Documents/BUILD-LOG.md` for what each phase actually did and `Documents/DEMO.md` for the walkthrough.
 
-**What pass 1 deliberately does not do:** no record detail pages; no Match list view, so a cancelled match is visible nowhere; no farmer/agent submission flow (the `+ Add` buttons are demo scaffolding); no login and no roles, so no per-processor visibility gating; no notifications, so `Notified` has no UI transition; no default-pricing maintenance; no weekly roll-ups; no Finance Stock draw-down; and no keyboard drag path (resolved question 14). None of those is a defect — see the roadmap's "Deferred beyond pass 1".
+**What pass 1 deliberately does not do:** no record detail pages; no Match list view, so a cancelled match is visible nowhere; no farmer/agent submission flow (the `+ Add` buttons are demo scaffolding); no login and no roles, so no per-processor visibility gating; no notification **mediums** — `Notified` is reachable from 2026-09-11 and sends nothing (see "Notifying a match" below); no default-pricing maintenance; no weekly roll-ups; no Finance Stock draw-down; and no keyboard drag path (resolved question 14). None of those is a defect — see the roadmap's "Deferred beyond pass 1".
 
 **The matching screen now creates and manages both records and matches.** Dragging a card onto a card in the other column drafts a match; the match line on line 2 opens the card, and every row of the expanded match table opens that match's modal. Records are created, edited and cancelled from the debug controls (Phase 7), which are marked as demo scaffolding and are **not** the farmer/agent submission flow. There is no keyboard drag path (resolved question 14).
 
@@ -74,7 +74,7 @@ means something specific here.
 - The three read endpoints are `GET /api/processor-spaces`, `GET /api/livestock-availability` and `GET /api/week-bands`. Since Phase 1 they return the **DTO contract** — `src/Apg.Api/Contracts/Dtos.cs`, mirrored field for field in `web/src/app/api/models.ts` — carrying every computed field. The raw-record shapes Phase 0 returned are gone.
 - **Write path (Phase 5):** `GET /api/match-proposal?processorSpaceId=&livestockAvailabilityId=` (default, ceiling, refusal, default price — asked at drop, before any dialog), `POST /api/matches` (always a new `Drafted` row; never merges), `DELETE /api/matches/{id}` (Drafted only — the undo, and Phase 6's delete-draft), `GET /api/transport-companies` (`SeedConfig.TransportCompanies`). Create and delete return both parents recomputed (`MatchWriteResultDto`); the client patches the two records by id.
 - **Write path (Phase 7 — debug record creation):** `GET /api/reference-data` (processors, each with **its own** plants and stock classes, plus the single availability stock-class list and the transaction types — all from `SeedConfig`, never derived from the loaded records the way the filter row options are); `GET /api/locations` (~299, each with the one farmer it belongs to); `POST /api/processor-spaces`, `PUT /api/processor-spaces/{id}` (**quantity, plant, delivery date, delivery time, notes only** — processor and stock class are not editable), `POST /api/processor-spaces/{id}/cancel`, and the three availability equivalents (`PUT` there edits **every** attribute). All six return `RecordWriteResultDto` — **the one record they touched, plus the recomputed week calendar**: a record created for a week the columns were not drawn on places into no band at all, and the client may not name a new week itself. Validation lives in `src/Apg.Api/Contracts/RecordWriter.cs`, pure over a `WorkingSet` exactly as `MatchWriter` is. **Cancelling a record never touches its matches** — the endpoints never consult the match set, and the domain helpers take none.
-- **Write path (Phase 6):** `GET /api/matches/{id}` → `MatchEditContextDto` (the match, **both** parents in full, and `maximumQuantity` — the edit ceiling); `PUT /api/matches/{id}` (edit the three fields); `POST /api/matches/{id}/confirm` (Drafted → Confirmed, and it **takes the edit body** so a dirty form saves and confirms in one write); `POST /api/matches/{id}/cancel` (past Drafted, reason required, returns `match: null`); `POST /api/processor-spaces/{id}/confirm` (returns a bare `ProcessorSpaceDto`, not the two-parent shape — confirming a space touches no availability record). Every one is addressed **by match id alone**, which is why the same match is openable from either card without two code paths.
+- **Write path (Phase 6):** `GET /api/matches/{id}` → `MatchEditContextDto` (the match, **both** parents in full, and `maximumQuantity` — the edit ceiling); `PUT /api/matches/{id}` (edit the three fields); `POST /api/matches/{id}/notify` (Drafted → Notified, 2026-09-11 — **ANZCO only, and it sends nothing**; 409 with the processor's name for the other two); `POST /api/matches/{id}/confirm` (Drafted **or Notified** → Confirmed, and it **takes the edit body** so a dirty form saves and confirms in one write; notify takes it for the same reason); `POST /api/matches/{id}/cancel` (past Drafted, reason required, returns `match: null`); `POST /api/processor-spaces/{id}/confirm` (returns a bare `ProcessorSpaceDto`, not the two-parent shape — confirming a space touches no availability record). Every one is addressed **by match id alone**, which is why the same match is openable from either card without two code paths.
 - **`GET /api/week-bands`** (Phase 3) returns an ordered, gapless `WeekBandDto[]`: every Sunday from the earliest record's week to the latest, always including the current week, each with `weekCommencingLabel` (`23-08-26`), `weekOfLabel` (`23 Aug`), `isCurrentWeek` and `isPastWeek`. It exists because requirement 1.6 wants a header on a week **no record falls in**, and the client cannot name such a week without doing date arithmetic. It is a calendar, not a record set: it carries no record ids, deliberately. The server ships one full list and **the client trims it per column** (Phase 3b) — each column starts at the week of its own earliest record, so the endpoint must keep returning the whole run.
 
 ### Conventions
@@ -102,10 +102,44 @@ Domain rules live in C# in `Apg.Domain` (no EF, no ASP.NET) and reach the client
 ### Where the rules actually live (Phase 1)
 
 - **`src/Apg.Domain/Matching/`** — `CancelledRecords` (which records are cancelled; **every quantity and status rule takes one**), `MatchQuantities` (both sums, `Tally`, `ForSpace`, `ForAvailability`, `ConsumingSpace`/`ConsumingAvailability`), `QuantityTally` (`Unmatched`, `State`), `QuantityState` / `MatchSide` / `QuantityStateLabels`, `AvailabilityStatus.Derive`, `ProcessorSpaceRules` (`CanConfirm` **and** `ConfirmBlockedReason`, expressed over the same clauses so the gate and its explanation cannot drift), `MatchCreation` (`Propose`, `DefaultMatchQuantity`, `MaxMatchQuantity`, `NoUnmatchedQuantity`), `MatchLifecycle` (`CanDelete` / `CanConfirm` / `CanCancel` / `Confirm`, plus their refusal strings), `RecordCancellation`.
-- **`src/Apg.Domain/Matching/StockClassCompatibility.cs`** — which stock classes could plausibly be matched, as **group tags** (`GroupsFor`, `AreCompatible`, `IsKnown`). One name-keyed table serves **both** vocabularies, because where a name appears on both sides it means the same animal. It exists only for the matching screen's "Filter on drag" aid: **nothing is gated on it**, no endpoint consults it, and an unrecognised class carries *every* tag so it fails towards being visible. Lamb and Mutton are deliberately not interchangeable.
+- **`src/Apg.Domain/Matching/ProcessorNotifications.cs`** — which processors have match notification
+  in their lifecycle. **ANZCO, and nobody else** (2026-09-11). `Receives(processor)` is name-keyed
+  and case-insensitive, and `NotifyingIsNotPartOfTheirProcess(processor)` is the refusal. Consulted
+  by exactly one thing, `MatchLifecycle.CanNotify` / `NotifyBlockedReason`.
+- **`src/Apg.Domain/Matching/StockClassCompatibility.cs`** — which stock classes could plausibly be matched, as **group tags** (`GroupsFor`, `AreCompatible`, `IsKnown`). One name-keyed table serves **both** vocabularies, because where a name appears on both sides it means the same animal. It exists only for the matching screen's "Filter on drag" aid: **nothing is gated on it**, no endpoint consults it, and an unrecognised class carries *every* tag so it fails towards being visible. Lamb and Mutton are deliberately not interchangeable. **A generic class carries every tag of the specific ones it stands over** — `AnyLamb` for an unqualified `Lamb`, `AnyCattle` for a generic `Cattle` — which is why the aid is tags intersecting and not a pair list; the specific ones carry only their own, so ANZCO's `Lamb ABF`, `Lamb QA` and `Lamb ANZCO-owned` all reach a plain `Lamb` space and none of them reaches another programme.
 - **`src/Apg.Domain/Pricing/PriceTable.cs`** — `DefaultPricePerKg`, keyed on the Processor Space stock class.
 - **`src/Apg.Domain/Time/NzTime.cs`** — the *only* home for date rules: `WeekCommencing`, `ToNzDate`, `Today(TimeProvider)`, `CurrentWeekCommencing(TimeProvider)`, `DateLabel`, `WeekLabel`, `AtNzTime`, and from Phase 3 `ShortDateLabel` / `ShortDateLabelFormat` (`d MMM` → `16 Aug`, `1 Sep`) and `WeeksFrom(first, last)` (contiguous inclusive Sundays, both ends normalised — still the source of `/api/week-bands`). Extend this file; never start a second one.
 - **`src/Apg.Api/Contracts/`** — `Dtos.cs`, `MatchingProjection` (computes nothing; calls the domain for every value), `WorkingSetLoader`, `PriceTableLoader`, `MatchWriter` (pure over a `WorkingSet` + `PriceTable` — Propose / Reject / Drafted / RejectDelete), `MatchResponses`, `ApiJson` (the wire format, shared with the tests).
+
+**The demand card's date cell is a weekday, and the space form asks for a date in two parts
+(2026-09-11).** Both halves of one change, and the second only makes sense because of the first. A
+Processor Space is drawn inside the band of its own delivery **week**, and that band header names the
+week — so the day of the month and its month, stacked over the card's two lines, were spending the
+narrowest column on the screen restating what the header above them said. The cell now holds
+`deliveryWeekdayLabel` alone (`Thu`, `NzTime.WeekdayLabel`, `ddd`), under a `DAY` heading, with
+**nothing** in that column on line 2; the full `dd-MM-yy` is the row's hover text. `DeliveryDayLabel`
+and `DeliveryMonthLabel` are **off the space DTO** — the **supply** card still splits its date and
+keeps both, because its column has no week filter (resolved question 17) and its bands are a backlog
+rather than a schedule. Four things follow:
+
+- **The form's date is a lookup, never a sum.** `ReferenceDataDto.weeks` is a list of
+  `WeekOptionDto`, each carrying its **seven days** with their ISO dates, and `space-form.ts` submits
+  `week.days[index].date`. Composing it client-side would advance an ISO string by a weekday's offset,
+  which `no-domain-arithmetic.spec.ts` forbids — the same rule that made this a native
+  `<input type="date">` in Phase 7, since that control's value *was* the ISO string. **The API
+  contract is unchanged**: `POST`/`PUT` still take one `deliveryDate`.
+- **The weekday control holds an index (0 = Sunday), not a date**, so changing the week keeps the
+  weekday and "the same slot, a week later" is one click. A date there would have to be recomputed
+  against the new week, which is the one thing this form may not do.
+- **`weeks` is the only thing on the reference data derived from the loaded records**, and it has to
+  be: the picker must express the delivery date of every record `Edit` might open on, or that edit
+  opens empty and cannot be saved without moving the date. `RecordWriter.SelectableWeeks` spans every
+  record and the current week, as the band list does, then reaches `WeeksAhead` (13) past the end —
+  a picker that stopped at the last record could never enter the first record of a new week. This is
+  why `/api/reference-data` loads the working set now.
+- **`NzTime` gained `WeekdayLabel`, `DaysOfWeek` and `PlusWeeks`**, and nothing else may grow a second
+  copy of any of them. Verified in the running app, both halves — `Documents/browser-checklist.md`
+  carries the run.
 
 **Dates on the wire:** every business date is a `DateOnly` serialising as `yyyy-MM-dd`, and **always ships alongside a preformatted label** in LMS's `dd-MM-yy` (`23-08-26`). Where a date appears in prose rather than in a column it also ships a short label in `d MMM` (`16 Aug`) — `WeekBandDto.WeekOfLabel` and `LivestockAvailabilityDto.AvailableFromShortLabel`; the client supplies only the surrounding word ("Week of", "since"), because the week rail stacks them on separate lines. The client renders the label and must never construct a JavaScript `Date` from the ISO value. Change the formats in `NzTime.DateLabelFormat` / `NzTime.ShortDateLabelFormat`, nowhere else.
 
@@ -134,6 +168,8 @@ drag/card-press.ts        [cardPress] — "Drag anywhere" (2026-09-09). The clic
                           the card's middle region, plus DRAG_SLOP (8) and CARD_DRAG_CONFIG
 drag/stock-class-affinity.ts  the pure half: do two records' stockClassGroups intersect
 drag/nothing-compatible.ts    the third empty state — narrowed to nothing (Alliance Group's Deer)
+match/reveal-record.ts    root RevealRecord — follow a match to its counterparty in the OTHER
+                          column: scroll, flash, and offer to widen the filter hiding it
 match/record-patches.ts   root RecordPatches — THE write stream. Every writer publishes; the screen
                           subscribes once. A patch may carry one record or both, and an absent half
                           means "the server did not say", not "unchanged by omission".
@@ -171,6 +207,7 @@ record/record-actions.ts   root — add / edit / cancel for both record types. O
 record/space-form.ts      add AND edit in one dialog. The plant and stock-class pickers hold the chosen
                           processor's own lists, and changing processor CLEARS a now-invalid selection.
                           On an edit, processor and stock class render read-only (requirement 4.2).
+                          The delivery date is TWO controls since 2026-09-11 — see below.
 record/availability-form.ts  every attribute editable; the location picker types ahead over ~300 and
                           shows back the farmer it settled. Finance Stock opens no Purchase list.
 record/cancel-record.ts   lists every match that will SURVIVE the cancellation, by name
@@ -188,7 +225,53 @@ testing/dto-fixtures.ts   DTO builders for the specs only
 
 **Drag (Phase 5).** Each card is its own `cdkDropList` (sorting disabled, CDK auto-scroll disabled) holding one `cdkDrag`, and both columns sit in one `cdkDropListGroup` on the screen. The drop never transfers arrays — it reads `item.data` and `container.data`, resolves them through `pairFromDrop` (requirement 1.2: one function, both directions), and asks `GET /api/match-proposal`. Same-column enter-predicate returns false (silent no-op). Escape sets a cancelled flag; CDK has no Escape handling of its own, and `cdkDragEnded` fires *before* `cdkDropListDropped`, so the flag must not be cleared on `ended`. CDK's auto-scroll would scroll the *source* column when the pointer is over a band header in the target, so it is replaced by `columnAutoScroll` (48px zone, `$auto-scroll-zone` / `AUTO_SCROLL_ZONE` — one number in two places). **No keyboard drag path.** The default, the ceiling and the refusal string all arrive from the server; `no-domain-arithmetic.spec.ts`'s allow-list is still exactly two files.
 
-**Getting to a match (Phase 6).** Line 2 shows `matchSummaryLabel` — `2 matches · 1 draft` / `1 match · confirmed` / `no matches` — live matches only (cancelled ones never reach the client); the hover `title` is `matchBreakdown`. With matches it is a **button that toggles the card's expansion**, and every row of the expanded match table opens that match's modal. Two consequences worth knowing: the label sits inside the card body, which since 2026-09-07 toggles the expansion itself, so the button **stops the click** or the body's handler would toggle straight back and the card would look unresponsive (it used to stop `pointerdown` instead, because the body was the drag handle); and the row is clickable rather than growing an actions column, because the supply match table already fits seven columns in 508px and not eight. **A match is opened by id and nothing else** — `MatchActions.open(matchId)` — which is what makes the same match openable from its space and from its availability record without two code paths.
+**Notifying a match (2026-09-11).** `Notify processor` is the filled button in the match modal's
+footer on an **ANZCO draft**, and `POST /api/matches/{id}/notify` moves it to `Notified`. It amends resolved
+question 2, which had kept the status unreachable, and five things about it are load-bearing:
+
+- **Nothing is sent.** No SMS, no email, no in-app message, no outbound call anywhere in the
+  solution. The endpoint writes a status and saves; the mediums stay deferred (roadmap item 5). The
+  status is worth having without them — it is APG's record that a match has been put to the processor
+  and is waiting on their word, a distinction the board could not draw while every unconfirmed match
+  was a draft. **If a real send is ever added it goes in front of that write**, and the comment above
+  it in `Program.cs` goes with it.
+- **The prototype says so three times** and each is load-bearing on its own: the `.dispatch` caption
+  under the modal's fields (which the operator reads), the snack afterwards (`Match notified to ANZCO
+  — no message sent`, which they see when they press it again without reading), and design-system.md
+  §11.4. `Notify` on a button is a promise, and a demo room that includes processor staff will take
+  it at face value.
+- **Notify is ANZCO-only** (Mark, 2026-09-11), and the button is **absent** for Alliance Group and
+  SFF rather than disabled — notification is not part of their process, so there is no condition an
+  operator could go and satisfy. It is consistent with the visibility model the requirements already
+  describe, which is why it is a rule and not a carve-out: Alliance Group sees no matches at all, so
+  a notification would point at something they can never open, and SFF sees a restricted set only
+  once the space is Confirmed, so one sent at `Drafted` arrives before there is anything to look at.
+  The list lives in **`src/Apg.Domain/Matching/ProcessorNotifications.cs`** (a rule, so the domain,
+  exactly like `StockClassCompatibility` — **not** `SeedConfig`), it **fails closed** for an unknown
+  processor where `StockClassCompatibility` fails open, and `ProcessorNotificationTests` in the API
+  test project is what catches a name drifting out of step with `SeedConfig.Processors`, which would
+  otherwise silently remove the button from every card.
+- **`MatchEditContextDto.canNotify` is how the client knows.** `web/` holds no processor list and
+  must not grow one; the modal reads the boolean. `EditContext` sets it from `RejectNotify`, so the
+  footer's gate and the endpoint's are one answer asked once — `MatchEditTests` asserts that over
+  every live seeded match.
+- **Notify is `Drafted`-only; confirm is `Drafted` **or** `Notified`.** Notifying is a step APG may
+  take, not one it must, so the old direct move survives — which is why `MatchLifecycle.CanConfirm`
+  now names both statuses instead of testing "not Confirmed". Delete stays `Drafted`-only, so a
+  notified match is cancelled with a reason: it has been communicated to somebody.
+- **The title verb reads `canNotify`, not the status.** An SFF draft is titled `Confirm match: …`,
+  because a title naming an act the footer does not offer is worse than a generic one.
+- **`ProcessorSpaceRules.NeedsConfirmedMatches` changed wording** to `Needs every match confirmed,
+  and at least one`. It said "and no drafts", which was true only while Notified was unreachable — a
+  space whose every match is Notified has no drafts and still cannot be confirmed. **The gate itself
+  did not change**: it has always read "every live match is Confirmed". The string is quoted in
+  DEMO.md, the browser checklist, design-system.md §16 and two web fixtures; the labs under
+  `Documents/*.html` still carry the old wording and are historical.
+- **The seeder creates no Notified matches**, and `SeedDemonstrationCaseTests` still pins that at
+  zero. The only way into the status is an operator pressing the button, which keeps the demo's
+  opening state exactly as it was.
+
+**Getting to a match (Phase 6).** Line 2 shows `matchSummaryLabel` — `2 matches · 1 draft` / `2 matches · 1 notified` / `1 match · confirmed` / `no matches` — live matches only (cancelled ones never reach the client); the hover `title` is `matchBreakdown`. With matches it is a **button that toggles the card's expansion**, and every row of the expanded match table opens that match's modal. Two consequences worth knowing: the label sits inside the card body, which since 2026-09-07 toggles the expansion itself, so the button **stops the click** or the body's handler would toggle straight back and the card would look unresponsive (it used to stop `pointerdown` instead, because the body was the drag handle); and the row is clickable rather than growing an actions column, because the supply match table already fits seven columns in 508px and not eight. **A match is opened by id and nothing else** — `MatchActions.open(matchId)` — which is what makes the same match openable from its space and from its availability record without two code paths.
 
 **Filtering and sorting attach to `buildBoard`'s inputs, never its output** — `matching-screen` filters and sorts the lists and calls it again, so the band meta totals *and the per-column trim* reshape for free. Sorting the flat list before banding is also what makes a sort reorder cards **within** each week rather than dissolving the bands; there is deliberately no "ungrouped" mode.
 
@@ -293,8 +376,8 @@ is the one number both ends read.
 
 **Filter on drag (2026-09-09).** A toggle in the top bar, immediately left of `Reset demo data`:
 while a card is held, **the other column shows only the stock classes that could take it**. Grab a
-Lamb availability record and the demand column drops from 33 booked spaces to the 8 lamb ones; grab a
-Bulls space and supply drops from 42 records to 15. Off by default, persisted with the other view
+Lamb availability record and the demand column drops from 34 booked spaces to the 10 lamb ones; grab a
+Bulls space and supply drops from 45 records to 12. Off by default, persisted with the other view
 preferences, cleared by `Reset demo data`. Five things are worth knowing before touching it:
 
 - **The pairings are the domain's** (`StockClassCompatibility`) and reach the client only as
@@ -350,6 +433,108 @@ design-system.md §10.2 is the spec.
 - **Dates are a native `<input matInput type="date">`, never a Material datepicker.** The native input's value *is* the ISO `yyyy-MM-dd` string the API wants; a datepicker's control value is a JavaScript `Date`, which no file under `matching/` may construct. Registering `provideNativeDateAdapter` would put one in a form control and `no-domain-arithmetic.spec.ts` would fail, correctly.
 - **Reducing a quantity below what is already matched is allowed**, warned about, and is the only route to the pink `Over-committed` state (design-system.md §4.3). Neither the form nor the server refuses it — `RecordWriter` has no clause about matches at all.
 - **Cancelling a record never cancels its matches.** They stay live on their own cards. The dialog lists every survivor by name first; the snack says so afterwards and its `SHOW IT` action ticks `Cancelled` into that column's status filter so the card comes back; and the counterparty card flags it, on the collapsed row and in the match table, from `MatchDto.spaceStatus` / `MatchDto.availabilityStatus`.
+
+**The expanded card's actions, the grips, and the cross-column reveal (2026-09-10).** Five changes,
+and the three that will trip someone up are marked:
+
+- **`Confirm space` is `matButton="filled"`; `Edit` and `Cancel` are `matButton="outlined"`.** They
+  were text buttons, muted, so the scaffolding would not outrank the real action — and on screen a
+  muted text button is indistinguishable from a disabled one. The hierarchy is preserved by moving
+  Confirm up instead. **On the supply side there is no Confirm**, so its two outlined buttons are the
+  loudest thing in that drawer and both are scaffolding; that cost is accepted, not overlooked.
+- **The confirm-blocked reason is an `info` icon-button, not a sentence.** It must stay a real
+  `<button>` with the reason as its `aria-label` as well as its `matTooltip`, and it is a **sibling**
+  of the disabled Confirm — Material will not fire a tooltip bound to a disabled button.
+- **Clicking the drawer's sums strip collapses the card**, guarded on `document.getSelection()`:
+  the strip is all figures, and a drag-select that ended by shutting the drawer would make them
+  unreadable in the act of reading them.
+- **`Drag anywhere` hides the grips, and the top-bar control is compound.** One `.pref-toggle`
+  wrapper (`div`, `role="group"`) holding a main button and an 18px sub-button; a `<button>` cannot
+  contain a `<button>`. `MatchingPreferences.gripsVisible` = `!dragAnywhere || keepGrips` is the
+  **only** question a card asks, and expressing it as a conjunction in one place is what makes "no
+  grip and no body drag" unreachable. `keepGrips` joined `apg.matching.preferences.v2` without a
+  version bump, like the two toggles before it.
+- **The leading run is one custom property with three readers** — `--apg-lead` on `.column`, read by
+  `.strip`, by `.cbody` (as `--apg-card-lead`) and by `.expansion`. 38px with the grip, 14px without
+  (6px spine + 8px padding, **not** 8). Three conditionals in three files is three places for those
+  numbers to disagree, which is exactly the §16.10 failure. Verified live: 241/217, heading and name
+  agreeing in both states.
+
+**Clicking a match's counterparty name reveals that record in the other column** (`match/reveal-record.ts`,
+design-system.md §10.4) — scrolls to it, flashes it for 1500ms, and leaves every other cell of the
+row opening the match modal. Three things are load-bearing:
+
+- **The far column is usually hiding it.** The default filters drop exactly the records a *finished*
+  match points at (a Confirmed space; an availability record with no unmatched quantity). So the
+  reveal **offers** via a `SHOW IT` snack — §12.3 forbids changing a filter the operator did not
+  touch — and widens **only the clauses actually excluding the record**, adding to each list rather
+  than replacing it. `clausesHidingSpace` / `widenForSpace` in `filters/filter-service.ts` are pure
+  and specced; the scroll and flash are browser-checklist rows.
+- **Cards are addressed by `[attr.data-record-id]`, columns register their `.list`.** A data
+  attribute rather than an element registry, because cards are destroyed on every filter change and a
+  registry with a lifecycle can hold a dead element; the `.list` never goes away and is registered
+  exactly as `DragStore.registerColumn` already registers the column host.
+- **This is not the scroll synchronisation §9.3 forbids.** That rule is about locking two lists
+  together continuously; this moves one column once, on a click, and never couples them again.
+
+**The drag chip carries `unmatched`, not the record's total (2026-09-10)** — `dragHeadCount()` on
+both cards. The chip said `800 head` for a record with 305 left to allocate, and that also broke the
+outcome pill, whose rule is "state the figure only when it disagrees with the one above": judged
+against a total it fired for every partly-matched record and stayed silent for every fresh one.
+Against `unmatched`, **a pill means exactly one thing — the far side could not take all of it.**
+The pill itself was never broken; it was reported as a regression and is not one.
+
+**Angular's style shim scopes EVERY compound selector, not just the last.** `.nogrip .expansion::before`
+compiles to `.nogrip[_ngcontent-x] .expansion[_ngcontent-x]::before` and therefore never matches an
+ancestor class set by a different component — the rule sits in the stylesheet doing nothing. Use a
+host binding (`:host(.nogrip)`) or an inherited custom property. Cost an hour; found by reading the
+live `document.styleSheets`.
+
+**There is a headless-Chrome harness now, and it needs no dependencies.** Node 24 ships a global
+`WebSocket`, so a ~60-line CDP client can drive the running app: real drags via
+`Input.dispatchMouseEvent`, real geometry via `getBoundingClientRect`. `Documents/browser-checklist.md`
+section L is the first run this build has recorded. Two cautions if you rebuild it: the Bash tool's
+heredocs eat backslashes (a `\d` in an injected regex silently becomes `d` and the query returns
+nothing), and jsdom cannot start a CDK drag at all, so the drag preview does not exist in unit tests.
+
+**The blue ladder was rebuilt (2026-09-10).** Items 7 and 8 turned every week band blue, which broke
+the argument the open card's rail was built on, so the two had to be decided together —
+`Documents/week-band-lab.html` is the seventh lab and drew four answers for the rail against three
+band palettes. Mark chose **solid petrol**. The result:
+
+| Value | Token | Meaning |
+| --- | --- | --- |
+| `#E8F1F6` | `$lms-band` | every week band header |
+| `#DDEAF1` | `$open-rail` | an open card's grip and its drawer rail |
+| `#D1E1E8` | `$lms-drop-target` | the card under the pointer |
+| `#C6DCE8` | `$lms-band-current` | the current week |
+
+Four things about it are load-bearing:
+
+- **`$lms-band-current` must stay DEEPER than `$lms-drop-target`.** The drop target was pushed below
+  the tint originally because at equal strength a target three rows down and "this is the week you
+  are in" were indistinguishable; a current week at or above it recreates that exactly.
+- **The rail went to solid petrol and came back to `#DDEAF1` the next day** (2026-09-11). Petrol was
+  off the ladder entirely and no band could be confused with it — but on screen it was far too heavy
+  for what it says: an open card is the most ordinary state in the list, and a brand-coloured column
+  announced it like a selection. **So the collision the token's old comment warned about is now
+  live and accepted**: `#DDEAF1` sits between the two band values and within three points of
+  `$lms-drop-target`. What separates them is **shape, not value** — a 29px vertical cell against a
+  full-width row fill that also carries a 2px petrol ring and a hatched meter ghost. Verified in the
+  browser with the two adjacent. If the drop target ever loses its ring, revisit this.
+- **Do not reintroduce a separator hairline in the rail.** Solid petrol needed one so a Confirmed
+  record's petrol spine would not merge into it; on a Booked card that drew spine, fill, hairline,
+  fill — a visible double line on all four statuses for a problem one had. Mark caught it in a
+  screenshot within the hour. With a pale fill the problem does not exist: every spine, petrol
+  included, reads against `#DDEAF1`.
+- **The drawer keeps its rail even when the grips are hidden**, and its content stays indented past
+  it (Mark, explicitly). So with grips off the row's name sits at x=14 and the drawer's first label
+  at x=38 and **they do not line up** — the alignment that was the 2026-09-09 rail's whole argument
+  is deliberately given up. `--apg-lead` therefore drives the row and the header strip only; the
+  drawer's `padding-left` is a flat `$expansion-rail` again.
+
+**Past and future bands now differ only in ink** (`Past` tag + `#9E9E9E`), because one colour serves
+every non-current band. Accepted with item 7, not overlooked.
 
 **Polish and demo readiness (Phase 8).** Pass 1's closing phase added five things worth knowing:
 
@@ -557,7 +742,14 @@ Processors and farmers/agents **never see the Match entity**. Match-derived info
 
 ### Stock class is not a shared vocabulary
 
-The two sides use different, non-aligned stock-class lists. Processor Space stock classes are **processor-specific** (ANZCO, Alliance Group, and SFF each have their own list); Livestock Availability uses a single separate list (GFNB ultra/premium, Prime, Cow, Sire Bull, Bull, Mixed Cattle, Lamb, Mutton). There is no automatic mapping between them — the human operator judges compatibility during drag-and-drop. Don't build a join on stock class and don't assume a shared enum.
+The two sides use different, non-aligned stock-class lists. Processor Space stock classes are **processor-specific** (ANZCO, Alliance Group, and SFF each have their own list); Livestock Availability uses a single separate list (GFNB ultra/premium, Prime, Cow, Sire Bull, Bull, Mixed Cattle, Lamb, Lamb ABF, Lamb QA, Lamb ANZCO-owned, Mutton). There is no automatic mapping between them — the human operator judges compatibility during drag-and-drop. Don't build a join on stock class and don't assume a shared enum.
+
+**The lists were revised on 2026-09-11**, from the demo session with David Earl and Dougal Innes, and both halves live in `SeedConfig`:
+
+- **ANZCO's lamb splits three ways** — `Lamb ABF`, `Lamb QA`, `Lamb ANZCO-owned` — because APG has to identify the programme when advising a load to ANZCO's rep. The three are **ANZCO's alone**; Alliance Group and SFF book plain `Lamb`, and SFF's is their single "100% standard" class. They appear on the **availability list too**: the programme is a property of the stock, so the farmer or agent picks one at submission rather than APG deciding it at match time.
+- **Alliance Group's generic `Cattle` is gone**, replaced by `Cow`, `Prime` and `Sire Bull`. `Deer` stays, although APG have not traded deer in years — it is still what the "narrowed to nothing" empty state is demonstrated on.
+
+`StockClassCompatibility` carries both changes, or the drag aid would have no opinion about the new names and would fail open on all of them. The `Cattle` row stays in that table even though nothing seeds it now.
 
 **The one sanctioned exception is a display aid, and it stays one (2026-09-09).** `StockClassCompatibility` in `Apg.Domain` says which classes *could plausibly* pair, and the matching screen's `Filter on drag` toggle uses it to hide the obvious mismatches on the far side while a card is held. It is not a join: no match is created from it, no endpoint refuses one for disagreeing with it, it is off by default, and switching it off puts every record back. If a future pass unifies the two vocabularies, that table is what shrinks.
 
@@ -572,7 +764,7 @@ Compute both from the match set; never store a denormalised total. Colour semant
 
 `Quantity Unmatched` (used on the matching screen) = original quantity minus incl-Draft matched. Negative values are highlighted, labelled "Over-filled" on the Processor Space side and "Over-committed" on the Availability side.
 
-**Statuses.** Match status is explicit and APG-driven: `Drafted → Notified → Confirmed`, plus `Cancelled` (requires a cancellation reason: change from agent/farmer, change from processor, or internal APG decision). In pass 1 the lifecycle is `Drafted → Confirmed` (resolved question 2), so `MatchLifecycle` gates confirm on `Drafted` only, delete on `Drafted` only, and cancel on anything past it — delete and cancel are never both offered. Processor Space and Livestock Availability statuses are largely **derived from their matches**, not set directly — e.g. an Availability record is `Booked` with no live matches, `Pending` while matching is in progress, and `Confirmed` only when unmatched quantity is zero and every match is Confirmed or Cancelled. Implement these as computed state so they can't drift.
+**Statuses.** Match status is explicit and APG-driven: `Drafted → Notified → Confirmed`, plus `Cancelled` (requires a cancellation reason: change from agent/farmer, change from processor, or internal APG decision). The lifecycle is the spec's in full since 2026-09-11 (amending resolved question 2): `MatchLifecycle` gates **notify on `Drafted` only**, **confirm on `Drafted` or `Notified`** — notifying is optional, so the direct move survives — delete on `Drafted` only, and cancel on anything past it. Delete and cancel are never both offered. **Nothing sends a notification**; see "Notifying a match" below. Processor Space and Livestock Availability statuses are largely **derived from their matches**, not set directly — e.g. an Availability record is `Booked` with no live matches, `Pending` while matching is in progress, and `Confirmed` only when unmatched quantity is zero and every match is Confirmed or Cancelled. Implement these as computed state so they can't drift.
 
 **Match creation.** Dragging one record onto the other prompts for `quantityMatched`, defaulting to `min(unmatched on each side)`. If that default is < 1, refuse with "There is no unmatched quantity". The default price per Kg (by processor × stock class × week-commencing-Sunday) is shown at draft time and stays editable on the match.
 

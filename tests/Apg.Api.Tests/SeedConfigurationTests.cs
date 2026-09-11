@@ -15,14 +15,20 @@ public class SeedConfigurationTests
     {
         var byProcessor = SeedConfig.ProcessorSpaceStockClasses.ToDictionary(p => p.Processor, p => p.StockClasses);
 
+        // ANZCO's three lamb programmes and Alliance Group's cattle classes both come from the
+        // 2026-09-11 demo session; the generic "Cattle" Alliance used to book is gone.
         Assert.Equal(
-            ["Cows", "Prime", "Nat Beef - Ultra", "Nat Beef - Premium", "Bulls", "Lamb", "Mutton"],
+            [
+                "Cows", "Prime", "Nat Beef - Ultra", "Nat Beef - Premium", "Bulls",
+                "Lamb", "Lamb ABF", "Lamb QA", "Lamb ANZCO-owned", "Mutton",
+            ],
             byProcessor["ANZCO"]);
-        Assert.Equal(["Lamb", "Mutton", "Cattle", "Deer"], byProcessor["Alliance Group"]);
+        Assert.Equal(["Lamb", "Mutton", "Cow", "Prime", "Sire Bull", "Deer"], byProcessor["Alliance Group"]);
 
-        // "Lamb", not "Lambs": APG confirmed SFF spells it the same way everyone else does. The two
-        // vocabularies still do not align — Cows against Cow, Cattle against Mixed Cattle — and this
-        // one word is not the reason they don't.
+        // "Lamb", not "Lambs": APG confirmed SFF spells it the same way everyone else does, and that
+        // it is their single "100% standard" class — none of ANZCO's three programmes belong here.
+        // The two vocabularies still do not align — Cows against Cow, Bulls against Mixed Cattle —
+        // and this one word is not the reason they don't.
         Assert.Equal(["Lamb", "Prime", "Cows"], byProcessor["SFF"]);
     }
 
@@ -46,7 +52,10 @@ public class SeedConfigurationTests
     public void The_availability_stock_class_list_is_the_single_separate_supply_side_list()
     {
         Assert.Equal(
-            ["GFNB ultra", "GFNB premium", "Prime", "Cow", "Sire Bull", "Bull", "Mixed Cattle", "Lamb", "Mutton"],
+            [
+                "GFNB ultra", "GFNB premium", "Prime", "Cow", "Sire Bull", "Bull", "Mixed Cattle",
+                "Lamb", "Lamb ABF", "Lamb QA", "Lamb ANZCO-owned", "Mutton",
+            ],
             SeedConfig.AvailabilityStockClasses);
     }
 

@@ -13,6 +13,9 @@ const REFERENCE: ReferenceDataDto = {
   processors: [{ name: 'ANZCO', plants: ['Kokiri'], stockClasses: ['Cows', 'Nat Beef - Ultra'] }],
   availabilityStockClasses: ['GFNB ultra', 'Prime', 'Sire Bull'],
   transactionTypes: ['FinanceStock', 'GrazingStock', 'Other'],
+  // The space form's week picker. This form asks for its available-from date as one native date
+  // input, so the list is on the contract it shares and unread here.
+  weeks: [],
 };
 
 const LOCATIONS: LocationOptionDto[] = [

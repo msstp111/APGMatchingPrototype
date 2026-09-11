@@ -162,6 +162,22 @@ export const DEFAULT_FILTER_ON_DRAG = false;
  */
 export const DEFAULT_DRAG_ANYWHERE = false;
 
+/**
+ * Whether the grips stay on the cards once "Drag anywhere" is on. **They do not**, by default.
+ *
+ * Read this together with {@link DEFAULT_DRAG_ANYWHERE}, because on its own it says the wrong
+ * thing. The grip is a 30px cell whose whole job is to be the one place a row can be dragged from;
+ * with "Drag anywhere" on, the other ~478px do the same job, so the cell is a glyph advertising a
+ * gesture that is available everywhere. Those 30px come off the name column — the only one that
+ * flexes — so keeping them costs the plant or the location a third of its width for nothing.
+ *
+ * **It is never in force while "Drag anywhere" is off**, and that is a rule about safety rather
+ * than taste: grips gone and the middle region inert is a screen with no drag path at all. The
+ * effective answer is `MatchingPreferences.gripsVisible`, which is the conjunction; this flag is
+ * only ever the operator's override, and the top bar disables its control accordingly.
+ */
+export const DEFAULT_KEEP_GRIPS = false;
+
 // ---------------------------------------------------------------------------------------------
 // "Clear filters" is not the same thing as "Reset to default"
 // ---------------------------------------------------------------------------------------------

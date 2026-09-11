@@ -52,10 +52,11 @@ public static class NzTime
     /// primary size and a leading zero there reads as part of a longer number that has been cut off.
     /// </summary>
     /// <remarks>
-    /// Half of the matching card's date cell. The card splits a delivery date over the two lines it
-    /// already has: the day on line 1, <see cref="MonthLabelFormat"/> beneath it on line 2. It is only
-    /// ever rendered directly under its own month, and the full <see cref="DateLabelFormat"/> label is
-    /// still on the same DTO for the row's hover text and for every wider surface.
+    /// Half of the <b>supply</b> card's date cell. That card splits an available-from date over the
+    /// two lines it already has: the day on line 1, <see cref="MonthLabelFormat"/> beneath it on line
+    /// 2. The demand card no longer does — it names the weekday instead, see
+    /// <see cref="WeekdayLabelFormat"/> — but the full <see cref="DateLabelFormat"/> label is still on
+    /// both DTOs for the row's hover text and for every wider surface.
     /// </remarks>
     /// <remarks>
     /// <b>The percent is load-bearing.</b> A one-character format string is read as a <em>standard</em>
@@ -70,6 +71,25 @@ public static class NzTime
     /// form that reads correctly in a sentence as well as in a column.
     /// </summary>
     public const string MonthLabelFormat = "MMM";
+
+    /// <summary>
+    /// The abbreviated weekday — <c>Tue</c>, <c>Sun</c>. Always three letters under the invariant
+    /// culture, which is what lets the card's 50px date cell hold one with no truncation rule.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// The whole of the <b>demand</b> card's date cell (2026-09-11). A Processor Space is drawn inside
+    /// the band of its own delivery week, and that band header already names the week — so the day of
+    /// the month and its month were restating, in the narrowest column on the screen, what the header
+    /// above them had already said. The weekday is the one part of a delivery date the band does
+    /// <em>not</em> carry, and it is what an operator scanning a week for a slot actually reads.
+    /// </para>
+    /// <para>
+    /// <b>Unlike <see cref="DayOfMonthLabelFormat"/> this needs no percent.</b> Three characters is
+    /// already a custom format specifier; only a one-character string is read as a standard one.
+    /// </para>
+    /// </remarks>
+    public const string WeekdayLabelFormat = "ddd";
 
     private static readonly TimeZoneInfo Zone = TimeZoneInfo.FindSystemTimeZoneById(TimeZoneId);
 
@@ -141,6 +161,37 @@ public static class NzTime
     /// <summary>The month half of that same split — <c>Aug</c>.</summary>
     public static string MonthLabel(DateOnly date) =>
         date.ToString(MonthLabelFormat, CultureInfo.InvariantCulture);
+
+    /// <summary>The abbreviated weekday — <c>Tue</c>. The demand card's whole date cell.</summary>
+    public static string WeekdayLabel(DateOnly date) =>
+        date.ToString(WeekdayLabelFormat, CultureInfo.InvariantCulture);
+
+    /// <summary>
+    /// The seven dates of the week containing <paramref name="date"/>, Sunday first.
+    /// </summary>
+    /// <remarks>
+    /// The space form's weekday picker (2026-09-11) submits <c>DaysOfWeek(week)[index]</c> — an index
+    /// into a list the server sent, because advancing an ISO string by a weekday's offset in
+    /// TypeScript is exactly the date arithmetic <c>no-domain-arithmetic.spec.ts</c> forbids. Both the
+    /// order and the Sunday start are this file's to decide, and they are the same Sunday
+    /// <see cref="WeekCommencing"/> picks: the argument is normalised through it, so a caller may pass
+    /// any date in the week it means.
+    /// </remarks>
+    public static IReadOnlyList<DateOnly> DaysOfWeek(DateOnly date)
+    {
+        var week = WeekCommencing(date);
+
+        return Enumerable.Range(0, 7).Select(week.AddDays).ToList();
+    }
+
+    /// <summary>
+    /// <paramref name="weeks"/> weeks after <paramref name="date"/>. Negative goes back.
+    /// </summary>
+    /// <remarks>
+    /// A named primitive rather than an <c>AddDays(weeks * 7)</c> at each call site. Week arithmetic is
+    /// this file's subject, and the multiplication is the half a hurried change gets wrong.
+    /// </remarks>
+    public static DateOnly PlusWeeks(DateOnly date, int weeks) => date.AddDays(weeks * 7);
 
     /// <summary>
     /// Every Sunday from <paramref name="first"/>'s week to <paramref name="last"/>'s week inclusive,

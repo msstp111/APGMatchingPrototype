@@ -1,5 +1,7 @@
 import { provideZonelessChangeDetection } from '@angular/core';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
+import { By } from '@angular/platform-browser';
+import { MatTooltip } from '@angular/material/tooltip';
 import { LivestockAvailabilityDto, ProcessorSpaceDto } from '../../api/models';
 import { MatchActions } from '../match/match-actions';
 import { aMatch, anAvailability, aSpace } from '../testing/dto-fixtures';
@@ -104,12 +106,70 @@ describe('Card expansion', () => {
   });
 
   /**
+   * The drawer's head is its close control (2026-09-10). The card above owns the expansion, so what
+   * this component does is emit; `space-card.html` and `availability-card.html` wire it to the
+   * `toggle()` the chevron already calls.
+   */
+  it('emits collapse when the sums strip is clicked, on both sides', async () => {
+    // Mounted one at a time, not gathered into an array first: the second mount tears the first
+    // fixture down, and subscribing to a destroyed component's output throws NG0953.
+    for (const mountOne of [
+      () => mountDemand(aSpace()),
+      () => mountSupply(anAvailability()),
+    ]) {
+      const fixture = await mountOne();
+      const collapsed = vi.fn();
+      fixture.componentInstance.collapse.subscribe(collapsed);
+
+      (fixture.nativeElement as HTMLElement)
+        .querySelector<HTMLElement>('.sums')!
+        .click();
+
+      expect(collapsed).toHaveBeenCalledTimes(1);
+    }
+  });
+
+  /**
+   * The strip is nothing but figures, and figures are what someone will drag-select to copy. A
+   * selection that ended by shutting the drawer would make the numbers unreadable in the act of
+   * reading them.
+   *
+   * This is the half of the guard that can actually fail: the click path above passes whether or
+   * not the check exists, because an untouched document has a collapsed selection.
+   */
+  it('does not collapse when the click ends a text selection', async () => {
+    const fixture = await mountDemand(aSpace());
+    const collapsed = vi.fn();
+    fixture.componentInstance.collapse.subscribe(collapsed);
+
+    const strip = (fixture.nativeElement as HTMLElement).querySelector<HTMLElement>('.sums')!;
+    const range = document.createRange();
+    range.selectNodeContents(strip);
+    const selection = document.getSelection()!;
+    selection.removeAllRanges();
+    selection.addRange(range);
+
+    strip.click();
+
+    expect(selection.isCollapsed).toBe(false);
+    expect(collapsed).not.toHaveBeenCalled();
+
+    selection.removeAllRanges();
+  });
+
+  /**
    * Requirement 5.3. A control that greys out for unstated reasons is exactly what makes a
    * non-technical operator conclude the application is broken — and the reason is the DTO's, so it
    * cannot disagree with the gate beside it.
+   *
+   * Since 2026-09-10 the reason is carried by an `info` button beside Confirm rather than printed
+   * as a sentence, so what is asserted is that the DTO's wording reaches BOTH the tooltip and the
+   * accessible name. The tooltip alone would not be enough: it is not in the DOM until something
+   * hovers or focuses the button, and a control whose only description appears on hover has no name
+   * at all for anyone not using a pointer.
    */
   it.each([
-    ['Needs at least one confirmed match and no drafts'],
+    ['Needs every match confirmed, and at least one'],
     ['Already confirmed'],
     ['This space is cancelled'],
   ])('says why Confirm space is unavailable: %s', async (reason) => {
@@ -117,7 +177,47 @@ describe('Card expansion', () => {
     const element = fixture.nativeElement as HTMLElement;
 
     expect((element.querySelector('.actions button') as HTMLButtonElement).disabled).toBe(true);
-    expect(element.querySelector('.why')?.textContent?.trim()).toBe(reason);
+
+    const why = element.querySelector('.why') as HTMLButtonElement;
+
+    expect(why).not.toBeNull();
+    expect(why.getAttribute('aria-label')).toBe(reason);
+  });
+
+  /**
+   * The reason reaches the tooltip directive itself, not merely an attribute that looks like one.
+   * Resolved off the directive instance because `matTooltip` leaves nothing in the DOM until it is
+   * shown, so an attribute assertion would pass against a plain `title`.
+   */
+  it('hands the blocked reason to the tooltip directive', async () => {
+    const reason = 'Needs every match confirmed, and at least one';
+    const fixture = await mountDemand(aSpace({ canConfirm: false, confirmBlockedReason: reason }));
+
+    const tooltip = fixture.debugElement
+      .query(By.css('.why'))
+      .injector.get(MatTooltip);
+
+    expect(tooltip.message).toBe(reason);
+  });
+
+  /**
+   * The debug pair is outlined and Confirm is filled (2026-09-10), and the pairing is the whole of
+   * the hierarchy: outlined against outlined said the scaffolding was Confirm's peer. Asserted on
+   * the rendered classes because both are Material variants rather than anything this file styles.
+   */
+  it('draws Confirm filled and the two debug controls outlined', async () => {
+    const fixture = await mountDemand(aSpace({ canConfirm: true }));
+    const buttons = [
+      ...(fixture.nativeElement as HTMLElement).querySelectorAll('.actions button'),
+    ] as HTMLButtonElement[];
+
+    expect(buttons[0].textContent?.trim()).toBe('Confirm space');
+    expect(buttons[0].classList.contains('mat-mdc-unelevated-button')).toBe(true);
+
+    const debug = buttons.filter((b) => b.classList.contains('dbg'));
+
+    expect(debug.map((b) => b.textContent?.trim())).toEqual(['Edit', 'Cancel']);
+    expect(debug.every((b) => b.classList.contains('mat-mdc-outlined-button'))).toBe(true);
   });
 
   /**

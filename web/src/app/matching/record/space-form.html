@@ -94,14 +94,45 @@
     </mat-form-field>
 
     <!--
-      A native date input, deliberately: its value IS the ISO yyyy-MM-dd string the API wants, and the
-      browser renders it in the local format itself. A Material datepicker would hand this form a
-      JavaScript Date, which is the one thing no file under matching/ may construct.
+      The delivery date, in the two parts the screen itself is built out of (2026-09-11): the week the
+      space is booked into, then the day inside it. It replaces one native date input.
+
+      Both menus are the server's lists. The week options are a calendar it built, and each carries its
+      own seven days, so the date this form submits is days[index].date — a LOOKUP. Composing it here
+      would mean advancing an ISO string by a weekday's offset, which no-domain-arithmetic.spec.ts
+      forbids, and which is why there is no arithmetic in the component either.
     -->
-    <mat-form-field appearance="fill" class="f-date" subscriptSizing="dynamic">
-      <mat-label>Delivery date</mat-label>
-      <input matInput type="date" formControlName="deliveryDate" />
-      <mat-error>Choose a delivery date</mat-error>
+    <mat-form-field appearance="fill" class="f-week" subscriptSizing="dynamic">
+      <mat-label>Week commencing</mat-label>
+      <mat-select formControlName="weekCommencing">
+        @for (week of weeks; track week.weekCommencing) {
+          <mat-option [value]="week.weekCommencing">
+            {{ week.weekCommencingLabel }}@if (week.isCurrentWeek) {<span> · this week</span>}
+          </mat-option>
+        }
+      </mat-select>
+      <mat-error>Choose a week</mat-error>
+    </mat-form-field>
+
+    <!--
+      No [disabled] binding, for the same reason the plant and stock-class menus carry none: an empty
+      menu plus a hint says it, and the enabled state stays in the form rather than in the template.
+
+      The weekday survives a change of week — it is an index, not a date — so "the same slot, a week
+      later" is one click on the control above.
+    -->
+    <mat-form-field appearance="fill" class="f-weekday" subscriptSizing="dynamic">
+      <mat-label>Weekday</mat-label>
+      <mat-select formControlName="weekday">
+        @for (day of days(); track day.date; let index = $index) {
+          <mat-option [value]="index">{{ day.weekdayLabel }} · {{ day.dateLabel }}</mat-option>
+        }
+      </mat-select>
+      @if (days().length === 0) {
+        <mat-hint>Choose a week first</mat-hint>
+      } @else {
+        <mat-error>Choose a weekday</mat-error>
+      }
     </mat-form-field>
 
     <mat-form-field appearance="fill" class="f-time" subscriptSizing="dynamic">

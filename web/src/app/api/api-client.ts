@@ -52,8 +52,14 @@ export class ApiClient {
   }
 
   /**
-   * Whether a dropped pair may be matched, and on what terms. Asked at the moment of the drop, before
-   * any dialog opens, because a pair with nothing left to match earns a refusal rather than a dialog.
+   * Whether a pair may be matched, and on what terms.
+   *
+   * Asked **twice per gesture, from two call sites**. `DropOutcome` asks it on every card the pointer
+   * enters mid-drag, so the chip's outcome pill quotes the server rather than a client-side
+   * `Math.min`; `MatchDrop` asks it again on release, because requirement 3.2 wants the refusal to
+   * be the server's word at the moment of the drop and a cached `isAllowed` is a promise about a
+   * record someone else may have filled since. The refusal comes back here rather than in a dialog:
+   * a pair with nothing left to match earns a snack, not a dialog opened in order to disable it.
    */
   matchProposal(
     processorSpaceId: number,
@@ -99,8 +105,17 @@ export class ApiClient {
   }
 
   /**
-   * Drafted to Confirmed, carrying the form's current values so a match with unsaved edits is saved
-   * and confirmed in a single write rather than in two calls that can half-fail.
+   * Drafted to Notified. **Nothing is sent** — the server writes the status and no message, because
+   * the notification mediums (in-app, SMS, email) are deferred beyond pass 1. It carries the form's
+   * values for the same reason `confirmMatch` does.
+   */
+  notifyMatch(id: number, request: UpdateMatchRequest): Observable<MatchWriteResultDto> {
+    return this.http.post<MatchWriteResultDto>(`/api/matches/${id}/notify`, request);
+  }
+
+  /**
+   * Drafted or Notified to Confirmed, carrying the form's current values so a match with unsaved
+   * edits is saved and confirmed in a single write rather than in two calls that can half-fail.
    */
   confirmMatch(id: number, request: UpdateMatchRequest): Observable<MatchWriteResultDto> {
     return this.http.post<MatchWriteResultDto>(`/api/matches/${id}/confirm`, request);

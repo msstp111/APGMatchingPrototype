@@ -137,8 +137,14 @@ CSS custom properties, matching the existing file's pattern.
 // --- surfaces -------------------------------------------------------------
 $lms-card:            #FFFFFF;  // a card's own background
 $lms-card-zebra:      #F5F5F5;  // alternate card (see 3.2 — softer than LMS's #EEEEEE)
-$lms-band:            #F0F0F0;  // week band header, past-week rail
-$lms-petrol-tint:     #E8F1F6;  // current-week band, valid drop target, info panels
+$lms-band:            #E8F1F6;  // EVERY week band header (2026-09-10) — was #F0F0F0
+$lms-band-current:    #C6DCE8;  // the current week — must stay deeper than $lms-drop-target
+$lms-petrol-tint:     #E8F1F6;  // info panels, active filter chips. Same value as $lms-band and a
+                                // separate token: they mean different things and are never adjacent
+$open-rail:           #DDEAF1;  // an open card's grip column and drawer rail (§6.2). Knowingly
+                                // between the two band values and near $lms-drop-target — shape,
+                                // not value, is what separates it. Read §6.2 before changing it
+$lms-drop-target:     #D1E1E8;  // the card under the pointer, plus a 2px petrol ring and a ghost
 $lms-hover:           #F5F9FB;  // card hover
 $lms-column-wash:    #F6FAFC;  // the opposite column during a drag
 
@@ -270,10 +276,12 @@ monitors this will run on.
 
 - **Processor Space has no `Pending`** (resolved question 6). A space with only drafted matches stays
   `Booked` and stays inside the default filter. Three statuses is its complete set.
-- **`Notified` has no UI transition in pass 1** (resolved question 2) and therefore no visual
-  treatment here. It is not inert in the rules — it counts in both matched sums and blocks
-  confirmation — so if a later pass introduces it, give it its own left-edge pattern rather than
-  reusing Pending's.
+- **`Notified` is a *match* status and never a record status**, so it has no left-edge pattern here
+  and needs none. It became reachable on 2026-09-11 (amending resolved question 2), but only in the
+  match table's status cell and the modal's footer — a record carrying a notified match derives
+  `Pending` exactly as one carrying a draft does, because both mean the same thing about the record:
+  matching is underway and nothing is settled. Its glyph is `send`, its own rather than Drafted's
+  clock (§11.4a).
 
 ### 3.2 The zebra stripe
 
@@ -466,7 +474,7 @@ spine│ line 1  (17px)   ← aligns to the micro-cap header strip    │ chev �
 | --- | --- | --- | --- |
 | Name | `1 1 auto`, `min-width: 0` | `plant` (`-` if blank) | `locationName` |
 | Stock class | `0 0 96px` | `stockClass` | `stockClass` |
-| Date | `0 0 50px` | `deliveryDateLabel` | `availableFromLabel` |
+| Date | `0 0 50px` | `deliveryWeekdayLabel` (`Thu`) | `availableFromDayLabel` over `availableFromMonthLabel` |
 | Quantity | `0 0 40px`, right | `quantityRequired` | `quantityAvailable` |
 | Meter block | `0 0 112px` | §4 | §4 |
 | Chevron | `0 0 24px` | | |
@@ -476,6 +484,29 @@ spine│ line 1  (17px)   ← aligns to the micro-cap header strip    │ chev �
 card width less the spine (6), the chevron (24) and its own 8px horizontal padding — so at the real
 518px card (§8.2) the name column gets **114px**, and at the artboards' conservative 508px it gets
 104px. Both are enough for `Alliance Group` and for most location names; longer values ellipse.
+
+**The demand card's date cell is a weekday, and only the demand card's (2026-09-11).** It held a day
+of the month with its month stacked directly beneath it on line 2, on both sides. On the demand side
+both are now gone and the cell holds `Thu` alone, under a **DAY** heading rather than DATE, with
+nothing in the column on line 2. The reason is that a Processor Space is drawn inside the band of its
+own delivery **week**, and that band header names the week — so the day and the month were spending
+the narrowest column on the screen restating what the header above them had already said. The weekday
+is the one part of a delivery date the band does not carry, and it is what an operator scanning a week
+for a slot actually reads. The whole `dd-MM-yy` is still the row's hover text, which is where the
+date went, not where it was lost.
+
+**The supply card is unchanged and still splits its date.** Its bands are not a delivery schedule: an
+availability record is a state rather than an event, its column has no week filter at all (resolved
+question 17), and the backlog is read by scrolling up through weeks — so on that side the day of the
+month is the figure that identifies the record. The two columns therefore spend one 50px cell on two
+different things, which is the one place §6.1's "identical on both sides" is about the **geometry**
+and not about the content. Row 2 keeps its `$col-month` stand-off on both sides all the same, so line
+2 measures the same either way.
+
+**The label is the server's** — `NzTime.WeekdayLabel`, `ddd`, invariant, always three letters. Naming
+a weekday from the ISO value means constructing a `Date`, which `no-domain-arithmetic.spec.ts`
+forbids; three letters at 13px/600 measure ~26px in the 50px cell, verified in headless Chrome rather
+than estimated.
 
 **The demand card's two names traded places (2026-09-08).** Line 1 led with `processor` from Phase 3
 until then, and roughly 70% of the column is ANZCO (`SeedConfig.ProcessorMix`; APG say the real share
@@ -565,14 +596,45 @@ filled rail, is the one exception and is argued for in its own bullet:
   closing it and the drop target for matching onto it. Ten answers were drawn in
   `Documents/open-row-lab.html`; this and the spine below are the two that shipped.
 
-  The rail is **filled with `$open-rail` `#DDEAF1`, and so is the 30px grip on the row above it**, so
-  an open card carries one unbroken stroke from the top of its row to the foot of its sheet. The grip
-  is the right column to spend: it is the row's only always-visible cell carrying neither a status nor
-  a quantity, so nothing had to be displaced to say "open". `$open-rail` is **not**
-  `$lms-petrol-tint` — that is the current-week band's ground, and a card inside the current week
-  would then have a grip the same colour as the header directly above it. It sits one step below the
-  tint and one step above `$lms-drop-target`, so the column reads *open* `#DDEAF1` < *droppable*
-  `#D1E1E8`: a card under the pointer is more urgent than a card that happens to be open.
+  **The rail is `#DDEAF1` with a petrol glyph, and so is the 30px grip on the row above it when
+  there is one.** One flat fill, and a 1px `$lms-divider` rule on its trailing edge.
+
+  **This value went away and came back, and the round trip is the useful part.** It was chosen
+  (2026-09-09) to sit one step deeper than `$lms-petrol-tint` and one lighter than
+  `$lms-drop-target`, so the column read *open* < *droppable*. That argument assumed exactly one
+  band was tinted, and §8.4 tinted all of them — leaving no free step between "this week" and "you
+  may drop here". `Documents/week-band-lab.html` drew four answers and **solid petrol shipped**: a
+  value off the ladder entirely, which no band colour could ever be confused with.
+
+  **Solid petrol lasted a day.** On screen it was too heavy for what it says — an open card is the
+  most ordinary state in the list, and a full-strength brand-coloured column announced it like a
+  selection. It also collided with the Confirmed spine (both petrol, reading as one 36px slab), and
+  the 1px white hairline that fixed *that* drew a visible double line on all four statuses to solve
+  a problem one of them has. Mark reverted on 2026-09-11.
+
+  **So the collision the 2026-09-09 note warned about is now live, and is accepted rather than
+  overlooked.** `#DDEAF1` (~15% petrol) sits between `$lms-band` `#E8F1F6` (~9%) and
+  `$lms-band-current` `#C6DCE8` (~24%), and within three points of `$lms-drop-target` `#D1E1E8`
+  (~18%). Two things carry it, and **if either is ever removed this value has to be revisited**:
+
+  - a drop target is never *just* its fill — it also takes a 2px petrol outline and a hatched ghost
+    segment in its meter, so it separates from an open rail at a glance;
+  - a band header is a 30px full-width horizontal row and this is a 29px vertical cell inside a
+    card, so the two are never the same *shape* even when they are nearly the same colour.
+
+  Verified in the browser with an open card and a hot drop target two rows apart — see the
+  browser checklist.
+
+  **Do not reintroduce a separator hairline.** With a pale fill the problem it solved does not
+  exist: every spine, petrol included, reads against `#DDEAF1`.
+
+  **The drawer keeps its rail whether or not the row has a grip** (Mark, 2026-09-10). The rail is the
+  drawer's own leading edge rather than merely the continuation of a cell that may not be there, and
+  the sheet's content is indented past it in both states. The consequence is deliberate and worth
+  stating plainly: with the grips hidden (§16.13) the row's name sits at x=14 and the drawer's first
+  label at x=38, **so the two no longer line up** — which was this rail's original argument. What
+  replaces it is that a solid petrol stroke reads as the drawer's edge on its own account, and the
+  notch and the frame still say which row it belongs to.
 
   **The rule must not move**, and the fill is where that gets fragile. An absolutely positioned child
   is laid out against its ancestor's *padding* box, inside the sheet's 1px frame, and there is no
@@ -780,8 +842,10 @@ reads top-down as answer-then-detail. What changed on 2026-09-08 is what is *in*
    screen at once by design — the two lists not lining up is the point, and a mismatched pair must
    never be presented as an error.
 
-   Match status uses `schedule` for `Drafted`, `check_circle` for `Confirmed`, in `#757575` with the
-   status word beside it. **No hue.**
+   Match status uses `schedule` for `Drafted`, `send` for `Notified`, `check_circle` for `Confirmed`,
+   in `#757575` with the status word beside it. **No hue.** `Notified` got its own glyph when it
+   became reachable (2026-09-11): sharing Drafted's clock would leave the one row that has moved
+   looking identical to the rows that have not, which is the whole of what the status is for.
 
    A missing price renders `no default price` in `#9E9E9E`, never a blank and never `$0.00`.
 
@@ -791,20 +855,66 @@ reads top-down as answer-then-detail. What changed on 2026-09-08 is what is *in*
 4. **Actions** (Phase 6 onwards) — `padding: 10px 10px 8px` (`$expansion-actions-padding`; the
    bottom was 0 while the drawer had no edge of its own, and 0 puts the buttons on the frame). On a
    Processor Space, a
-   `Confirm space` button, enabled from the DTO's `canConfirm`. **When disabled it says why**, beside
-   it, in card-meta type: *"Needs at least one confirmed match and no drafts."* A control that greys
-   out for unstated reasons is exactly what makes non-technical users think the app is broken.
+   `Confirm space` button, enabled from the DTO's `canConfirm`. **When disabled it says why** — and
+   since 2026-09-10 it says so through a 28px `info` icon-button immediately after it rather than as a
+   sentence in the row. A control that greys out for unstated reasons is exactly what makes
+   non-technical users think the app is broken, so the reason has not gone anywhere; what has gone is
+   the longest string in the row, which was only ever present when the control it explained was
+   already greyed out.
+
+   Three things make hiding it acceptable, and all three are required:
+
+   - **It is a real button, not a bare glyph**, so Material's tooltip fires on **focus** as well as
+     hover, and `(click)` calls `show()` for touch. A hover-only reason has no keyboard and no touch
+     path, and would simply be the old §10 failure wearing an icon.
+   - **The reason is also the button's `aria-label`**, so it has an accessible name at rest. A tooltip
+     is not in the DOM until something hovers or focuses it.
+   - **`info`, not `campaign`.** A megaphone means announcement or broadcast in every other product;
+     this is an explanation of something that has already happened.
+
+   It is a **sibling** of the disabled button and never a wrapper on it: Material does not fire a
+   tooltip bound to a disabled button, because a disabled button stops emitting the pointer events the
+   tooltip listens for.
 
    **Phase 7 added `Edit` and `Cancel` here, on both sides**, and the supply card gained this row for
-   them — it had none before. They are text buttons rather than stroked ones, muted and `$lms-error`
-   respectively, so the debug scaffolding never outranks the real action beside it. They are here and
-   not on the 52px row for the reason the per-match affordance is: the row has no width to give, and
-   §16.10 pins its trailing edge — at 40px since 2026-09-07.
+   them — it had none before. They are here and not on the 52px row for the reason the per-match
+   affordance is: the row has no width to give, and §16.10 pins its trailing edge — at 40px since
+   2026-09-07.
+
+   **They are OUTLINED, and `Confirm space` is FILLED (2026-09-10).** They were text buttons, muted
+   and `$lms-error` respectively, so that the debug scaffolding never outranked the real action beside
+   it — and on screen that overshot: a muted text button is indistinguishable from a disabled one, so
+   the two live controls on every card read as unavailable. The hierarchy the old rule wanted is
+   preserved by moving Confirm up rather than by holding these down: **filled is the real action,
+   outlined is the scaffolding**. Their treatment is now §14's own — petrol label on a `#BDBDBD` ring,
+   the same as the `+ Add` buttons in the column headers — so the debug affordances on this screen are
+   one family rather than two.
+
+   **Where this does not hold, and it is a real cost:** the supply drawer has no `Confirm space`, so
+   its two outlined buttons are the loudest thing in it and they are both scaffolding. Accepted rather
+   than overlooked. If it proves to matter, the answer is a quieter outline on the supply side, not a
+   return to text buttons — that is the change that was already tried.
+
+   **A disabled `Cancel` keeps its ring and loses only its label colour.** Overriding the disabled
+   outline token as well leaves a control that looks exactly like the two live ones beside it, which
+   is how a button that cannot be pressed comes to look like a bug.
 
    **In the match table, a counterparty cell whose record has been cancelled carries a `block` glyph
    and the word `cancelled` in a solid `$lms-error` box**, white on red. Same reason as the chevron
    badge above, and the same exception to the no-hue rule: the match is still live, still needs
    cancelling by hand, and this is the row that says which one.
+
+**The sums strip is also the close control (2026-09-10).** Clicking anywhere in it collapses the
+card, at `cursor: pointer` and with no other affordance — the figures are the reason the drawer was
+opened, and a button treatment on them would make the answer look like a control. It is guarded on
+the selection: the strip is nothing but numbers, numbers are what someone drag-selects to copy, and a
+selection that ended by shutting the drawer would make them unreadable in the act of reading them.
+Nothing there is focusable; the chevron on the row above is still the control carrying
+`aria-expanded`, for the reason `.cbody` is not a tab stop either.
+
+**One cell of the match table does not open the match (2026-09-10).** The counterparty name —
+`Farmer & location` on demand, `Processor & plant` on supply — **reveals that record in the other
+column** instead: scrolls to it and flashes it. See §10.4.
 
 Expand state is per-card, independent, and held for the session (Phase 3, 5.1).
 
@@ -973,7 +1083,7 @@ Each band is a flex row of `rail` + `band-body`.
 | Part | Spec |
 | --- | --- |
 | Band top rule | 1px `#E0E0E0`; **2px `#00567E`** for the current week |
-| Band header | 30px, `padding: 0 10px`, background `#F0F0F0` (`#E8F1F6` current week) |
+| Band header | 30px, `padding: 0 10px`, background **`#E8F1F6`** (`$lms-band`), **`#C6DCE8`** current week (`$lms-band-current`) |
 | Band header label | `Week of 16 Aug` — 12/14 micro-caps; `#757575`, petrol for current, `#9E9E9E` for past |
 | Band meta | right-aligned, 11px, `#757575` / `#9E9E9E` — `7 spaces · 1,674 head` |
 | Empty band | header still renders, then a **44px** row, `#9E9E9E`, 12px, on `#FAFAFA`: `- no processor spaces this week` on demand, `- no livestock availability this week` on supply |
@@ -1003,9 +1113,25 @@ check the sticky rail first; plain rendering is expected to be fine at ~50 recor
 
 ### 8.6 Past, current, future
 
-- **Current week** — 2px petrol top rule, `#E8F1F6` rail and header, petrol bold label, `This week` tag.
-- **Past** — `#F0F0F0` rail, `#9E9E9E` label and meta, `Past` tag.
-- **Future** — plain `#FAFAFA` rail, `#F0F0F0` header.
+**The whole calendar is blue since 2026-09-10**, and the current week is deeper than the rest.
+
+- **Current week** — 2px petrol top rule, **`#C6DCE8`** header, petrol bold label, `This week` tag.
+- **Past** — **`#E8F1F6`** header, `#9E9E9E` label and meta, `Past` tag.
+- **Future** — **`#E8F1F6`** header, `#757575` label and meta, no tag.
+
+Two things follow, and both were accepted with the change rather than discovered after it:
+
+- **`$lms-band-current` must stay deeper than `$lms-drop-target` `#D1E1E8`.** That token was pushed
+  below the tint in the first place because at equal strength "a target three rows down" and "this is
+  the week you are in" were indistinguishable at a glance (§2). A current week at or above the drop
+  target's value recreates exactly that collision. `#C6DCE8` is ~24% petrol against the target's ~18%.
+- **Past and future now differ only in ink.** They used to differ by ground as well; one colour for
+  every non-current band means the `Past` tag and the `#9E9E9E` label are the only things left saying
+  which side of today a band falls on. The band's own 2px top rule still separates every band from
+  its neighbour, and the current week's is the only chromatic one on the board.
+
+Note that the 48px rail these bullets used to describe is gone — Phase 9 moved the week onto the band
+header (§8.5 is stale on that point and the header is now the only place the week is named).
 
 **De-emphasis sits on the band chrome, never on the cards.** Fading a past card would collide with
 Cancelled's desaturation — the one treatment that legitimately drains a card — and a past week's
@@ -1161,6 +1287,53 @@ selector out of `_card-geometry.scss`, and the live `overTarget` signal with the
 was its only reader. Before adding anything back to that column, read the lab: most of what looks
 like a fix there is paid for in the reading.
 
+### 10.4 Following a match to the other column (2026-09-10)
+
+**Clicking a match's counterparty name in an expanded card scrolls the other column to that record
+and flashes it.** The two columns are the screen's whole subject and a match is the join between
+them, so "which record is this?" was previously answered by reading a name and then hunting for it
+in a list of forty.
+
+| Piece | Treatment |
+| --- | --- |
+| **The target** | The counterparty **name cell** only. Every other cell in the row still opens the match modal, which is the single route to editing, confirming or cancelling it and could not be spent. The cell that *names* the record is the one that takes you to it. |
+| **Its hover** | `$lms-drop-target` where the rest of the row takes `$lms-hover` — one step deeper in the same blue, because two identical-looking cells doing two different things is worse than either alone. No new token: the ladder has no room for a sixth petrol tint, and this mark and the drop target are never on screen in the same place (a 30px cell inside a sheet against a 52px row in a column). |
+| **The scroll** | `scrollIntoView({ block: 'center' })` on the column's `.list`, smooth unless `prefers-reduced-motion`. The card also carries `scroll-margin-top: 58px` — the 28px sticky strip plus the 30px sticky band header — for the ends of the list, where centring has nowhere left to go. |
+| **The flash** | 1500ms, a 30% petrol wash **and** a 2px petrol ring, both animating to transparent. |
+| **Hidden by the filters** | A snack naming the record, with a **`SHOW IT`** action. |
+
+**The flash spends no token, and that is the whole reason it can be this loud** on a screen whose
+petrol ladder is full. It ends at transparent, so it is never a state anything has to be told apart
+from — it is a gesture, and by the time the eye has followed it, it is gone.
+
+It is also the one moving thing on this screen, which §10 otherwise forbids. The exception is narrow
+and deliberate: **nothing moves under the pointer**, because the pointer is in the *other* column on
+the cell that was clicked, and this is the answer arriving somewhere the operator has just asked to
+be taken. The card does not move or resize; only its colour does.
+
+**The record is very often not on screen, and that is not an edge case.** The default filters are
+demand `Status = Booked` and supply `Status ∈ {Booked, Pending}` with `unmatched > 0`. A confirmed
+match's space and a fully allocated availability record both fall outside them — which is to say the
+records a *finished* match points at are precisely the ones the far column is hiding. So:
+
+- The reveal **offers** to widen the filter and never applies it unasked. §12.3's "no hidden or
+  timed resets" is the rule; Phase 7's `SHOW IT` is the sanctioned shape for asking, and this
+  deliberately reuses its word.
+- It widens **only the clauses actually excluding the record**, and **adds** to each list rather than
+  replacing it, so a column filtered to ANZCO still has that filter afterwards. `weekCommencing` and
+  `hasUnmatched` cannot be widened by addition and are cleared instead — both are all-or-nothing.
+- The decision is pure (`clausesHidingSpace` / `widenForSpace` and their supply twins in
+  `filters/filter-service.ts`), which is what lets it be tested without a DOM. The scroll and the
+  flash are a browser-checklist row.
+
+**This is not the scroll synchronisation §9.3 forbids.** That rule is about *locking* two lists of
+different lengths together, continuously, so that one of them ends up lying about which week the
+operator is in. This moves one column once, on an explicit click, and never couples them again.
+
+**Do not auto-expand the revealed card.** Only one drawer is open per column (§6.2), so expanding it
+would close whatever the operator had open on that side — and they were reading it a moment ago.
+
+
 ### 10.1 The drag chip
 
 **232 × 30px, `#FFFFFF`, 2px `#00567E`, 3px radius, `0 6px 14px rgba(0,0,0,.24)`.** Not a copy of the
@@ -1170,8 +1343,22 @@ the row they were aiming at. **Two fields, and the pill:**
 | Cell | Demand | Supply |
 | --- | --- | --- |
 | Name — `1 1 auto`, `min-width: 0`, ellipsis | **`processor` + `plant`** — `ANZCO Kokiri` | `locationName`, or `-` |
-| Head count — `0 0 auto`, `#757575`, tabular | `quantityRequired` | `quantityAvailable` |
+| Head count — `0 0 auto`, `#757575`, tabular | **`unmatched`** | **`unmatched`** |
 | Outcome pill — under the chip, right-aligned, petrol on white | `Match 8 head`, **only when it disagrees with the head count above it** (§11.2's sibling: a pill repeating the chip has cost a glance and said nothing, so its presence *means* the drop is partial) | same |
+
+**The head count is `unmatched`, not the record's size (2026-09-10).** It was `quantityRequired` /
+`quantityAvailable`, and that was wrong twice over. The chip overstated the drop — a record of 800
+head with 305 left to allocate said `800 head`, when no drop from it could move more than 305 — and
+it broke the pill below it, whose entire rule is "state the figure only when it disagrees with the
+one above". Judged against a total, that rule fired for every partly-matched record whether or not
+the far side was the constraint, and stayed silent for every fresh one; against the live seed that
+is 12 of 34 demand cards and 9 of 41 supply cards speaking, for reasons the operator cannot see.
+Measured against `unmatched`, **a pill means one thing: the far side could not take all of it.**
+
+It is not clamped. An over-committed record's `unmatched` is negative and `-24 head` is the honest
+answer — it has less than nothing left to give — and nothing can be dropped from it in any case,
+because `DragStore.dropState` blocks every target when the card in hand has under one head unmatched.
+A `Math.max(0, …)` there would be a client-side opinion about a domain figure.
 
 **The demand name is the whole slot, not the processor (2026-09-08).** It was `processor` alone, and
 about 70% of the seeded column is ANZCO's — APG say the real share is higher still — so the chip
@@ -1191,8 +1378,8 @@ next field would come out of the name.
 
 **A toggle in the top bar, left of `Reset demo data`. While a card is held, the other column shows
 only the stock classes that could take it.** Grab a Lamb availability record and the demand column
-drops from 33 booked spaces to the 8 lamb ones; grab a Bulls space and the supply column drops from
-42 records to 15. Off by default, persisted with the rest of the view preferences, and cleared by
+drops from 34 booked spaces to the 10 lamb ones; grab a Bulls space and the supply column drops from
+45 records to 12. Off by default, persisted with the rest of the view preferences, and cleared by
 `Reset demo data`.
 
 | Piece | Treatment |
@@ -1212,6 +1399,15 @@ lists intersect. An unrecognised class carries *every* tag, so it fails towards 
 record that cannot be seen cannot be matched. Lamb and Mutton are deliberately not interchangeable:
 different products, different schedules ($7–9 against $4.50–5.80 in the seed), and neither vocabulary
 has a class spanning them.
+
+**A generic class stands over its specific ones, and that is the whole reason the table is tags
+(2026-09-11).** ANZCO's lamb splits into `Lamb ABF`, `Lamb QA` and `Lamb ANZCO-owned`, on both sides
+of the screen. Grab a `Lamb QA` availability record and the demand column narrows to the QA spaces
+**and** the plain `Lamb` ones — which is what Alliance Group and SFF book — but not to ABF or
+ANZCO-owned. The unqualified `Lamb` carries all four lamb tags; each programme carries only its own.
+Giving the three a shared `lamb` tag instead would have made them compatible with one another, which
+is the opposite of why APG asked for the split: they have to tell ANZCO's rep which programme a load
+belongs to.
 
 **It narrows on the pointer move that starts the drag — not on the press — and that timing is not a
 matter of taste.** Two things pin it from either side:
@@ -1272,7 +1468,7 @@ by plant and date.
 2. **Three fields in a row**, all `appearance="fill"`:
    - `Quantity matched` — 148px, suffix `head`, hint `Default 132 · max 142`
    - `Price per kg` — 148px, prefix `$`, suffix `/kg`, hint
-     `Default for Alliance Group · Cattle · w/c 23-08-26`
+     `Default for Alliance Group · Sire Bull · w/c 23-08-26`
    - `Transport company (optional)` — flexes, `mat-autocomplete`, hint `Can be added later`
 
 **There is no stock-class note.** This section used to specify a bordered info row naming both classes
@@ -1323,11 +1519,12 @@ tracking, 4px radius.
 
 ### 11.4 Match management modal
 
-`MatDialog`, **640px**. Title names the act and the slot: **`Confirm match: ANZCO Rangitikei`** while
-the match is `Drafted`, because confirming it is what the operator opened it to do and what the filled
-button offers; **`Edit match: ANZCO Rangitikei`** past `Drafted`, where there is nothing left to
-confirm and the dialog is an editor. Read with §11.1's `Draft match: ANZCO Kokiri`, the pair of
-titles says which of the two acts each dialog is asking for.
+`MatDialog`, **640px**. Title names the act and the slot — whatever the footer's filled button does,
+which since 2026-09-11 is one of three things: **`Notify match: ANZCO Rangitikei`** while an ANZCO
+match is `Drafted`, **`Confirm match: …`** once it is `Notified` (**and on an Alliance Group or SFF
+draft**, which has no notify step), and **`Edit match: …`** past that, where there is nothing left to
+move and the dialog is an editor. Read with §11.1's `Draft match: ANZCO
+Kokiri`, the run of titles says which act each dialog is asking for.
 
 **The match id is no longer in the title** (changed 2026-09-07, Mark's call). `Confirm match #3` named
 a row in the `Matches` table, which no operator sees and no other screen shows; the processor and plant
@@ -1377,11 +1574,37 @@ day after (§7).
 
 | Match status | Left | Right |
 | --- | --- | --- |
-| `Drafted` | `Cancel match` (`mat-button`, `#BA1A1A`) | `Close` · `Save changes` · `Confirm match` (flat petrol) |
+| `Drafted`, **ANZCO** | `Cancel match` (`mat-button`, `#BA1A1A`) | `Close` · `Save changes` · `Confirm match` (text) · `Notify processor` (flat petrol) |
+| `Drafted`, **Alliance Group / SFF** | `Cancel match` (`mat-button`, `#BA1A1A`) | `Close` · `Save changes` · `Confirm match` (flat petrol) |
+| `Notified` | `Cancel match…` (`mat-button`, `#BA1A1A`) | `Close` · `Save changes` · `Confirm match` (flat petrol) |
 | `Confirmed` | `Cancel match…` (`mat-button`, `#BA1A1A`) | `Close` · `Save changes` |
+
+**Notification is ANZCO's step and nobody else's** (2026-09-11). For the other two the button is
+**absent, not disabled**: there is no condition an operator could satisfy to earn it, and a greyed
+control says the opposite. Their lifecycle is `Drafted → Confirmed`, which is what the second row
+above shows and why `Confirm match` is filled there. It follows the visibility model in the
+requirements rather than contradicting it — Alliance Group sees no matches at all, SFF sees a
+restricted set only once the space is Confirmed — and the client is told by one boolean
+(`MatchEditContextDto.canNotify`), never by reading a processor name.
 
 Delete is offered **only** at `Drafted`, needs no reason, and is not a cancellation (resolved
 question 3). Cancel-with-reason is offered only past `Drafted`.
+
+**`Confirm match` is filled only when it is the step in front of the operator** (2026-09-11). On a
+draft the lifecycle's next move is `Notify processor`, so Confirm drops to a text button: confirming
+straight from `Drafted` stays available, because notifying is optional, but it stops being what the
+dialog proposes. On a notified match there is nothing else to do and it is filled again. Two filled
+buttons in one footer would say the dialog has no opinion, which on a lifecycle is not true.
+
+**`Notify processor` sends nothing, and the dialog says so under the fields** — `.dispatch`, muted
+12px, on a draft only: *"Notifying records that this match has been put to the processor. No message
+is sent — in-app, SMS and email notifications are not part of this prototype."* The notification
+mediums are deferred (roadmap item 5) and `Notify` on a button is a promise this prototype cannot
+keep; a demo room that includes processor staff will read it as one unless told otherwise. It is
+prose under the fields rather than a tooltip because a tooltip is only found by someone already
+suspicious, and it is muted rather than warning-coloured because it states scope, not risk. The snack
+afterwards repeats it — `Match notified to ANZCO — no message sent` — since by then the dialog is
+gone and that sentence with it.
 
 **Both buttons read `Cancel match`, and the ellipsis is the only difference** (changed 2026-09-08).
 The label went `Delete draft` → `Undo match` (2026-09-07, Mark's call) → `Cancel match`, and the last
@@ -1602,6 +1825,23 @@ is the toggle's filled ON state, which the reset has no equivalent of and needs 
 demo-data marking of any kind**, and must not acquire one: it is a real feature of the matching
 screen, and the ribbon and the `construction` glyph mean something specific in this application.
 
+**"Drag anywhere" is a compound control since 2026-09-10.** One 26px chrome button holding two:
+the main half switches the gesture, and an 18px square on its trailing edge, behind a hairline,
+decides whether the cards keep their grips once it is on (§16.13). They are folded together because
+they are one decision with a rider — *drag from the row, and, since you can, drop the glyph that
+used to be the only way* — and because a second separate top-bar control would be inert whenever
+its neighbour was off, which is a worse experience than a cell that greys inside the control it
+belongs to.
+
+A `<button>` cannot contain a `<button>`, so the wrapper is a `div` with `role="group"` and the two
+real buttons sit inside it; `.pref-toggle`'s shape and its single `.on` definition move to the
+wrapper unchanged. The sub-button is **disabled**, not hidden, while the gesture is off — a control
+that appears and disappears as its neighbour is pressed is harder to find than one that greys — and
+its `title` says why. It **shows its tooltip explicitly on click**, because the state it reports
+changes under a pointer already resting on it, a `title` will not reappear without the pointer
+moving away and back, and the thing it changes is forty rows below in the list.
+
+
 ### 14.2 The record forms' layout (2026-09-08)
 
 Both debug forms are **one two-column grid** — `web/src/app/matching/record/_record-form.scss`, shared,
@@ -1637,6 +1877,38 @@ until someone changes the density row.
 
 `Documents/browser-checklist.md` carries the geometry claims. They are **unrun**.
 
+### 14.3 The space form asks for a delivery date in two parts (2026-09-11)
+
+`Delivery date` was one native `<input type="date">`. It is now **`Week commencing` and `Weekday`**,
+two `mat-select`s side by side in the grid's two columns, and the shape is the screen's own: a space
+is booked into a week band and sits on a day inside it, and since the same day the card's date cell
+names only the weekday. The form asks the two questions the operator is answering instead of one date
+they have to decompose by eye.
+
+1. **The date is a lookup, never a sum.** `ReferenceDataDto.weeks` carries each week's **seven days**,
+   each with the ISO date, so the form submits `week.days[index].date`. Composing it in the client
+   would mean advancing an ISO string by a weekday's offset, which `no-domain-arithmetic.spec.ts`
+   forbids — the same rule that put a native date input here in the first place, since that control's
+   value *was* the ISO string. The API contract is unchanged: it still receives one `deliveryDate`.
+2. **The weekday control holds an index, 0 = Sunday, not a date.** So changing the week **keeps the
+   weekday**: "the same slot, a week later" is one click, and nothing has to be recomputed against the
+   new week. Verified live — moving space #42 from `06-09-26` to `13-09-26` carried `Thu` across and
+   the card moved bands with its weekday intact.
+3. **The week list is the one thing on the reference data derived from the loaded records.** The
+   others are `SeedConfig` vocabularies on purpose; this is a calendar, and the picker has to be able
+   to express the delivery date of every record `Edit` might be opened on — a week missing from it is
+   a form that opens empty and cannot be saved without moving the date it was opened to look at. So it
+   spans every record and the current week both, exactly as the band list does, and reaches
+   `RecordWriter.WeeksAhead` (a quarter) past the end: a picker that stopped at the last record could
+   never be the form that enters the first record of a new week. 21 options on the current seed.
+4. **Each option is `dd-MM-yy`, not the band's `16 Aug`.** The list runs past a December, and two
+   unqualified `3 Jan`s a year apart is the one ambiguity a date picker may not have. The current week
+   is marked `· this week`; the weekday options read `Thu · 10-09-26`, so the pair names the date it
+   composes without the operator holding the week in their head.
+5. **The weekday menu is empty until a week is chosen**, with `Choose a week first` beneath it — the
+   same empty-menu-and-a-hint the plant and stock-class pickers use, and for the same reason: no
+   `[disabled]` binding, so the enabled state stays in the form rather than in the template.
+
 ---
 
 ---
@@ -1662,7 +1934,7 @@ processor's and farmer's name for the excl-draft one.
 | Away from default | `Filtered` / `Reset` |
 | Band header | `Week of 23 Aug` |
 | Empty value | `-` |
-| Confirm-space reason when disabled | `Needs at least one confirmed match and no drafts` |
+| Confirm-space reason when disabled | `Needs every match confirmed, and at least one` |
 
 **The six quantity-state strings live in `QuantityStateLabels` in C# and arrive on the DTO as
 `quantityStateLabel`.** Render what you are given. A phase may reword them **in that one file**.
@@ -1761,9 +2033,18 @@ processor's and farmer's name for the excl-draft one.
 
     | Region | Width | Drag | Click |
     | --- | --- | --- | --- |
-    | Grip | 30px | **always** | — |
-    | Middle (`.cbody`) | ~478px | only with "Drag anywhere" on | **always** |
+    | Grip | 30px, **and only while it is drawn** | whenever it is drawn | — |
+    | Middle (`.cbody`) | ~478px, or ~508 with the grip gone | only with "Drag anywhere" on | **always** |
     | Chevron | 24px | never | **always** |
+
+    **The grip is hidden by default once "Drag anywhere" is on (2026-09-10)**, and the promise that
+    it "never switches off" survives only in the form that still means something: *wherever it is
+    drawn, it drags*. With the gesture on, the other ~478px do the same job, so the cell is a glyph
+    advertising something available everywhere — and its 30px come off the name column, the only one
+    that flexes. What makes it safe is that the two conditions are a **conjunction in one place**
+    (`MatchingPreferences.gripsVisible` = `!dragAnywhere || keepGrips`), so "no grip and no body
+    drag" is unreachable however the flags are set. `keepGrips` is the operator's override and lives
+    with the other view preferences; it is never in force on its own.
 
     The two ends are deliberately unambiguous. The grip is the guaranteed drag — it never switches
     off, whatever the preference says, so there is always one place on every row that behaves the way

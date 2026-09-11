@@ -102,3 +102,74 @@
     background: rgb(255 255 255 / 88%);
   }
 }
+
+// ---------------------------------------------------------------------------------------------
+// THE COMPOUND TOGGLE (2026-09-10) — "Drag anywhere", with the grips switch folded into it
+//
+// One 26px chrome control on the bar, holding two real buttons: a <button> cannot contain a
+// <button>, and the alternative was a second top-bar control that is inert whenever its neighbour
+// is off. The outer div takes the shape above; these rules take the padding OFF it and give it to
+// the two halves, so the divider between them runs the full height rather than floating in a gap.
+// ---------------------------------------------------------------------------------------------
+.pref-toggle.compound {
+  padding: 0;
+  gap: 0;
+  overflow: hidden;
+}
+
+.pref-toggle.compound > button {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  height: 100%;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  letter-spacing: inherit;
+  cursor: pointer;
+}
+
+.pref-toggle.compound > .main {
+  padding: 0 8px 0 10px;
+}
+
+// The grips switch. A square rather than a pill, so it reads as a cell inside the control and not
+// as a second control that happens to be touching it.
+.pref-toggle.compound > .sub {
+  justify-content: center;
+  width: 24px;
+  padding: 0;
+  border-left: 1px solid rgb(255 255 255 / 45%);
+}
+
+// ON means "the grips are still there", so the glyph is at full strength; off, it recedes rather
+// than disappearing, because the control has to stay findable in the state it is usually in.
+.pref-toggle.compound > .sub {
+  opacity: 0.45;
+}
+
+.pref-toggle.compound > .sub.on {
+  opacity: 1;
+}
+
+.pref-toggle.compound > button:hover:not(:disabled) {
+  background: rgb(255 255 255 / 14%);
+}
+
+// Inert while "Drag anywhere" is off: there are no grips to take away, and taking them away would
+// leave the screen with no drag path at all (see MatchingPreferences.gripsVisible).
+.pref-toggle.compound > .sub:disabled {
+  opacity: 0.28;
+  cursor: default;
+}
+
+// Inside the filled ON state the divider has to flip with everything else, or a white hairline on a
+// white ground is invisible and the control reads as one button again.
+.pref-toggle.compound.on > .sub {
+  border-left-color: rgb(0 86 126 / 35%);
+}
+
+.pref-toggle.compound.on > button:hover:not(:disabled) {
+  background: rgb(0 86 126 / 10%);
+}

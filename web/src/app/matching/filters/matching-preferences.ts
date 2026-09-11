@@ -7,6 +7,7 @@ import {
   DEFAULT_DEMAND_FILTERS,
   DEFAULT_DEMAND_SORT,
   DEFAULT_DRAG_ANYWHERE,
+  DEFAULT_KEEP_GRIPS,
   DEFAULT_FILTER_ON_DRAG,
   DEFAULT_FLIPPED,
   DEFAULT_SUPPLY_FILTERS,
@@ -59,6 +60,14 @@ export interface MatchingViewPreferences {
    * 2026-09-07, with the grip as the only way to start a drag.
    */
   readonly dragAnywhere: boolean;
+  /**
+   * Whether the cards keep their drag grips while `dragAnywhere` is on.
+   *
+   * Only ever consulted through {@link MatchingPreferences.gripsVisible} — on its own it is half a
+   * question, because with `dragAnywhere` off the grips are the only drag path and are shown
+   * whatever this says.
+   */
+  readonly keepGrips: boolean;
   readonly demand: { readonly filters: DemandFilters; readonly sort: Sort<DemandSortField> };
   readonly supply: { readonly filters: SupplyFilters; readonly sort: Sort<SupplySortField> };
 }
@@ -67,6 +76,7 @@ const DEFAULTS: MatchingViewPreferences = {
   flipped: DEFAULT_FLIPPED,
   filterOnDrag: DEFAULT_FILTER_ON_DRAG,
   dragAnywhere: DEFAULT_DRAG_ANYWHERE,
+  keepGrips: DEFAULT_KEEP_GRIPS,
   demand: { filters: DEFAULT_DEMAND_FILTERS, sort: DEFAULT_DEMAND_SORT },
   supply: { filters: DEFAULT_SUPPLY_FILTERS, sort: DEFAULT_SUPPLY_SORT },
 };
@@ -78,6 +88,20 @@ export class MatchingPreferences {
   readonly flipped = computed(() => this.state().flipped);
   readonly filterOnDrag = computed(() => this.state().filterOnDrag);
   readonly dragAnywhere = computed(() => this.state().dragAnywhere);
+  readonly keepGrips = computed(() => this.state().keepGrips);
+
+  /**
+   * Whether the cards draw their 30px drag grips — **the only question the cards should ask**.
+   *
+   * Derived here rather than in each card, because it is a safety rule and not a preference: a
+   * screen where the grips are gone AND the middle region is inert has no way to start a drag at
+   * all. Expressed as a conjunction, that state is unreachable however the two flags are set, and
+   * it is unreachable in one place instead of two components that could drift.
+   *
+   * The grip therefore keeps its promise from 2026-09-07 in the only form that still means
+   * anything: wherever it is drawn, it drags, unconditionally.
+   */
+  readonly gripsVisible = computed(() => !this.dragAnywhere() || this.keepGrips());
   readonly demandFilters = computed(() => this.state().demand.filters);
   readonly demandSort = computed(() => this.state().demand.sort);
   readonly supplyFilters = computed(() => this.state().supply.filters);
@@ -118,6 +142,18 @@ export class MatchingPreferences {
    */
   toggleDragAnywhere(): void {
     this.commit({ ...this.state(), dragAnywhere: !this.state().dragAnywhere });
+  }
+
+  /**
+   * Puts the grips back, or takes them away again, while "Drag anywhere" is on.
+   *
+   * Deliberately does **not** guard on `dragAnywhere`. The stored flag is the operator's standing
+   * answer and it survives switching the drag off and on again; what guards the screen is
+   * {@link gripsVisible}, and the top bar disables the control rather than letting a press mean
+   * nothing.
+   */
+  toggleKeepGrips(): void {
+    this.commit({ ...this.state(), keepGrips: !this.state().keepGrips });
   }
 
   /**
@@ -207,6 +243,7 @@ function readStored(): MatchingViewPreferences {
     flipped: boolean(raw['flipped'], DEFAULTS.flipped),
     filterOnDrag: boolean(raw['filterOnDrag'], DEFAULTS.filterOnDrag),
     dragAnywhere: boolean(raw['dragAnywhere'], DEFAULTS.dragAnywhere),
+    keepGrips: boolean(raw['keepGrips'], DEFAULTS.keepGrips),
     demand: {
       filters: readDemandFilters(record(demand['filters'])),
       sort: readSort(record(demand['sort']), DEFAULT_DEMAND_SORT, knownDemandSortFields),

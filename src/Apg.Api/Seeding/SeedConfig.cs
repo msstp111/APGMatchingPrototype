@@ -43,17 +43,47 @@ public static class SeedConfig
     /// These do <em>not</em> map onto <see cref="AvailabilityStockClasses"/>; a human judges
     /// compatibility during the drag. Do not build a lookup between the two.
     /// </summary>
+    /// <remarks>
+    /// Revised 2026-09-11 from the demo session with David Earl and Dougal Innes:
+    /// <list type="bullet">
+    /// <item><description>
+    /// ANZCO's lamb splits three ways — <c>Lamb ABF</c>, <c>Lamb QA</c>, <c>Lamb ANZCO-owned</c>.
+    /// APG has to identify which programme a line belongs to when advising stock to ANZCO's rep, so
+    /// it cannot be a note on the record. The three are <b>ANZCO's alone</b>: Alliance Group and SFF
+    /// book plain <c>Lamb</c>, and SFF's is the single "100% standard" class.
+    /// </description></item>
+    /// <item><description>
+    /// Alliance Group's generic <c>Cattle</c> is gone, replaced by <c>Cow</c>, <c>Prime</c> and
+    /// <c>Sire Bull</c> — the classes Dougal named. <c>Deer</c> stays on the list for now although
+    /// APG have not traded deer in some years.
+    /// </description></item>
+    /// </list>
+    /// Both changes are carried in <see cref="Apg.Domain.Matching.StockClassCompatibility"/> too, or
+    /// the drag aid would have no opinion about the new names and show every record for all of them.
+    /// </remarks>
     public static readonly (string Processor, string[] StockClasses)[] ProcessorSpaceStockClasses =
     [
-        ("ANZCO", ["Cows", "Prime", "Nat Beef - Ultra", "Nat Beef - Premium", "Bulls", "Lamb", "Mutton"]),
-        ("Alliance Group", ["Lamb", "Mutton", "Cattle", "Deer"]),
+        ("ANZCO", [
+            "Cows", "Prime", "Nat Beef - Ultra", "Nat Beef - Premium", "Bulls",
+            "Lamb", "Lamb ABF", "Lamb QA", "Lamb ANZCO-owned", "Mutton",
+        ]),
+        ("Alliance Group", ["Lamb", "Mutton", "Cow", "Prime", "Sire Bull", "Deer"]),
         // SFF's list said "Lambs" until APG confirmed it is "Lamb", like everyone else's.
         ("SFF", ["Lamb", "Prime", "Cows"]),
     ];
 
     /// <summary>The single, separate supply-side list.</summary>
+    /// <remarks>
+    /// The three ANZCO lamb programmes appear here as well (2026-09-11). They are a property of the
+    /// stock, not of the processor, so the farmer or agent picks one when the availability record is
+    /// created rather than APG deciding it at match time — David Earl: "just have it for both sides
+    /// would be easiest". Plain <c>Lamb</c> remains, and is what an uncommitted line is.
+    /// </remarks>
     public static readonly string[] AvailabilityStockClasses =
-        ["GFNB ultra", "GFNB premium", "Prime", "Cow", "Sire Bull", "Bull", "Mixed Cattle", "Lamb", "Mutton"];
+    [
+        "GFNB ultra", "GFNB premium", "Prime", "Cow", "Sire Bull", "Bull", "Mixed Cattle",
+        "Lamb", "Lamb ABF", "Lamb QA", "Lamb ANZCO-owned", "Mutton",
+    ];
 
     /// <summary>
     /// APG's real plant names, transcribed from <c>Data/Plants.csv</c>. That file uses the code
@@ -150,7 +180,10 @@ public static class SeedConfig
 
     public static Species SpeciesOf(string stockClass) => stockClass switch
     {
-        "Lamb" or "Lambs" => Species.Lamb,
+        // The three ANZCO programmes are lamb for every purpose this enum serves — head counts and
+        // price bands. They are listed rather than matched on a "Lamb" prefix so that a future class
+        // whose name merely begins with the word does not silently inherit a lamb's arithmetic.
+        "Lamb" or "Lambs" or "Lamb ABF" or "Lamb QA" or "Lamb ANZCO-owned" => Species.Lamb,
         "Mutton" => Species.Mutton,
         "Deer" => Species.Deer,
         _ => Species.Cattle,

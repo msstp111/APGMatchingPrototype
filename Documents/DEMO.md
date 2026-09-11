@@ -152,12 +152,30 @@ Open its match line, then click the row — **Cedar Spruce Crossing, 12 head, Co
 shows **both** parent records in full, the three editable fields, and, in the quantity field's own
 hint, the ceiling spelled out and where it comes from. Close it.
 
+**If they ask about notifying the processor** — and someone always does, because it is in the spec —
+open a **drafted ANZCO** match instead (step 3's, if you just made one). Its footer offers
+**`Notify processor`** as the filled button, with `Confirm match` beside it in plain text, and under
+the fields a line saying what the press actually does. Press it: the match goes to `Notified`, the
+match table's status cell picks up a `send` glyph, and the card's line 2 reads `… · 1 notified`.
+**Say out loud that no message went anywhere** — the dialog says it, the snack says it, and the room
+should hear it from you first. The mediums (in-app, SMS, email), their configuration and the
+notification history are deferred; the status is APG's record that the ball is in the processor's
+court, which is a distinction the board could not draw while every unconfirmed match was a draft.
+
+**Then open a drafted Alliance Group or SFF match and show that the button is not there.** Notifying
+is ANZCO's step and nobody else's, so for those two the lifecycle is `Drafted → Confirmed` and
+`Confirm match` is the filled button instead. It is worth 20 seconds because it is the first visible
+piece of the per-processor model the spec describes — Alliance Group sees no matches at all, SFF
+sees a restricted set only once the space is Confirmed — and because "absent, not greyed out" is a
+deliberate choice: a disabled button sends someone hunting for the condition that would enable it,
+and there is none. Roles and the rest of that gating are still deferred.
+
 Now click **`Confirm space`** in the expanded card. It is enabled here, and that is the interesting
-part: the space has **39 head still unmatched** and APG can confirm it anyway. The gate is *"at least
-one confirmed match and no drafts"* — not *"full"*.
+part: the space has **39 head still unmatched** and APG can confirm it anyway. The gate is *"every
+match confirmed, and at least one"* — not *"full"*.
 
 **Then look at Processor Space #1** from step 2a. Its `Confirm space` is greyed out, and beside it, in
-words: *"Needs at least one confirmed match and no drafts."* It has two drafts outstanding. **A
+words: *"Needs every match confirmed, and at least one."* It has two drafts outstanding. **A
 control that greys out for unstated reasons is what makes people think an app is broken**; every
 disabled control on this screen says why, or its cause is already on the card.
 
@@ -259,7 +277,9 @@ Have these ready. Each one has been asked before.
 | **Cards vanish** from the other column when a grip is pressed | `Filter on drag` is on (§6a). They are hidden for the length of the gesture, not filtered, and they come back on release. The header chip names what it narrowed to. |
 | `Filter on drag` hides a space the operator **wanted** | It is an aid over a table of plausible pairings, not a rule. Switch it off — the match it was hiding is allowed and always was. |
 | Dropping a card in **its own column** does nothing at all | Not a gesture. An error message for something that simply does not apply teaches people to fear the screen. |
-| `Confirm space` enabled on a space that is **not full** | The gate is one confirmed match and no drafts, not "full". |
+| `Confirm space` enabled on a space that is **not full** | The gate is every match confirmed and at least one, not "full". |
+| `Notify processor` and **nothing arrives anywhere** | It moves the match to `Notified` and stops. The mediums — in-app, SMS, email — are deferred; the dialog and the snack both say so. |
+| **No `Notify processor`** on an Alliance Group or SFF draft | Notification is not part of their process, so the button is absent rather than greyed. Their lifecycle is `Drafted → Confirmed`. |
 | A cancelled match **disappears completely** | Pass 1 has no Match list view. Deleting a draft and cancelling a match move the numbers identically. |
 | A newly added record dated months out brings **empty week headers** with it | The calendar is being honest. Only the runs at each end are trimmed. |
 | A newly added space **has no default price** | The seeded price table covers a few weeks either side of now. The prompt says so in words rather than showing `$0.00`. |
@@ -279,8 +299,13 @@ Say this before anyone finds it. None of the following is a defect:
 - **No login and no roles.** Every screen is the APG view. Per-processor visibility gating — ANZCO
   sees the most, SFF a restricted set once confirmed, Alliance Group no matches at all — is designed
   but not built.
-- **No notifications**, so the `Notified` match status has no way in. The lifecycle here is
-  `Drafted → Confirmed`, plus `Cancelled` with a reason.
+- **No notifications are sent.** The lifecycle is the spec's — `Drafted → Notified → Confirmed`, plus
+  `Cancelled` with a reason — and `Notify processor` in the match modal really does move an **ANZCO**
+  draft to `Notified`. (Alliance Group and SFF have no notify step at all; see step 5.) **Nothing leaves the building when it does**: no SMS, no email, no in-app message, no
+  notification history. The status is APG's own record that a match has been put to the processor and
+  is waiting on their word. Say so when you press it; the dialog and the snack both say it too.
+  Confirming straight from `Drafted` is still allowed — notifying is a step APG may take, not one it
+  must.
 - **No default-pricing maintenance screen** and **no weekly roll-up views.**
 - **No Finance Stock draw-down** against the Purchases data.
 - **No keyboard-only path for the drag.** A mouse is assumed throughout. This is a decision for the

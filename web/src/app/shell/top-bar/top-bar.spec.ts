@@ -39,8 +39,26 @@ describe('Top bar', () => {
     return (fixture.nativeElement as HTMLElement).querySelector<HTMLButtonElement>('.drag-filter')!;
   }
 
+  /**
+   * "Drag anywhere" is the MAIN HALF of a compound control since 2026-09-10 — the grips switch is
+   * folded into its trailing edge. The shared `.pref-toggle` shape moved to the wrapper with it,
+   * which is why the shape assertion below reaches for `.compound` and the behaviour assertions
+   * reach for the button inside it.
+   */
   function dragAnywhere(fixture: Awaited<ReturnType<typeof mount>>): HTMLButtonElement {
-    return (fixture.nativeElement as HTMLElement).querySelector<HTMLButtonElement>('.drag-anywhere')!;
+    return (fixture.nativeElement as HTMLElement).querySelector<HTMLButtonElement>(
+      '.compound > .main',
+    )!;
+  }
+
+  function compound(fixture: Awaited<ReturnType<typeof mount>>): HTMLElement {
+    return (fixture.nativeElement as HTMLElement).querySelector<HTMLElement>('.compound')!;
+  }
+
+  function grips(fixture: Awaited<ReturnType<typeof mount>>): HTMLButtonElement {
+    return (fixture.nativeElement as HTMLElement).querySelector<HTMLButtonElement>(
+      '.compound > .sub',
+    )!;
   }
 
   it('offers the filter as a toggle, off to begin with', async () => {
@@ -106,7 +124,7 @@ describe('Top bar', () => {
     await fixture.whenStable();
 
     expect(dragAnywhere(fixture).getAttribute('aria-pressed')).toBe('true');
-    expect(dragAnywhere(fixture).classList.contains('on')).toBe(true);
+    expect(compound(fixture).classList.contains('on')).toBe(true);
     expect(dragAnywhere(fixture).title).toContain('On');
     expect(TestBed.inject(MatchingPreferences).dragAnywhere()).toBe(true);
   });
@@ -124,6 +142,63 @@ describe('Top bar', () => {
   });
 
   /**
+   * The grips switch is inert until there is another way to drag (2026-09-10). Grips hidden while
+   * the middle region is also inert is a screen with no drag path at all, so the control that would
+   * produce it does not accept the press — and its title says why rather than leaving the operator
+   * to guess at a greyed button.
+   */
+  it('leaves the grips switch disabled until “Drag anywhere” is on', async () => {
+    const fixture = await mount();
+    const preferences = TestBed.inject(MatchingPreferences);
+
+    expect(grips(fixture).disabled).toBe(true);
+    expect(grips(fixture).title).toContain('Turn on Drag anywhere');
+    expect(preferences.gripsVisible()).toBe(true);
+
+    dragAnywhere(fixture).click();
+    await fixture.whenStable();
+
+    expect(grips(fixture).disabled).toBe(false);
+    // On by default, so the grips go the moment the gesture arrives that replaces them.
+    expect(preferences.keepGrips()).toBe(false);
+    expect(preferences.gripsVisible()).toBe(false);
+  });
+
+  it('puts the grips back without switching the gesture off', async () => {
+    const fixture = await mount();
+    const preferences = TestBed.inject(MatchingPreferences);
+
+    dragAnywhere(fixture).click();
+    await fixture.whenStable();
+    grips(fixture).click();
+    await fixture.whenStable();
+
+    expect(preferences.keepGrips()).toBe(true);
+    expect(preferences.gripsVisible()).toBe(true);
+    expect(preferences.dragAnywhere()).toBe(true);
+    expect(grips(fixture).classList.contains('on')).toBe(true);
+  });
+
+  /**
+   * The stored override survives the gesture being switched off and on again — but it is never in
+   * force on its own, because `gripsVisible` is the conjunction. This is the assertion that would
+   * catch someone "simplifying" the two flags into one.
+   */
+  it('keeps the grips override while the gesture is off, without acting on it', async () => {
+    const fixture = await mount();
+    const preferences = TestBed.inject(MatchingPreferences);
+
+    dragAnywhere(fixture).click();
+    await fixture.whenStable();
+    dragAnywhere(fixture).click();
+    await fixture.whenStable();
+
+    expect(preferences.dragAnywhere()).toBe(false);
+    expect(preferences.keepGrips()).toBe(false);
+    expect(preferences.gripsVisible()).toBe(true);
+  });
+
+  /**
    * Both borrow the reset's shape through one shared class rather than a copy each: three chrome
    * controls side by side, and one of them a pixel out from its neighbours looks like a mistake.
    */
@@ -131,7 +206,8 @@ describe('Top bar', () => {
     const fixture = await mount();
 
     expect(toggle(fixture).classList.contains('pref-toggle')).toBe(true);
-    expect(dragAnywhere(fixture).classList.contains('pref-toggle')).toBe(true);
+    // The compound control's WRAPPER carries the shape now; its two halves are cells inside it.
+    expect(compound(fixture).classList.contains('pref-toggle')).toBe(true);
   });
 
   it('still carries the demo reset and the dev flag', async () => {

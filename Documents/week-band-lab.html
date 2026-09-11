@@ -1,0 +1,911 @@
+<!doctype html>
+<html lang="en-NZ">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>APG matching — the blue ladder</title>
+<!--
+  ============================================================================================
+  THROWAWAY. Not part of the Angular application, not routed, not imported anywhere.
+  One self-contained file: no build step, no framework, no CDN, no network. Opens over file://.
+  Seventh in the series, same pattern and same reasons as drag-lab.html, expansion-lab.html,
+  expansion-lab-2.html, sums-strip-lab.html, open-row-lab.html and drag-lab-2.html.
+
+  WHY A SEVENTH LAB
+
+  Mark asked for two things that look independent and are not:
+
+    7. every non-current week band goes from grey to the light blue the current week uses
+    8. the current week goes to a darker blue, distinct from the rest
+
+  The screen has five petrol values and every one of them is already spoken for:
+
+      #F6FAFC  $lms-column-wash    the opposite column during a drag
+      #F5F9FB  $lms-hover          card hover
+      #E8F1F6  $lms-petrol-tint    THE CURRENT WEEK, and info panels
+      #DDEAF1  $open-rail          an open card's grip column and its drawer rail
+      #D1E1E8  $lms-drop-target    the card under the pointer during a drag
+
+  Item 7 takes #E8F1F6 for every band. Item 8 then needs something deeper for the current week —
+  and the next two steps down are $open-rail and $lms-drop-target, both taken, both attached to
+  things that sit INSIDE a band and therefore appear directly against it.
+
+  So the question this lab exists to answer is not "which blue for the bands". It is: WHERE DOES
+  THE OPEN CARD'S RAIL GO, once the bands have taken the tint it was defined against?
+
+  THE ARGUMENT THAT IS ABOUT TO BE OVERTURNED, quoted from _lms-tokens.scss:43-56, because it is
+  the thing any answer here has to replace:
+
+      NOT $lms-petrol-tint, and that is the whole of why this token exists: the tint is the
+      current-week band's ground, so a card inside the current week would have a grip the same
+      colour as the header directly above it. One step deeper than the tint and one step lighter
+      than $lms-drop-target, so the order in the column reads open (#DDEAF1) < droppable
+      (#D1E1E8) — a card under the pointer is more urgent than a card that happens to be open.
+
+  Note what that argument depends on: exactly ONE band being tinted. Item 7 tints all of them, so
+  the clause "a card inside the current week" becomes "every card, in every week".
+
+  FIVE THINGS ARE DRAWN AGAINST EACH OTHER HERE, and the reason they are in one file rather than
+  five is that they are only wrong TOGETHER. Each is defensible alone.
+
+    1. the band header of an ordinary week
+    2. the band header of the current week
+    3. an open card's grip column and drawer rail
+    4. the card under the pointer during a drag
+    5. the reveal flash (Documents plan step 5) — a card scrolled to from the other column
+
+  Turn on ADJACENCY to put all five inside one 30px band and see them at once. That view is the
+  whole point of the lab; everything else is scaffolding for it.
+
+  Geometry and colour are copied from the real screen, so the alternatives are judged against the
+  thing the designer already knows:
+      web/src/styles/_lms-tokens.scss                     every colour below
+      web/src/app/matching/_card-geometry.scss            every dimension, card-shell, spines
+      web/src/app/matching/band/week-band.scss            THE BASELINE bands: #F0F0F0 / #E8F1F6,
+                                                          2px #757575 top rule, petrol for current
+      web/src/app/matching/card/card-expansion.scss       the sheet: frame, rail, notch, shadow
+      web/src/app/matching/column/matching-column.scss    the 28px strip, leading pad 30 + 8
+
+  Material Symbols is deliberately not used — the icon font would not load offline, so every glyph
+  here is inline SVG.
+
+  ONE FIDELITY NOTE, the same one open-row-lab.html carries and for the same reason. This file has
+  a global `* { box-sizing: border-box }`; the app has none. So the drawer's filled rail is written
+  here as a 29px box with a border (rule on x=28) where the app writes a 28px content width PLUS a
+  1px border (rule on x=29, the pixel the grip's own border paints). One pixel, deliberately not
+  chased: the app's own comment at card-expansion.scss:135-149 is the authority.
+
+  HOW TO READ IT
+  Left board never changes — it is the screen as it ships today. The right board takes one class
+  per option and they compose. Click a note to toggle it, press 1-4 for the rail options, or use
+  the controls. The URL hash carries the set.
+
+  FIVE CONTROLS:
+    * BANDS      — today's greys, item 7's all-tint, or a slate axis that keeps the bands off the
+                   petrol ladder entirely. This is the axis items 7 and 8 move.
+    * RAIL       — the four answers to "where does the open card's stroke go". THE DECISION.
+    * GRIPS      — plan step 4 hides the grip when "Drag anywhere" is on, which deletes the whole
+                   2026-09-09 open-row device. This is where its replacement is judged.
+    * FLASH      — plan step 5's 1500ms reveal, at three strengths. It ends at nothing, so it
+                   spends no token — but it still has to be legible against whatever the bands are.
+    * ADJACENCY  — forces open, droppable and flashed cards into the current week's band together.
+  ============================================================================================
+-->
+<style>
+* { box-sizing: border-box; }
+
+/* ---------------------------------------------------------------------------------------------
+   TOKENS — verbatim from web/src/styles/_lms-tokens.scss. Do not adjust by eye; if one of these
+   is wrong the whole lab is lying, and the point of the file is the relationships between them.
+   --------------------------------------------------------------------------------------------- */
+:root {
+  --petrol:        #00567E;
+  --card:          #FFFFFF;
+  --zebra:         #F5F5F5;
+  --band:          #F0F0F0;
+  --tint:          #E8F1F6;   /* $lms-petrol-tint  — the current week today */
+  --open-rail:     #DDEAF1;   /* the open card's grip column */
+  --drop-target:   #D1E1E8;   /* the card under the pointer */
+  --hover:         #F5F9FB;
+  --surface:       #FAFAFA;
+  --divider:       #E0E0E0;
+  --rule-strong:   #BDBDBD;
+  --rule-soft:     #EFEFEF;
+  --faint:         #9E9E9E;
+  --text:          #212121;
+  --muted:         #757575;
+  --exp-th:        #ECEFF1;
+  --exp-rule:      #D5D9DD;
+  --error:         #BA1A1A;
+
+  --q-under-bar:   #E8820C;  --q-under-ink: #A85B00;
+  --q-exact-bar:   #2E7D32;  --q-exact-ink: #1B5E20;
+  --q-over-bar:    #1565C0;  --q-over-ink:  #0D47A1;
+  --q-track:       #E0E0E0;
+
+  /* --- geometry, from _card-geometry.scss --- */
+  --card-h:        52px;
+  --grip:          30px;
+  --edge:          8px;
+  --gap:           8px;
+  --spine:         6px;
+  --spine-booked:  3px;
+  --rail:          29px;
+  --strip-h:       28px;
+  --band-h:        30px;
+  --empty-band-h:  44px;
+  --c-sclass:      96px;
+  --c-date:        50px;
+  --c-month:       26px;
+  --c-qty:         40px;
+  --c-meter:       112px;
+  --c-chev:        24px;
+  --meter-track:   66px;
+  --meter-num:     40px;
+
+  /* --- the axes this lab moves. Redefined by the option classes below. --- */
+  --band-ground:   var(--band);
+  --band-ground-now: var(--tint);
+  --band-ink:      var(--muted);
+  --band-ink-now:  var(--petrol);
+  --band-rule-now: var(--petrol);
+  --rail-fill:     var(--open-rail);
+  --rail-ink:      var(--petrol);
+  --rail-rule:     var(--divider);
+  --rail-rule-w:   1px;
+  --lead:          calc(var(--grip) + var(--edge));   /* 38px */
+}
+
+html { background: #E9ECEF; }
+body {
+  margin: 0;
+  font-family: Roboto, "Segoe UI", system-ui, sans-serif;
+  color: var(--text);
+  font-size: 13px;
+}
+
+/* ============================================================================================
+   CHROME — the lab's own furniture. Deliberately in a different type family and a different
+   grey from anything on the board, so nothing here can be mistaken for a proposal.
+   ============================================================================================ */
+.lab { padding: 20px 20px 8px; }
+.intro { max-width: 1180px; margin: 0 auto 14px; }
+h1 { font-size: 19px; font-weight: 600; margin: 0 0 8px; letter-spacing: -0.2px; }
+.intro p { margin: 0; line-height: 1.55; color: #37414A; font-size: 13px; }
+code { font-family: "Cascadia Mono", Consolas, monospace; font-size: 12px; background: #DFE4E8;
+       padding: 1px 4px; border-radius: 2px; }
+
+.presets {
+  max-width: 1180px; margin: 0 auto 16px; display: flex; flex-wrap: wrap; align-items: center;
+  gap: 6px; padding: 10px 12px; background: #FFF; border: 1px solid #C9D0D6; border-radius: 4px;
+}
+.plabel { font-size: 10.5px; font-weight: 700; letter-spacing: .7px; text-transform: uppercase;
+          color: var(--muted); margin-right: 2px; }
+.sep { width: 1px; height: 20px; background: #D6DBE0; margin: 0 6px; }
+button.opt {
+  font: inherit; font-size: 12px; height: 26px; padding: 0 10px; border-radius: 3px; cursor: pointer;
+  background: #FFF; border: 1px solid var(--rule-strong); color: var(--petrol);
+}
+button.opt:hover { background: var(--tint); }
+button.opt.on { background: var(--petrol); border-color: var(--petrol); color: #FFF; font-weight: 600; }
+.seg-ctl { display: inline-flex; gap: 4px; }
+.active { margin-left: auto; font-size: 11px; color: var(--muted); font-family: "Cascadia Mono", Consolas, monospace; }
+
+.stage { max-width: 1180px; margin: 0 auto; display: flex; gap: 20px; align-items: flex-start; }
+.stack { flex: 1 1 0; min-width: 0; }
+.cap { font-size: 11px; font-weight: 700; letter-spacing: .6px; text-transform: uppercase;
+       color: var(--muted); margin-bottom: 6px; display: flex; gap: 8px; align-items: baseline; }
+.cap .what { font-weight: 400; letter-spacing: 0; text-transform: none; color: #5C666F; font-size: 11.5px; }
+
+/* ============================================================================================
+   THE BOARD — a column, as matching-column.scss draws one.
+   ============================================================================================ */
+.board {
+  background: var(--card); border: 1px solid #C9D0D6; border-radius: 3px; overflow: hidden;
+}
+.strip {
+  display: flex; align-items: center; gap: var(--gap); height: var(--strip-h);
+  padding: 0 var(--edge) 0 var(--lead);
+  background: var(--surface); border-bottom: 1px solid var(--divider);
+  font-size: 10.5px; font-weight: 500; line-height: 12px; letter-spacing: .7px;
+  text-transform: uppercase; color: var(--muted);
+}
+.s-name   { flex: 1 1 auto; min-width: 0; }
+.s-sclass { flex: 0 0 var(--c-sclass); }
+.s-date   { flex: 0 0 var(--c-date); }
+.s-qty    { flex: 0 0 var(--c-qty); text-align: right; }
+.s-meter  { flex: 0 0 var(--c-meter); text-align: right; }
+.s-chev   { flex: 0 0 var(--c-chev); }
+
+/* --- the band. week-band.scss:15-49 --- */
+.band { border-top: 2px solid var(--muted); }
+.band.current { border-top: 2px solid var(--band-rule-now); }
+.bhead {
+  display: flex; align-items: center; gap: 8px; height: var(--band-h); padding: 0 10px;
+  background: var(--band-ground); border-bottom: 1px solid var(--divider);
+}
+.band.current .bhead { background: var(--band-ground-now); }
+.blabel { font-size: 12px; font-weight: 500; line-height: 14px; letter-spacing: .7px;
+          text-transform: uppercase; color: var(--band-ink); }
+.band.current .blabel { color: var(--band-ink-now); }
+.band.past .blabel, .band.past .totals { color: var(--faint); }
+.dt { font-weight: 700; }
+.tag { font-size: 8.5px; font-weight: 700; line-height: 11px; letter-spacing: .3px; text-transform: uppercase; }
+.now  { color: var(--band-ink-now); }
+.gone { color: var(--faint); }
+.totals { margin-left: auto; font-size: 11px; line-height: 14px; color: var(--muted);
+          font-variant-numeric: tabular-nums; }
+.none { display: flex; align-items: center; height: var(--empty-band-h); padding: 0 10px;
+        background: var(--surface); color: var(--faint); font-size: 12px; }
+
+/* ============================================================================================
+   THE CARD — card-shell, as _card-geometry.scss:329-851 builds it.
+   ============================================================================================ */
+.cardwrap { position: relative; }
+.card {
+  position: relative; display: flex; height: var(--card-h);
+  background: var(--card); border-bottom: 1px solid var(--divider);
+  padding-right: var(--edge);
+}
+.card.zebra { background: var(--zebra); }
+.card > .spine { position: absolute; left: 0; top: 0; bottom: 0; z-index: 1; }
+.sp-booked    { width: var(--spine-booked); background: var(--divider); }
+.sp-pending   { width: var(--spine);
+                background: repeating-linear-gradient(45deg, var(--rule-strong) 0 2px, #FFF 2px 4px); }
+.sp-confirmed { width: var(--spine); background: var(--petrol); }
+.sp-cancelled { width: var(--spine);
+                background: repeating-linear-gradient(180deg, var(--faint) 0 6px, transparent 6px 10px); }
+
+.grip {
+  flex: 0 0 var(--grip); width: var(--grip); align-self: stretch;
+  display: flex; align-items: center; justify-content: center;
+  padding-left: var(--spine); color: var(--faint);
+  border-right: 1px solid var(--divider);
+}
+.grip svg { width: 20px; height: 20px; fill: currentColor; }
+
+.cbody {
+  flex: 1 1 auto; min-width: 0; display: grid; align-content: center; row-gap: 1px;
+  grid-template-columns: 1fr var(--c-sclass) var(--c-date) var(--c-qty) var(--c-meter);
+  column-gap: var(--gap); padding: 0 var(--edge);
+}
+.name   { grid-area: 1/1; font-size: 13px; font-weight: 500; line-height: 16px;
+          overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+.sclass { grid-area: 1/2; font-size: 13px; font-weight: 500; line-height: 16px; color: var(--muted);
+          overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+.day    { grid-area: 1/3; font-size: 13px; font-weight: 500; line-height: 16px;
+          font-variant-numeric: tabular-nums; }
+.qty    { grid-area: 1/4; font-size: 13px; font-weight: 500; line-height: 16px; text-align: right;
+          font-variant-numeric: tabular-nums; }
+.meterc { grid-area: 1/5; display: flex; align-items: center; justify-content: flex-end; gap: 6px; }
+.meta   { grid-area: 2/1; font-size: 11.5px; line-height: 14px; color: var(--muted);
+          overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+.month  { grid-area: 2/3; font-size: 11.5px; line-height: 14px; color: var(--muted); }
+.trail  { grid-area: 2/4 / 2/6; display: flex; align-items: center; justify-content: flex-end;
+          gap: 8px; font-size: 11.5px; line-height: 14px; color: var(--muted); }
+.mcount { border-bottom: 1px dotted var(--muted); }
+.status { display: inline-flex; align-items: center; gap: 3px; }
+.status svg { width: 13px; height: 13px; fill: currentColor; }
+
+.track { position: relative; width: var(--meter-track); height: 8px; background: var(--q-track);
+         border-radius: 1px; overflow: hidden; }
+.fill  { position: absolute; left: 0; top: 0; height: 100%; border-radius: 1px; }
+.fill.draft { opacity: .42; }
+.num   { width: var(--meter-num); text-align: right; font-size: 13px; font-weight: 500;
+         font-variant-numeric: tabular-nums; }
+.q-under { color: var(--q-under-ink); } .q-exact { color: var(--q-exact-ink); }
+.q-over  { color: var(--q-over-ink);  }
+
+.chev { flex: 0 0 var(--c-chev); width: var(--c-chev); align-self: center; display: flex;
+        align-items: center; justify-content: center; color: var(--muted); }
+.chev svg { width: 20px; height: 20px; fill: currentColor; }
+
+.card.cancelled { filter: grayscale(1); opacity: .62; }
+.card.cancelled .name { text-decoration: line-through; }
+
+/* --- the 2026-09-09 open row: the grip column runs through --- */
+.open .card .grip { background: var(--rail-fill); color: var(--rail-ink); }
+
+/* --- the drag's hot card, _card-geometry.scss:754-761 --- */
+.cardwrap.hot .card { outline: 2px solid var(--petrol); outline-offset: -2px;
+                      background: var(--drop-target); }
+
+/* ============================================================================================
+   THE DRAWER — card-expansion.scss. Enough of it to carry the rail, which is the subject.
+   ============================================================================================ */
+.exp { position: relative; }
+.exp > .spine { position: absolute; left: 0; top: 0; bottom: 0; z-index: 1; }
+.sheet {
+  position: relative; background: var(--card);
+  border: 1px solid var(--rule-strong); border-left-color: transparent;
+  box-shadow: 0 3px 8px -3px rgb(0 0 0 / 30%);
+  /* A flat 29px, NOT derived from --lead. The drawer keeps its rail whether or not the row above
+     still has a grip (Mark, 2026-09-10), so with the grips hidden the row's name sits at 14 and the
+     drawer's first label at 38 and the two deliberately do not line up. */
+  padding-left: var(--rail);
+}
+.sheet::before {
+  content: ''; position: absolute; top: 0; bottom: 0; left: 0;
+  width: var(--rail);
+  background: var(--rail-fill);
+  border-right: var(--rail-rule-w) solid var(--rail-rule);
+}
+.sheet::after {
+  content: ''; position: absolute; top: -1px; right: calc(var(--edge) + var(--c-chev)/2 - 1px);
+  width: 11px; height: 11px; background: var(--card);
+  border-top: 1px solid var(--rule-strong); border-left: 1px solid var(--rule-strong);
+  transform: translate(50%, -50%) rotate(45deg);
+}
+.sums { display: flex; align-items: flex-start; gap: 26px;
+        padding: 8px calc(var(--edge)*2 + var(--c-chev) - 1px) 6px var(--edge);
+        border-bottom: 1px solid var(--rule-soft); }
+.field { display: flex; flex-direction: column; gap: 1px; min-width: 0; }
+.field.right { margin-left: auto; text-align: right; }
+.slabel { font-size: 10.5px; font-weight: 500; line-height: 12px; letter-spacing: .7px;
+          text-transform: uppercase; color: var(--muted); white-space: nowrap; }
+.sum { font-size: 20px; font-weight: 600; line-height: 22px; white-space: nowrap;
+       font-variant-numeric: tabular-nums; }
+.sum .of, .sum .state { font-size: 12.5px; font-weight: 400; color: var(--muted); }
+.sum .state { margin-left: 6px; }
+.mtable { width: 100%; border-collapse: collapse; }
+.mtable th { height: 26px; background: var(--exp-th); border-bottom: 1px solid var(--divider);
+             font-size: 10.5px; font-weight: 500; letter-spacing: .7px; text-transform: uppercase;
+             color: var(--muted); text-align: left; padding: 0 8px; }
+.mtable th + th { border-left: 1px solid var(--exp-rule); }
+.mtable td { height: 30px; font-size: 12.5px; padding: 0 8px; border-bottom: 1px solid var(--rule-soft); }
+.mtable td + td { border-left: 1px solid var(--rule-soft); }
+.mtable tr:hover td { background: var(--hover); }
+/* plan step 5a: the counterparty cell reveals, so it says so under the pointer */
+.mtable tr:hover td.reveal { background: var(--drop-target); cursor: pointer; }
+.acts { display: flex; align-items: center; gap: 8px; padding: 10px 10px 8px var(--edge); }
+.btn { font: inherit; font-size: 12px; height: 30px; padding: 0 14px; border-radius: 4px;
+       cursor: pointer; border: 1px solid var(--rule-strong); background: #FFF; color: var(--petrol); }
+.btn.filled { background: var(--petrol); border-color: var(--petrol); color: #FFF; font-weight: 500; }
+.btn.danger { color: var(--error); }
+.exp.cancelled .sheet::before, .exp.cancelled > .spine { filter: grayscale(1); opacity: .62; }
+
+/* ============================================================================================
+   THE OPTIONS. Each is one class on the board, and they compose.
+   ============================================================================================ */
+
+/* --- BANDS ------------------------------------------------------------------------------- */
+/* b-tint: WHAT SHIPPED on 2026-09-10. Every band takes the tint; the current week goes deeper.
+   #C6DCE8 is ~24% petrol — chosen to clear $lms-drop-target #D1E1E8 (~18%), which is the collision
+   _lms-tokens.scss already recorded once and would otherwise be recreated. */
+.b-tint  { --band-ground: #E8F1F6; --band-ground-now: #C6DCE8; }
+/* b-slate: the bands leave the petrol ladder entirely for a cool blue-grey. Two families —
+   bands are chrome, cards are interaction — so a ground and a card state can never be the same
+   colour whatever else moves. Costs a sixth blue-ish family; the current week's petrol rule and
+   petrol label then sit on a slate ground, which is the thing to look at. */
+.b-slate { --band-ground: #EBEEF2; --band-ground-now: #CBD8E3; }
+
+/* --- RAIL -------------------------------------------------------------------------------- */
+/* r-stroke: spends NO value. The grip's 1px $lms-divider hairline becomes 2px petrol when open
+   and runs down the sheet; the glyph comes up to petrol; there is no fill at all. Immune to
+   anything the bands ever do, because it is not a ground. The question is whether "open" still
+   reads at a glance in a run of forty rows. */
+.r-stroke { --rail-fill: transparent; --rail-ink: var(--petrol);
+            --rail-rule: var(--petrol); --rail-rule-w: 2px; }
+.r-stroke .open .card .grip { border-right: 2px solid var(--petrol); }
+/* r-solid: WHAT SHIPPED, and the axis now under question. Look at the CONFIRMED card — its 6px
+   petrol spine and the petrol grip are the same colour, so an open Confirmed card has no
+   left-edge status mark. A 1px hairline separated them for one afternoon and was pulled: it drew
+   a visible double line on all four statuses to solve a problem one of them has. */
+.r-solid  { --rail-fill: var(--petrol); --rail-ink: #FFF; --rail-rule: var(--petrol); }
+
+/* ---------------------------------------------------------------------------------------------
+   RAIL STRENGTH (2026-09-11) — petrol over white, stepped
+   Full petrol reads as heavy against the pale bands; the band colour itself (#E8F1F6) is both
+   invisible on a white sheet and the exact value of every band header. So the question is where
+   between them the rail should sit, and these are the steps.
+
+   THE GLYPH IS THE LIMIT, not taste. `drag_indicator` is reversed white out of the rail, and white
+   stops working around 55%: the switch below is where the ink flips back to petrol, and a step that
+   needs petrol ink is a step where the "one unbroken stroke" reads as two objects again.
+   --------------------------------------------------------------------------------------------- */
+.rs-80 { --rail-fill: #33789B; --rail-ink: #FFF; --rail-rule: #33789B; }
+.rs-70 { --rail-fill: #4D87A4; --rail-ink: #FFF; --rail-rule: #4D87A4; }
+.rs-60 { --rail-fill: #669AB1; --rail-ink: #FFF; --rail-rule: #669AB1; }
+.rs-50 { --rail-fill: #80AABF; --rail-ink: var(--petrol); --rail-rule: #80AABF; }
+.rs-35 { --rail-fill: #A6C4D2; --rail-ink: var(--petrol); --rail-rule: #A6C4D2; }
+/* r-deep: keeps the family and the fill and re-orders the ladder to open > droppable, inverting
+   the recorded argument. The counter-argument is available: a drop target also carries a 2px
+   petrol outline and a ghosted meter, so it never leans on its fill alone. Check the glyph. */
+.r-deep   { --rail-fill: #BFD5DF; --rail-ink: var(--petrol); }
+/* r-keep: #DDEAF1 untouched. Only honest with BANDS = slate; with BANDS = tint it sits between
+   the two band colours, which is the failure the lab is here to show. */
+.r-keep   { --rail-fill: var(--open-rail); }
+
+/* --- GRIPS ------------------------------------------------------------------------------- */
+/* Plan step 4: with "Drag anywhere" on the grip goes, and the whole open-row stroke goes with it.
+   The lead drops 38 -> 14 (the spine's 6px plus the card's 8px padding) and the strip must follow
+   or every line-1 heading sits 30px off its own values. */
+.nogrip { --lead: calc(var(--spine) + var(--edge)); }
+.nogrip .grip { display: none; }
+/* the 30px came off the name column, so the body takes the lead the strip takes */
+.nogrip .cbody { padding-left: var(--lead); }
+/* the candidate replacement: tint the open ROW, since the column that used to say it is gone */
+.nogrip.openrow .open .card { background: var(--open-rail); }
+
+/* --- FLASH ------------------------------------------------------------------------------- */
+/* Plan step 5d. 1500ms, a bold fill AND a border, both ending at nothing — so it spends no token,
+   which is exactly why it sidesteps everything above. Three strengths. */
+@keyframes apg-reveal-soft {
+  from { background: rgb(0 86 126 / 18%); box-shadow: inset 0 0 0 2px rgb(0 86 126 / 70%); }
+  to   { background: rgb(0 86 126 / 0%);  box-shadow: inset 0 0 0 2px rgb(0 86 126 / 0%); }
+}
+@keyframes apg-reveal-bold {
+  from { background: rgb(0 86 126 / 30%); box-shadow: inset 0 0 0 2px rgb(0 86 126 / 100%); }
+  to   { background: rgb(0 86 126 / 0%);  box-shadow: inset 0 0 0 2px rgb(0 86 126 / 0%); }
+}
+@keyframes apg-reveal-bolder {
+  from { background: rgb(0 86 126 / 46%); box-shadow: inset 0 0 0 3px rgb(0 86 126 / 100%); }
+  to   { background: rgb(0 86 126 / 0%);  box-shadow: inset 0 0 0 3px rgb(0 86 126 / 0%); }
+}
+.f-soft   .cardwrap.flash .card { animation: apg-reveal-soft   1500ms ease-out; }
+.f-bold   .cardwrap.flash .card { animation: apg-reveal-bold   1500ms ease-out; }
+.f-bolder .cardwrap.flash .card { animation: apg-reveal-bolder 1500ms ease-out; }
+@media (prefers-reduced-motion: reduce) {
+  .f-soft .cardwrap.flash .card,
+  .f-bold .cardwrap.flash .card,
+  .f-bolder .cardwrap.flash .card { animation: none; }
+}
+
+/* ============================================================================================
+   NOTES
+   ============================================================================================ */
+.notes { max-width: 1180px; margin: 26px auto 60px; padding: 0 20px; }
+.notes h2 { font-size: 13px; font-weight: 700; letter-spacing: .7px; text-transform: uppercase;
+            color: var(--muted); margin: 22px 0 8px; }
+.note { background: #FFF; border: 1px solid #C9D0D6; border-left: 4px solid var(--rule-strong);
+        border-radius: 3px; padding: 10px 14px; margin-bottom: 8px; cursor: pointer; }
+.note:hover { border-color: var(--petrol); }
+.note.on { border-left-color: var(--petrol); background: #F7FBFD; }
+.note h3 { font-size: 13px; margin: 0 0 4px; font-weight: 600; }
+.note h3 .k { display: inline-block; width: 18px; height: 18px; line-height: 18px; text-align: center;
+              background: var(--petrol); color: #FFF; border-radius: 2px; font-size: 11px;
+              margin-right: 7px; font-weight: 700; }
+.note p { margin: 0 0 4px; line-height: 1.5; color: #37414A; font-size: 12.5px; }
+.note .cost { color: var(--error); }
+.diag { background: #FFF; border: 1px solid #C9D0D6; border-radius: 3px; padding: 4px 14px 10px; }
+.diag li { line-height: 1.55; margin: 8px 0; font-size: 12.5px; color: #37414A; }
+.foot { color: var(--muted); font-size: 12px; line-height: 1.55; margin-top: 22px; }
+.sw { display: inline-block; width: 11px; height: 11px; border: 1px solid rgb(0 0 0 / 22%);
+      border-radius: 2px; vertical-align: -1px; margin-right: 3px; }
+</style>
+
+<body>
+
+<div class="lab">
+  <div class="intro">
+    <h1>The blue ladder — where the open card's rail goes once the bands are blue</h1>
+    <p>
+      Left is <b>the screen as it was before 2026-09-10</b>: grey bands, one tinted current week,
+      and an open card whose rail was <code>#DDEAF1</code> — a value chosen precisely so it would
+      not equal the current-week band. Items 7 and 8 took that argument away by tinting every band.
+      <br><br>
+      <b>Settled 2026-09-11, and the answer was a round trip.</b> Solid petrol (option 2) shipped
+      from this file on the 10th and was reverted the next day: on screen it was far too heavy for
+      what it says, since an open card is the most ordinary state in the list. <b>The rail is
+      <code>#DDEAF1</code> again</b> — option 4 — with the bands blue around it, which is what the
+      right board now opens on. So the collision the original token warned about is live and
+      accepted: what separates an open rail from a drop target is <b>shape, not value</b>.
+      <br><br>
+      The <b>Rail strength</b> steps are kept for the next person who wonders whether something
+      between the two would have been better. The two marked <code>*</code> are where a reversed
+      white glyph stops passing contrast; watch the grip, not just the bar. <b>Adjacency</b> puts
+      the open card, a drop target and the reveal flash in one band — the only view where every
+      blue competes at once, and the one that settled this.
+    </p>
+  </div>
+
+  <div class="presets" id="presets">
+    <span class="plabel">Bands</span><span class="seg-ctl" id="bandctl"></span>
+    <span class="sep"></span>
+    <span class="plabel">Rail</span><span class="seg-ctl" id="railctl"></span>
+    <span class="sep"></span>
+    <span class="plabel">Grips</span><span class="seg-ctl" id="gripctl"></span>
+    <span class="sep"></span>
+    <span class="plabel">Flash</span><span class="seg-ctl" id="flashctl"></span>
+    <span class="sep"></span>
+    <span class="plabel">Rail strength</span><span class="seg-ctl" id="strengthctl"></span>
+    <span class="sep"></span>
+    <span class="seg-ctl" id="adjctl"></span>
+    <span class="active" id="activeout"></span>
+  </div>
+
+  <div class="stage">
+    <div class="stack">
+      <div class="cap">Today <span class="what">grey bands, one tinted week, #DDEAF1 rail</span></div>
+      <div class="board" id="board-base"></div>
+    </div>
+    <div class="stack">
+      <div class="cap">Proposed <span class="what" id="propwhat">nothing on — identical to the left</span></div>
+      <div class="board" id="board-prop"></div>
+    </div>
+  </div>
+</div>
+
+<div class="notes">
+  <h2>The diagnosis</h2>
+  <div class="diag">
+    <ol>
+      <li><b>The ladder is full.</b> Five petrol values, all spoken for:
+        <span class="sw" style="background:#F6FAFC"></span><code>#F6FAFC</code> column wash,
+        <span class="sw" style="background:#F5F9FB"></span><code>#F5F9FB</code> hover,
+        <span class="sw" style="background:#E8F1F6"></span><code>#E8F1F6</code> this week,
+        <span class="sw" style="background:#DDEAF1"></span><code>#DDEAF1</code> open,
+        <span class="sw" style="background:#D1E1E8"></span><code>#D1E1E8</code> droppable.
+        Item 7 takes the third for every band and item 8 needs a sixth below it.</li>
+      <li><b>The rail's own argument assumed one tinted band.</b> <code>_lms-tokens.scss:46-48</code>
+        rejects the tint because “a card inside the current week would have a grip the same colour as
+        the header directly above it”. Tint every band and that becomes every card, in every week —
+        so the token's reasoning does not survive item 7 whatever else happens.</li>
+      <li><b>The current week's ground is not carrying the distinction alone.</b> It also has a 2px
+        petrol top rule where every other band has 2px <code>#757575</code>, a petrol bold label, and
+        a <code>This week</code> tag. Item 8's ground reinforces three existing channels rather than
+        being the only one — which is what makes a subtler answer viable.</li>
+      <li><b>Past versus future is the quiet casualty.</b> Today past and future bands differ by
+        ground as well as by label ink and the <code>Past</code> tag. Item 7 makes every non-current
+        band one colour, so only ink and the tag are left. Look at the top band against the bottom
+        one before deciding that is acceptable.</li>
+      <li><b>The drop target must not become the current week.</b> <code>#D1E1E8</code> exists
+        because at one strength “a target three rows down and ‘this is the week you are in’ were
+        indistinguishable at a glance”. Item 8's darker blue recreates exactly that collision unless
+        it clears <code>#D1E1E8</code>. Turn on <b>Adjacency</b>.</li>
+    </ol>
+  </div>
+
+  <h2>Rail — the decision</h2>
+  <div id="group-rail"></div>
+
+  <h2>The other three axes</h2>
+  <div id="group-other"></div>
+
+  <p class="foot">
+    Seventh in the series, after <code>drag-lab.html</code>, <code>expansion-lab.html</code>,
+    <code>expansion-lab-2.html</code>, <code>sums-strip-lab.html</code>,
+    <code>open-row-lab.html</code> and <code>drag-lab-2.html</code>. Two answers are deliberately
+    absent. <b>A grey rail</b>: the drawer's grey ground was tried and pulled because greyed-out
+    reads as read-only everywhere else on this screen, and the same objection applies to its rail.
+    <b>A rail in a second hue</b>: hue is committed to the quantity meter, and the only sanctioned
+    exception on a card is the cancelled-partner badge's <code>$lms-error</code>.
+  </p>
+</div>
+
+<script>
+/* ============================================================================================
+   glyphs — inline SVG, because the icon font would not load over file://
+   ============================================================================================ */
+const G = {
+  grip: '<svg viewBox="0 -960 960 960"><path d="M360-160q-33 0-56.5-23.5T280-240q0-33 23.5-56.5T360-320q33 0 56.5 23.5T440-240q0 33-23.5 56.5T360-160Zm240 0q-33 0-56.5-23.5T520-240q0-33 23.5-56.5T600-320q33 0 56.5 23.5T680-240q0 33-23.5 56.5T600-160ZM360-400q-33 0-56.5-23.5T280-480q0-33 23.5-56.5T360-560q33 0 56.5 23.5T440-480q0 33-23.5 56.5T360-400Zm240 0q-33 0-56.5-23.5T520-480q0-33 23.5-56.5T600-560q33 0 56.5 23.5T680-480q0 33-23.5 56.5T600-400ZM360-640q-33 0-56.5-23.5T280-720q0-33 23.5-56.5T360-800q33 0 56.5 23.5T440-720q0 33-23.5 56.5T360-640Zm240 0q-33 0-56.5-23.5T520-720q0-33 23.5-56.5T600-800q33 0 56.5 23.5T680-720q0 33-23.5 56.5T600-640Z"/></svg>',
+  down: '<svg viewBox="0 -960 960 960"><path d="M480-344 240-584l56-56 184 184 184-184 56 56-240 240Z"/></svg>',
+  up:   '<svg viewBox="0 -960 960 960"><path d="m296-345-56-56 240-240 240 240-56 56-184-184-184 184Z"/></svg>',
+  booked:    '<svg viewBox="0 -960 960 960"><path d="M480-80q-83 0-156-31.5T197-197q-54-54-85.5-127T80-480q0-83 31.5-156T197-763q54-54 127-85.5T480-880q83 0 156 31.5T763-763q54 54 85.5 127T880-480q0 83-31.5 156T763-197q-54 54-127 85.5T480-80Zm0-80q134 0 227-93t93-227q0-134-93-227t-227-93q-134 0-227 93t-93 227q0 134 93 227t227 93Z"/></svg>',
+  pending:   '<svg viewBox="0 -960 960 960"><path d="m612-292 56-56-148-148v-184h-80v216l172 172ZM480-80q-83 0-156-31.5T197-197q-54-54-85.5-127T80-480q0-83 31.5-156T197-763q54-54 127-85.5T480-880q83 0 156 31.5T763-763q54 54 85.5 127T880-480q0 83-31.5 156T763-197q-54 54-127 85.5T480-80Z"/></svg>',
+  confirmed: '<svg viewBox="0 -960 960 960"><path d="m424-296 282-282-56-56-226 226-114-114-56 56 170 170ZM480-80q-83 0-156-31.5T197-197q-54-54-85.5-127T80-480q0-83 31.5-156T197-763q54-54 127-85.5T480-880q83 0 156 31.5T763-763q54 54 85.5 127T880-480q0 83-31.5 156T763-197q-54 54-127 85.5T480-80Z"/></svg>',
+  cancelled: '<svg viewBox="0 -960 960 960"><path d="M480-80q-83 0-156-31.5T197-197q-54-54-85.5-127T80-480q0-83 31.5-156T197-763q54-54 127-85.5T480-880q83 0 156 31.5T763-763q54 54 85.5 127T880-480q0 83-31.5 156T763-197q-54 54-127 85.5T480-80Zm0-80q54 0 104-17.5t92-50.5L228-676q-33 42-50.5 92T160-480q0 134 93 227t227 93Zm252-124q33-42 50.5-92T800-480q0-134-93-227t-227-93q-54 0-104 17.5T284-732l448 448Z"/></svg>',
+};
+
+/* ============================================================================================
+   The records. Enough of a column to show a ladder: three bands, a spread of statuses, and one
+   over-filled card so the ramp's blue is on screen beside all the chrome blues — that pair is
+   the one design-system.md 2 flags as "never adjacent", and this lab is where they become so.
+   ============================================================================================ */
+const BANDS = [
+  { label: '16 Aug', past: true, now: false, meta: '3 spaces · 812 head', rows: [
+    { name: 'Kokiri',      proc: 'ANZCO',          sc: 'Nat Beef - Premium', d: 16, m: 'Aug',
+      req: 240, excl: 240, incl: 240, un: 0,   st: 'confirmed', state: 'exact', mc: '2 matches · confirmed' },
+    { name: 'Rangitikei',  proc: 'ANZCO',          sc: 'Lamb',               d: 18, m: 'Aug',
+      req: 320, excl: 90,  incl: 210, un: 110, st: 'pending',   state: 'under', mc: '3 matches · 1 draft' },
+    { name: 'Dannevirke',  proc: 'Alliance Group', sc: 'Bulls',              d: 19, m: 'Aug',
+      req: 252, excl: 0,   incl: 0,   un: 252, st: 'booked',    state: 'under', mc: 'no matches' },
+  ]},
+  { label: '23 Aug', past: false, now: true, meta: '4 spaces · 1,486 head', rows: [
+    { name: 'Kokiri',      proc: 'ANZCO',          sc: 'Nat Beef - Premium', d: 23, m: 'Aug',
+      req: 480, excl: 180, incl: 300, un: 180, st: 'booked',  state: 'under', mc: '2 matches · 1 draft',
+      open: true },
+    { name: 'Wallacetown', proc: 'Alliance Group', sc: 'Mutton',             d: 24, m: 'Aug',
+      req: 366, excl: 366, incl: 366, un: 0,   st: 'confirmed', state: 'exact', mc: '1 match · confirmed' },
+    { name: 'Te Aroha',    proc: 'SFF',            sc: 'Lamb',               d: 25, m: 'Aug',
+      req: 260, excl: 120, incl: 284, un: -24, st: 'pending',  state: 'over',  mc: '3 matches · 1 draft' },
+    { name: 'Pareora',     proc: 'ANZCO',          sc: 'Cow',                d: 27, m: 'Aug',
+      req: 380, excl: 0,   incl: 0,   un: 380, st: 'cancelled', state: 'under', mc: 'no matches' },
+  ]},
+  { label: '30 Aug', past: false, now: false, meta: '2 spaces · 604 head', rows: [
+    { name: 'Rangitikei',  proc: 'ANZCO',          sc: 'Lamb',               d: 31, m: 'Aug',
+      req: 344, excl: 0,   incl: 96,  un: 248, st: 'booked', state: 'under', mc: '1 match · 1 draft' },
+    { name: 'Kokiri',      proc: 'ANZCO',          sc: 'Sire Bull',          d: 2,  m: 'Sep',
+      req: 260, excl: 0,   incl: 0,   un: 260, st: 'booked', state: 'under', mc: 'no matches' },
+  ]},
+];
+
+const BAR = { under: 'var(--q-under-bar)', exact: 'var(--q-exact-bar)', over: 'var(--q-over-bar)' };
+const INK = { under: 'q-under', exact: 'q-exact', over: 'q-over' };
+const WORD = { under: '', exact: 'Filled', over: 'Over-filled' };
+
+function pct(v, of) { return Math.max(0, Math.min(100, of > 0 ? (v / of) * 100 : 100)); }
+
+function meter(r) {
+  // Over-filled draws the outlined track design-system.md 4.2 specifies; everything else is two
+  // stacked segments, the incl-draft one at 42% alpha (alpha is the draft channel, never a hue).
+  const over = r.state === 'over';
+  const track = over
+    ? `<div class="track" style="background:#FFF;box-shadow:inset 0 0 0 1px var(--q-over-bar)">
+         <div class="fill" style="width:100%;background:var(--q-over-bar)"></div></div>`
+    : `<div class="track">
+         <div class="fill draft" style="width:${pct(r.incl, r.req)}%;background:${BAR[r.state]}"></div>
+         <div class="fill" style="width:${pct(r.excl, r.req)}%;background:${BAR[r.state]}"></div></div>`;
+  const shown = r.un < 0 ? String(-r.un) : String(r.un);
+  return `${track}<span class="num ${INK[r.state]}">${shown}</span>`;
+}
+
+function row(r, i, opts) {
+  const spine = `<span class="spine sp-${r.st}"></span>`;
+  const grip  = `<span class="grip">${G.grip}</span>`;
+  const cls = [
+    i % 2 === 1 ? 'zebra' : '',
+    r.st === 'cancelled' ? 'cancelled' : '',
+  ].filter(Boolean).join(' ');
+
+  const word = WORD[r.state]
+    ? `<span class="${INK[r.state]}">${WORD[r.state]}</span>` : '';
+
+  return `
+  <div class="card ${cls}">
+    ${spine}${grip}
+    <div class="cbody">
+      <span class="name">${r.name}</span>
+      <span class="sclass">${r.sc}</span>
+      <span class="day">${r.d}</span>
+      <span class="qty">${r.req}</span>
+      <span class="meterc">${meter(r)}</span>
+      <span class="meta">${r.proc}</span>
+      <span class="month">${r.m}</span>
+      <span class="trail">
+        ${word}
+        <span class="mcount">${r.mc}</span>
+        <span class="status">${G[r.st]} ${r.st[0].toUpperCase() + r.st.slice(1)}</span>
+      </span>
+    </div>
+    <span class="chev">${opts.open ? G.up : G.down}</span>
+  </div>`;
+}
+
+/* The drawer. Only as much as carries the rail and the spine — the sums strip, three match rows
+   and the actions row, which is where plan step 2's buttons and step 5a's reveal cell live. */
+function drawer(r) {
+  return `
+  <div class="exp${r.st === 'cancelled' ? ' cancelled' : ''}">
+    <span class="spine sp-${r.st}"></span>
+    <div class="sheet">
+      <div class="sums">
+        <div class="field">
+          <span class="slabel">excl. <b>120</b> Draft</span>
+          <span class="sum">${r.excl}<span class="of"> of ${r.req}</span></span>
+        </div>
+        <div class="field">
+          <span class="slabel">incl. <b>120</b> Draft</span>
+          <span class="sum">${r.incl}<span class="of"> of ${r.req}</span></span>
+        </div>
+        <div class="field right">
+          <span class="slabel">Quantity unmatched</span>
+          <span class="sum"><span class="${INK[r.state]}">${Math.abs(r.un)}</span></span>
+        </div>
+      </div>
+      <table class="mtable">
+        <thead><tr><th>Qty</th><th>Farmer &amp; location</th><th>Stock class</th>
+          <th>Match status</th><th>$/kg</th><th>Transport</th></tr></thead>
+        <tbody>
+          <tr><td>120</td><td class="reveal">Ruapehu Station</td><td>Lamb</td>
+              <td>Drafted</td><td>$7.40</td><td>Fonterra Freight</td></tr>
+          <tr><td>180</td><td class="reveal">Spring Creek Agriculture</td><td>Prime</td>
+              <td>Confirmed</td><td>$6.95</td><td>Hooker Transport</td></tr>
+        </tbody>
+      </table>
+      <div class="acts">
+        <button class="btn filled">Confirm space</button>
+        <button class="btn">Edit</button>
+        <button class="btn danger">Cancel</button>
+      </div>
+    </div>
+  </div>`;
+}
+
+function board(el, adjacency) {
+  let html = `<div class="strip">
+      <span class="s-name">Plant</span><span class="s-sclass">Stock class</span>
+      <span class="s-date">Date</span><span class="s-qty">Req</span>
+      <span class="s-meter">Unmatched</span><span class="s-chev"></span></div>`;
+
+  for (const b of BANDS) {
+    const tag = b.now ? '<span class="tag now">This week</span>'
+              : b.past ? '<span class="tag gone">Past</span>' : '';
+    html += `<section class="band${b.now ? ' current' : ''}${b.past ? ' past' : ''}">
+      <header class="bhead">
+        <span class="blabel">Week of <span class="dt">${b.label}</span></span>${tag}
+        <span class="totals">${b.meta}</span>
+      </header>`;
+
+    b.rows.forEach((r, i) => {
+      // Adjacency forces every blue into the current week: the open card, the card under the
+      // pointer, and the reveal flash, all inside one band. It is the only view in which the
+      // five values are judged against each other rather than one at a time.
+      const isOpen  = r.open;
+      const isHot   = adjacency && b.now && i === 1;
+      const isFlash = adjacency && b.now && i === 2;
+      const wrapCls = ['cardwrap', isOpen ? 'open' : '', isHot ? 'hot' : '', isFlash ? 'flash' : '']
+        .filter(Boolean).join(' ');
+      html += `<div class="${wrapCls}">${row(r, i, { open: isOpen })}${isOpen ? drawer(r) : ''}</div>`;
+    });
+
+    html += `</section>`;
+  }
+  el.innerHTML = html;
+}
+
+/* ============================================================================================
+   Controls. Four segmented axes plus a switch; the hash carries the set so a view is a link.
+   ============================================================================================ */
+const AXES = {
+  band:  { label: 'Bands', def: 'b-none', opts: [
+    ['b-none',  'today'], ['b-tint', 'all tint'], ['b-slate', 'slate'] ] },
+  rail:  { label: 'Rail', def: 'r-keep', opts: [
+    ['r-keep', 'keep #DDEAF1'], ['r-stroke', '1 · stroke'], ['r-solid', '2 · solid petrol'],
+    ['r-deep', '3 · deepen'] ] },
+  grip:  { label: 'Grips', def: 'g-on', opts: [
+    ['g-on', 'shown'], ['nogrip', 'hidden'], ['nogrip openrow', 'hidden + tinted row'] ] },
+  flash: { label: 'Flash', def: 'f-off', opts: [
+    ['f-off', 'off'], ['f-soft', 'soft'], ['f-bold', 'bold'], ['f-bolder', 'bolder'] ] },
+  strength: { label: 'Rail strength', def: 'rs-100', opts: [
+    ['rs-100', '100% petrol'], ['rs-80', '80%'], ['rs-70', '70%'], ['rs-60', '60%'],
+    ['rs-50', '50% *'], ['rs-35', '35% *'] ] },
+};
+
+// Opens on WHAT SHIPPED rather than on the old screen: the bands and the solid rail are decided,
+// and the only axis still open is how strong that rail should be.
+const state = { band: 'b-tint', rail: 'r-keep', grip: 'g-on', flash: 'f-off', strength: 'rs-100', adj: false };
+
+const NOTES = {
+  rail: [
+    { k: '1', cls: 'r-stroke', axis: 'rail', h: 'Petrol stroke, and no fill at all',
+      p: `The grip's 1px <code>$lms-divider</code> hairline becomes <b>2px petrol</b> when the card
+          is open and runs down the sheet's rail; the glyph comes up to petrol. There is no ground,
+          so it spends <b>no value</b> — which is the constraint §6.2 already imposes on itself
+          (“it may not spend another grey”) extended to blue. Nothing the bands ever do can collide
+          with it, now or in a later pass.`,
+      c: `Quieter than a filled column, and “open” has to survive being one stroke in a run of forty
+          rows. It also moves the rule's pixel, so the app needs a re-measure before it is believed.` },
+    { k: '2', cls: 'r-solid', axis: 'rail', h: 'Solid petrol column, reversed glyph',
+      p: `<code>#00567E</code> at full strength with a white <code>drag_indicator</code>. The
+          largest possible separation from any band tint, and it can never be confused with a state
+          that means something else, because nothing else on the screen is saturated.`,
+      c: `Look at the CONFIRMED card. Its 6px petrol spine and the 30px petrol grip merge into a
+          single 36px slab and the spine stops carrying status — on a screen where status is
+          deliberately carried by weight and pattern rather than hue. It is also by far the loudest
+          mark on a list §5.4 and §10 keep deliberately quiet.` },
+    { k: '3', cls: 'r-deep', axis: 'rail', h: 'Deepen past the drop target',
+      p: `<code>#BFD5DF</code>, about 25% petrol. Keeps the family and keeps the fill, and re-orders
+          the ladder to <i>band</i> &lt; <i>droppable</i> &lt; <i>open</i>. The recorded order was
+          open &lt; droppable, and the counter-argument is available: a drop target also carries a
+          2px petrol outline and a ghosted meter, so it has never leaned on its fill alone.`,
+      c: `The deepest tint on the board would belong to the least urgent state. Check the glyph's
+          contrast at 25% — petrol on <code>#BFD5DF</code> is the marginal case.` },
+    { k: '4', cls: 'r-keep', axis: 'rail', h: 'Keep #DDEAF1 — and move the bands off the ladder',
+      p: `Change nothing about the open card and put the bands on a cool blue-grey instead
+          (<b>Bands → slate</b>). Two families: bands are chrome, cards are interaction, and a ground
+          can never be mistaken for a card state whatever else moves later.`,
+      c: `Only honest with slate. Set <b>Bands → all tint</b> with this on and the rail sits
+          <i>between</i> the two band colours, which is the failure this lab exists to show. Slate
+          also costs a sixth blue-ish family, and puts the current week's petrol rule and petrol
+          label on a ground that is not petrol.` },
+  ],
+  other: [
+    { k: 'G', cls: 'nogrip openrow', axis: 'grip', h: 'Grips hidden — and what replaces the stroke',
+      p: `Plan step 4 hides the grip whenever “Drag anywhere” is on, which deletes the entire
+          2026-09-09 open-row device: there is no column left to fill. The lead drops from 38px to
+          14px and the header strip follows. This option also tints the open <i>row</i>, which is the
+          candidate replacement.`,
+      c: `Without a replacement the only thing marking an open row is again its flipped chevron —
+          exactly the complaint <code>open-row-lab.html</code> was drawn to answer. With one, the row's
+          tint is a sixth use of the ladder and has to clear the bands too.` },
+    { k: 'F', cls: 'f-bold', axis: 'flash', h: 'The reveal flash',
+      p: `Plan step 5d: 1500ms, a bold petrol fill <b>and</b> a 2px petrol border, both animating to
+          transparent. Because it <b>ends at nothing</b> it spends no token, which is why it is the
+          one new mark here that does not have to negotiate with the ladder at all. Re-trigger it
+          with the Flash buttons.`,
+      c: `Motion is a new channel on a screen where §10 says nothing moves under the pointer. The
+          mitigation is that it is not under the pointer — it is somewhere the operator has just
+          asked to be taken — and it carries a <code>prefers-reduced-motion</code> opt-out.` },
+  ],
+};
+
+function apply() {
+  const el = document.getElementById('board-prop');
+  // Strength comes LAST so it overrides whichever rail option set --rail-fill before it.
+  const classes = [state.band, state.rail, state.grip, state.flash, state.strength]
+    .filter(c => c && !c.startsWith('b-none') && c !== 'g-on' && c !== 'f-off' && c !== 'rs-100');
+  el.className = 'board ' + classes.join(' ');
+  board(el, state.adj);
+
+  document.getElementById('board-base').className = 'board';
+  board(document.getElementById('board-base'), state.adj);
+
+  const bits = [];
+  if (state.band !== 'b-none') bits.push(AXES.band.opts.find(o => o[0] === state.band)[1]);
+  if (state.rail !== 'r-keep') bits.push(AXES.rail.opts.find(o => o[0] === state.rail)[1]);
+  if (state.grip !== 'g-on')   bits.push(AXES.grip.opts.find(o => o[0] === state.grip)[1]);
+  if (state.flash !== 'f-off') bits.push('flash ' + state.flash.slice(2));
+  if (state.strength !== 'rs-100') bits.push('rail ' + state.strength.slice(3) + '%');
+  if (state.adj)               bits.push('adjacency');
+  document.getElementById('propwhat').textContent =
+    bits.length ? bits.join(' · ') : 'nothing on — identical to the left';
+  document.getElementById('activeout').textContent =
+    `${state.band} ${state.rail} ${state.strength} ${state.grip} ${state.flash}${state.adj ? ' adj' : ''}`;
+
+  for (const b of document.querySelectorAll('.presets button.opt')) {
+    b.classList.toggle('on', b.dataset.k === 'adj' ? state.adj : state[b.dataset.axis] === b.dataset.cls);
+  }
+  for (const n of document.querySelectorAll('.note')) {
+    n.classList.toggle('on', state[n.dataset.axis] === n.dataset.cls);
+  }
+  location.hash = `${state.band},${state.rail},${state.strength},${state.grip.replace(' ', '+')},${state.flash}${state.adj ? ',adj' : ''}`;
+}
+
+function buildControls() {
+  for (const [key, axis] of Object.entries(AXES)) {
+    const host = document.getElementById(key + 'ctl');
+    for (const [cls, label] of axis.opts) {
+      const b = document.createElement('button');
+      b.className = 'opt'; b.textContent = label; b.dataset.axis = key; b.dataset.cls = cls;
+      b.onclick = () => { state[key] = cls; apply(); };
+      host.appendChild(b);
+    }
+  }
+  const a = document.createElement('button');
+  a.className = 'opt'; a.textContent = 'Adjacency'; a.dataset.k = 'adj';
+  a.onclick = () => { state.adj = !state.adj; apply(); };
+  document.getElementById('adjctl').appendChild(a);
+}
+
+function buildNotes() {
+  for (const [group, list] of Object.entries(NOTES)) {
+    const host = document.getElementById('group-' + group);
+    for (const n of list) {
+      const d = document.createElement('div');
+      d.className = 'note'; d.dataset.axis = n.axis; d.dataset.cls = n.cls;
+      d.innerHTML = `<h3><span class="k">${n.k}</span>${n.h}</h3><p>${n.p}</p>
+                     <p class="cost"><b>Cost.</b> ${n.c}</p>`;
+      d.onclick = () => {
+        state[n.axis] = state[n.axis] === n.cls ? AXES[n.axis].def : n.cls;
+        apply();
+      };
+      host.appendChild(d);
+    }
+  }
+}
+
+function fromHash() {
+  const parts = location.hash.replace('#', '').split(',').filter(Boolean);
+  for (const p of parts) {
+    const v = p.replace('+', ' ');
+    if (v === 'adj') { state.adj = true; continue; }
+    for (const [key, axis] of Object.entries(AXES)) {
+      if (axis.opts.some(o => o[0] === v)) state[key] = v;
+    }
+  }
+}
+
+document.addEventListener('keydown', e => {
+  const n = Number(e.key);
+  if (n >= 1 && n <= 4) { state.rail = AXES.rail.opts[n - 1][0]; apply(); }
+  if (e.key === 'a') { state.adj = !state.adj; apply(); }
+});
+
+buildControls();
+buildNotes();
+fromHash();
+apply();
+</script>
+</body>
+</html>

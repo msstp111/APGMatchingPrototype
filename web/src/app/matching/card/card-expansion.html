@@ -58,7 +58,7 @@
           both list views and both record views — and every one says the same thing about placement:
           "displayed as read-only beside the Quantity Required value".
     -->
-    <div class="sums">
+    <div class="sums" (click)="collapseClicked()">
       <div class="field">
         <!--
           `&ngsp;` and not a plain space: Angular strips whitespace-only text nodes around an element,
@@ -137,7 +137,23 @@
                 the operator who cancelled the other side needs to be able to see that from this card.
                 Icon and word, no hue: status carries no colour anywhere on this screen.
               -->
-              <td>
+              <!--
+                THE ONE CELL THAT DOES NOT OPEN THE MODAL (2026-09-10). It reveals this match's
+                availability record in the other column instead — scrolls to it and flashes it.
+
+                The cell that NAMES the record is the one that takes you to it, which is why the
+                split is here and not on a new action column: the supply table already fits seven
+                columns in 508px and not eight (design-system.md 6.2), and every other cell still
+                opens the match. `stopPropagation` is what keeps the row handler off this one.
+
+                Its own hover colour says it behaves differently, because two identical-looking
+                cells in a row that do two different things is worse than either alone.
+              -->
+              <td
+                class="reveal"
+                title="Show this record in the other column"
+                (click)="revealAvailability(m.livestockAvailabilityId, $event)"
+              >
                 {{ m.farmerName || '-' }}
                 @if (m.availabilityStatus === 'Cancelled') {
                   <span
@@ -177,29 +193,56 @@
     </div>
 
     <!--
-      design-system.md 6.2, item 4. The gate is the DTO's canConfirm and the sentence beside it is the
-      DTO's confirmBlockedReason — both the domain's, so the button and its explanation cannot come to
+      design-system.md 6.2, item 4. The gate is the DTO's canConfirm and the explanation beside it is
+      the DTO's confirmBlockedReason — both the domain's, so the button and its reason cannot come to
       disagree. There is no such action on the supply side: an availability record's status is derived
       from its matches, never set.
+
+      FILLED, not outlined (2026-09-10). Confirm is the one real action in this row and the two
+      controls beside it are debug scaffolding; outlined against outlined said they were peers.
+      Material's primary is generated from #00567E, so filled IS petrol on white and needs no
+      override — see the note on `.dbg` in card-expansion.scss for the other half of the hierarchy.
     -->
     <div class="actions">
-      <button
-        matButton="outlined"
-        type="button"
-        [disabled]="!s.canConfirm"
-        (click)="confirmSpace()"
-      >
+      <button matButton="filled" type="button" [disabled]="!s.canConfirm" (click)="confirmSpace()">
         Confirm space
       </button>
+
+      <!--
+        Why Confirm is unavailable, and it is a REAL BUTTON rather than a bare glyph so the tooltip
+        fires on focus and on tap as well as on hover (design-system.md 10's "disabled control").
+        Until 2026-09-10 the sentence was printed in full beside the buttons; it is the longest thing
+        in the row and it is only ever true of a control that is already greyed out.
+
+        `info`, not `campaign`: a megaphone means announcement or broadcast in every other product,
+        and this is an explanation of something that has already happened.
+
+        A SIBLING of the disabled button, never a wrapper on it — Material does not fire a tooltip
+        bound to a disabled button, because a disabled button stops emitting the pointer events the
+        tooltip listens for.
+      -->
+      @if (confirmBlockedReason(); as reason) {
+        <button
+          matIconButton
+          class="why"
+          type="button"
+          #tip="matTooltip"
+          [matTooltip]="reason"
+          [attr.aria-label]="reason"
+          (click)="tip.show()"
+        >
+          <span class="material-symbols-outlined">info</span>
+        </button>
+      }
 
       <!--
         Phase 7's debug controls sit beside Confirm rather than on the 52px row, which has no width for
         them (design-system.md 6.2 item 4, 16.10). Cancelling does NOT cancel the matches listed above:
         the dialog lists them before the fact and they stay on this table afterwards.
       -->
-      <button matButton type="button" class="dbg" (click)="editRecord()">Edit</button>
+      <button matButton="outlined" type="button" class="dbg" (click)="editRecord()">Edit</button>
       <button
-        matButton
+        matButton="outlined"
         type="button"
         class="dbg danger"
         [disabled]="isCancelled()"
@@ -208,17 +251,13 @@
       >
         Cancel
       </button>
-
-      @if (confirmBlockedReason(); as reason) {
-        <span class="why">{{ reason }}</span>
-      }
     </div>
   }
 
   @if (availability(); as a) {
     <!-- The same strip as the demand side; see the note there. Supply has three prose fields to
          demand's one, and they are what the collapsed row could not carry. -->
-    <div class="sums">
+    <div class="sums" (click)="collapseClicked()">
       <div class="field">
         <span class="label"
           >excl.&ngsp;
@@ -291,7 +330,12 @@
             <!-- The same row, the same match, the same modal — opened by id from either side. -->
             <tr class="openable" title="Open this match" (click)="openMatch(m.id)">
               <td class="num">{{ m.quantityMatched }}</td>
-              <td>
+              <!-- The same split as the demand table: this cell reveals, every other cell opens. -->
+              <td
+                class="reveal"
+                title="Show this space in the other column"
+                (click)="revealSpace(m.processorSpaceId, $event)"
+              >
                 {{ m.processor }}
                 @if (m.spaceStatus === 'Cancelled') {
                   <span
@@ -340,9 +384,9 @@
     <!-- The same two controls as the demand side. There is no Confirm here: an availability record's
          status is derived from its matches, never set. -->
     <div class="actions">
-      <button matButton type="button" class="dbg" (click)="editRecord()">Edit</button>
+      <button matButton="outlined" type="button" class="dbg" (click)="editRecord()">Edit</button>
       <button
-        matButton
+        matButton="outlined"
         type="button"
         class="dbg danger"
         [disabled]="isCancelled()"

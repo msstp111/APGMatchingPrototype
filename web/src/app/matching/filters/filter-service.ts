@@ -69,6 +69,150 @@ function matchesAny<T>(selected: readonly T[], value: T): boolean {
 }
 
 // ---------------------------------------------------------------------------------------------
+// Revealing one record the filters are hiding (2026-09-10)
+//
+// Clicking a match's counterparty name scrolls the other column to that record — and the other
+// column is very often not showing it. The default filters are demand `Status = Booked` and supply
+// `Status in (Booked, Pending)` with `unmatched > 0`, so a confirmed match's space and a fully
+// allocated availability record are both outside them — which is to say: exactly the records a
+// finished match points at.
+//
+// So the reveal has to be able to widen the far column. Two rules govern how, and both come from
+// decisions that already existed rather than from this feature:
+//
+//   * **It widens only what is actually excluding the record**, clause by clause, and ADDS to each
+//     list rather than replacing it — the same shape as Phase 7's `SHOW IT`, which ticks
+//     `Cancelled` into a status filter without disturbing anything else the operator set.
+//   * **It never fires on its own.** design-system.md 12.3 forbids hidden or timed changes to a
+//     filter, so the caller offers this through a snack action and applies it only when asked.
+//
+// Pure, and returning new filter objects, which is what makes the decision testable without a DOM:
+// the spec can assert that widening makes exactly this record visible and leaves every other clause
+// alone. The scroll and the flash are the caller's problem.
+// ---------------------------------------------------------------------------------------------
+
+/**
+ * The clauses of `filters` that exclude `space`, in the order they are declared.
+ *
+ * Empty when the record is already visible. Clause names rather than a boolean, because the snack
+ * has to say what it would change: "hidden by this column's filters" is not something an operator
+ * can act on.
+ */
+export function clausesHidingSpace(
+  space: ProcessorSpaceDto,
+  filters: DemandFilters,
+): readonly (keyof DemandFilters)[] {
+  const hiding: (keyof DemandFilters)[] = [];
+
+  if (!matchesAny(filters.statuses, space.status)) {
+    hiding.push('statuses');
+  }
+
+  if (!matchesAny(filters.processors, space.processor)) {
+    hiding.push('processors');
+  }
+
+  if (!matchesAny(filters.plants, space.plant)) {
+    hiding.push('plants');
+  }
+
+  if (!matchesAny(filters.stockClasses, space.stockClass)) {
+    hiding.push('stockClasses');
+  }
+
+  if (filters.weekCommencing !== null && space.weekCommencing !== filters.weekCommencing) {
+    hiding.push('weekCommencing');
+  }
+
+  // A comparison against a figure the server computed, in the same shape as the filter clause
+  // itself. No arithmetic — see the note at the top of this file.
+  if (filters.hasUnmatched && space.unmatched <= 0) {
+    hiding.push('hasUnmatched');
+  }
+
+  return hiding;
+}
+
+/** @see clausesHidingSpace */
+export function clausesHidingAvailability(
+  record: LivestockAvailabilityDto,
+  filters: SupplyFilters,
+): readonly (keyof SupplyFilters)[] {
+  const hiding: (keyof SupplyFilters)[] = [];
+
+  if (!matchesAny(filters.statuses, record.status)) {
+    hiding.push('statuses');
+  }
+
+  if (!matchesAny(filters.stockClasses, record.stockClass)) {
+    hiding.push('stockClasses');
+  }
+
+  if (!matchesAny(filters.locationIds, record.locationId)) {
+    hiding.push('locationIds');
+  }
+
+  if (!matchesAny(filters.transactionTypes, record.transactionType)) {
+    hiding.push('transactionTypes');
+  }
+
+  if (filters.hasUnmatched && record.unmatched <= 0) {
+    hiding.push('hasUnmatched');
+  }
+
+  return hiding;
+}
+
+/**
+ * `filters`, widened by the least that makes `space` visible.
+ *
+ * Every list clause gains the record's own value and keeps everything already in it, so a column
+ * filtered to ANZCO's Kokiri spaces still shows them after revealing an Alliance Group one.
+ *
+ * `weekCommencing` and `hasUnmatched` cannot be widened by addition and are cleared instead: one
+ * delivery week and "must have unmatched quantity" are both all-or-nothing clauses, and clearing is
+ * the smallest change that can make the record visible at all.
+ */
+export function widenForSpace(space: ProcessorSpaceDto, filters: DemandFilters): DemandFilters {
+  const hiding = new Set(clausesHidingSpace(space, filters));
+
+  return {
+    statuses: hiding.has('statuses') ? [...filters.statuses, space.status] : filters.statuses,
+    processors: hiding.has('processors')
+      ? [...filters.processors, space.processor]
+      : filters.processors,
+    plants: hiding.has('plants') ? [...filters.plants, space.plant] : filters.plants,
+    stockClasses: hiding.has('stockClasses')
+      ? [...filters.stockClasses, space.stockClass]
+      : filters.stockClasses,
+    weekCommencing: hiding.has('weekCommencing') ? null : filters.weekCommencing,
+    hasUnmatched: hiding.has('hasUnmatched') ? false : filters.hasUnmatched,
+  };
+}
+
+/** @see widenForSpace */
+export function widenForAvailability(
+  record: LivestockAvailabilityDto,
+  filters: SupplyFilters,
+): SupplyFilters {
+  const hiding = new Set(clausesHidingAvailability(record, filters));
+
+  return {
+    statuses: hiding.has('statuses') ? [...filters.statuses, record.status] : filters.statuses,
+    stockClasses: hiding.has('stockClasses')
+      ? [...filters.stockClasses, record.stockClass]
+      : filters.stockClasses,
+    locationIds: hiding.has('locationIds')
+      ? [...filters.locationIds, record.locationId]
+      : filters.locationIds,
+    transactionTypes: hiding.has('transactionTypes')
+      ? [...filters.transactionTypes, record.transactionType]
+      : filters.transactionTypes,
+    hasUnmatched: hiding.has('hasUnmatched') ? false : filters.hasUnmatched,
+  };
+}
+
+// ---------------------------------------------------------------------------------------------
 // Sorting — always within the week bands, never across them
 // ---------------------------------------------------------------------------------------------
 

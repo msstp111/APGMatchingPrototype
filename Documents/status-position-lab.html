@@ -1,0 +1,933 @@
+<!doctype html>
+<html lang="en-NZ">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>APG matching — where the status goes</title>
+<!--
+  ============================================================================================
+  THROWAWAY. Not part of the Angular application, not routed, not imported anywhere.
+  One self-contained file: no build step, no framework, no CDN, no network. Opens over file://.
+  Eighth in the series, same pattern and same reasons as drag-lab.html, expansion-lab.html,
+  expansion-lab-2.html, sums-strip-lab.html, open-row-lab.html, drag-lab-2.html and
+  week-band-lab.html.
+
+  THE COMPLAINT, STATED PRECISELY
+
+  "Booked" / "Pending" / "Confirmed" / "Cancelled" is the last item in `.trail`, and `.trail` is
+  `justify-self: end` against the card's trailing edge. So the status word's RIGHT EDGE is the
+  card's right edge — x=468 on a 508px card — and that is exactly the right edge of the meter
+  block above it and of the `Unmatched` heading above that. Reading down the trailing edge of the
+  column gives:
+
+        UNMATCHED     (the 28px header strip)
+        180           (line 1, the meter's numeral)
+        Booked        (line 2, the status)
+
+  Three things in one column, and only two of them are unmatched quantity. That is the whole of
+  what is wrong, and it is worth being precise about the second half of it too:
+
+  THE STATUS DOES NOT FORM A COLUMN WITH ITSELF EITHER. It is flush right, so its right edge is
+  stable; its LEFT edge is not, because everything to its left varies — `Over-filled` appears on
+  perhaps one card in a screen, and the match count runs from `no matches` (63px) to
+  `3 matches · 1 draft` (~110px). The four status words are themselves four different widths. So
+  the icon that opens the status sits at a different x on nearly every row. The MEASURE readout
+  under each board counts the distinct x positions; on the baseline board it is never 1.
+
+  THE FACT THAT MAKES THIS CHEAP TO FIX
+
+  The card body is a two-row grid of five columns (_card-geometry.scss:627-646). Row 2 places
+  three items:
+
+        .meta    2 / 1        the processor (demand) or farmer · transaction type (supply)
+        .month   2 / 3        the month, under its own day
+        .trail   2 / 3 / 3 / 6  the over label, the match count, the status
+
+  GRID AREA 2 / 2 IS EMPTY. It has been empty since the two lines became one grid. It is 96px
+  wide — the stock class column — and `.meta` cannot spill into it, because `.meta` is confined to
+  column 1 and truncates there. So line 2 is carrying about 96px of unused width directly under a
+  column heading, while the status is squatting in the one column on the card that already has a
+  heading and a number of its own.
+
+  A status is 69px wide at its longest (`check_circle` + `Confirmed`, measured live below). It
+  fits in that cell with 27px to spare.
+
+  WHAT MOVING IT IS ALSO WORTH
+
+  `.trail` gets 184px — (50 + 8 + 40 + 8 + 112) less the month's 26 + 8. The status spends 69 to
+  77 of that whenever it is drawn, which is why the code comment at _card-geometry.scss:709-719
+  records `2 matches · confirmed` beside a Pending status truncating, and why the trail had to be
+  widened from 160px to 184px to stop it. Take the status out of the trail and the match count has
+  the entire run to itself — one of the two faults that widening was papering over.
+
+  FIVE POSITIONS AND FIVE MODIFIERS
+
+  The positions are exclusive; the modifiers compose with all of them.
+
+    P0  BASELINE           the trail's last item, flush under Unmatched. What ships today.
+    P1  TRAIL, SWAPPED     status first in the trail, match count flush right. The one-line change.
+    P2  LINE 2 LEADS       status opens line 2 at the card's leading run, meta after it. Puts the
+                           word next to the spine that says the same thing.
+    P3  LINE 1 LEADS       a 14px glyph before the plant name; the word leaves the row entirely.
+    P4  ITS OWN CELL       grid area 2 / 2 — the empty one. A real column, at a stable x.
+
+    M1  EXCEPTIONS ONLY    Booked draws nothing. 34 of the 40 seeded spaces are Booked.
+    M2  ICON ONLY          the word goes to the tooltip.
+    M3  MICRO-CAPS         the word in the month's 9px uppercase, so it reads as a label.
+    M4  MICRO-CHIP         a hairline box around it. Hueless — it has to be.
+    M5  TONE               Booked recedes to $lms-faint; the other three stay $lms-text-muted.
+
+  ONE COST THAT IS NOT OBVIOUS, AND IT APPLIES TO P3, M1 AND M2 ONLY
+
+  design-system.md 3.1 requires status to be carried on three redundant channels — left edge, icon
+  and word — none of them hue. The card row is the ONLY place the record's own status is written in
+  words: the expanded drawer prints the *match* statuses in its table and continues the spine down
+  its leading edge, but it never names the record's own status. So P3, M1 and M2 do not merely move
+  the word, they delete it from the screen, leaving a 3px-versus-6px edge and a glyph. That is a
+  design-system amendment, not a layout tweak, and it should be taken deliberately if at all.
+  P1, P2 and P4 keep all three channels and need no amendment.
+
+  FIDELITY
+
+  Geometry and colour are copied from the real screen; do not adjust either by eye.
+      web/src/styles/_lms-tokens.scss                    every colour below
+      web/src/app/matching/_card-geometry.scss           every dimension, card-shell, the grid
+      web/src/app/matching/card/space-card.html          the cell order and the drop order
+      web/src/app/matching/column/matching-column.scss   the 28px strip, leading pad 30 + 8
+
+  The board is pinned to 508px so the numbers in the readout are the app's numbers. Material
+  Symbols is deliberately not used — the icon font would not load offline, so every glyph here is
+  inline SVG, at the same 14px the card sets.
+
+  ONE FIDELITY NOTE, the same one the last three labs carry: this file has a global
+  `* { box-sizing: border-box }` and the app has none. Nothing in this lab turns on that, because
+  no option here paints a border on a sized box — but if one is added, check it against the app.
+
+  HOW TO READ IT
+  Left board never changes: it is the screen as it ships. The right board takes one position and
+  any set of modifiers. Press 0-4 for the position, or click. The MEASURE readout under each board
+  is computed live from the DOM after every render — it is the part that decides this, not the
+  eye, because the complaint is about x positions and column budgets.
+  ============================================================================================
+-->
+<style>
+* { box-sizing: border-box; }
+
+/* ---------------------------------------------------------------------------------------------
+   TOKENS — verbatim from web/src/styles/_lms-tokens.scss.
+   --------------------------------------------------------------------------------------------- */
+:root {
+  --petrol:        #00567E;
+  --card:          #FFFFFF;
+  --zebra:         #F5F5F5;
+  --band:          #E8F1F6;   /* $lms-band          — every week band, since 2026-09-10 */
+  --band-current:  #C6DCE8;   /* $lms-band-current  — the current week */
+  --drop-target:   #D1E1E8;
+  --open-rail:     #00567E;
+  --hover:         #F5F9FB;
+  --surface:       #FAFAFA;
+  --divider:       #E0E0E0;
+  --rule-strong:   #BDBDBD;
+  --faint:         #9E9E9E;
+  --text:          #212121;
+  --muted:         #757575;
+  --error:         #BA1A1A;
+
+  --q-under-bar:   #E8820C;  --q-under-ink: #A85B00;
+  --q-exact-bar:   #2E7D32;  --q-exact-ink: #1B5E20;
+  --q-over-bar:    #1565C0;  --q-over-ink:  #0D47A1;
+  --q-track:       #E0E0E0;
+
+  /* --- geometry, from _card-geometry.scss --- */
+  --card-w:        508px;   /* the real column's card width; pinned so the readout is the app's */
+  --card-h:        52px;
+  --grip:          30px;
+  --edge:          8px;
+  --gap:           8px;
+  --spine:         6px;
+  --spine-booked:  3px;
+  --strip-h:       28px;
+  --band-h:        30px;
+  --c-sclass:      96px;
+  --c-date:        50px;
+  --c-month:       26px;
+  --c-qty:         40px;
+  --c-meter:       112px;
+  --c-chev:        24px;
+  --meter-track:   66px;
+  --meter-num:     40px;
+
+  --lead:          calc(var(--grip) + var(--edge));   /* 38px, the column's --apg-lead */
+
+  /* The lab's own page width: two 510px boards, the gap, and a readable notes column. */
+  --page:          1460px;
+}
+
+html { background: #E9ECEF; }
+body {
+  margin: 0;
+  font-family: Roboto, "Segoe UI", system-ui, sans-serif;
+  color: var(--text);
+  font-size: 13px;
+}
+
+/* ============================================================================================
+   CHROME — the lab's own furniture, in a different grey from anything on the board so nothing
+   here can be mistaken for a proposal.
+   ============================================================================================ */
+.lab { padding: 20px 20px 40px; }
+.intro { max-width: var(--page); margin: 0 auto 14px; }
+.intro p { max-width: 1080px; }
+h1 { font-size: 19px; font-weight: 600; margin: 0 0 8px; letter-spacing: -0.2px; }
+.intro p { margin: 0 0 8px; line-height: 1.55; color: #37414A; font-size: 13px; }
+code { font-family: "Cascadia Mono", Consolas, monospace; font-size: 12px; background: #DFE4E8;
+       padding: 1px 4px; border-radius: 2px; }
+b.k { font-weight: 600; color: #1F2A33; }
+
+.presets {
+  max-width: var(--page); margin: 0 auto 14px; display: flex; flex-wrap: wrap; align-items: center;
+  gap: 6px; padding: 10px 12px; background: #FFF; border: 1px solid #C9D0D6; border-radius: 4px;
+}
+.plabel { font-size: 10.5px; font-weight: 700; letter-spacing: .7px; text-transform: uppercase;
+          color: var(--muted); margin-right: 2px; }
+.sep { width: 1px; height: 20px; background: #D6DBE0; margin: 0 6px; }
+button.opt {
+  font: inherit; font-size: 12px; height: 26px; padding: 0 10px; border-radius: 3px; cursor: pointer;
+  background: #FFF; border: 1px solid var(--rule-strong); color: var(--petrol);
+}
+button.opt:hover { background: var(--band); }
+button.opt.on { background: var(--petrol); border-color: var(--petrol); color: #FFF; font-weight: 600; }
+.active { margin-left: auto; font-size: 11px; color: var(--muted);
+          font-family: "Cascadia Mono", Consolas, monospace; }
+
+/* Two 510px boards plus the notes. It WRAPS: at 1042px the pair of boards alone fills the row,
+   so on a narrow window the notes drop underneath rather than being crushed to a 38px ribbon —
+   which is what the first cut of this file did. */
+.stage { max-width: var(--page); margin: 0 auto; display: flex; flex-wrap: wrap; gap: 22px;
+         align-items: flex-start; }
+.stack { flex: 0 0 auto; }
+.cap { font-size: 11px; font-weight: 700; letter-spacing: .6px; text-transform: uppercase;
+       color: var(--muted); margin-bottom: 6px; display: flex; gap: 8px; align-items: baseline; }
+.cap .what { font-weight: 400; letter-spacing: 0; text-transform: none; color: #5C666F;
+             font-size: 11.5px; }
+
+/* The live readout. Monospace, because every line of it is a number that has to be compared with
+   the number on the other board. */
+.measure {
+  width: 510px; margin-top: 8px; padding: 8px 10px; background: #FFF;
+  border: 1px solid #C9D0D6; border-radius: 3px;
+  font-family: "Cascadia Mono", Consolas, monospace; font-size: 11px; line-height: 1.65;
+  color: #37414A;
+}
+.measure .mh { font-weight: 700; color: #1F2A33; }
+.measure .bad { color: var(--error); }
+.measure .good { color: #1B5E20; }
+.measure em { font-style: normal; color: var(--muted); }
+
+/* The notes column: one entry per drawn idea, click to select. */
+.notes { flex: 1 1 360px; min-width: 360px; }
+.note {
+  padding: 8px 10px; margin-bottom: 6px; background: #FFF; border: 1px solid #C9D0D6;
+  border-left: 3px solid #C9D0D6; border-radius: 3px; cursor: pointer;
+}
+.note:hover { border-color: var(--petrol); }
+.note.on { border-left-color: var(--petrol); background: #F4F8FA; }
+.note h3 { margin: 0 0 3px; font-size: 12px; font-weight: 700; color: #1F2A33;
+           display: flex; align-items: baseline; gap: 6px; }
+.note h3 .id { font-family: "Cascadia Mono", Consolas, monospace; font-size: 11px;
+               color: var(--petrol); }
+.note p { margin: 0; font-size: 11.5px; line-height: 1.5; color: #4A555E; }
+.note p.cost { margin-top: 3px; color: #6B4A00; }
+.note p.cost b { color: var(--error); font-weight: 600; }
+.ntitle { font-size: 11px; font-weight: 700; letter-spacing: .6px; text-transform: uppercase;
+          color: var(--muted); margin: 0 0 6px; }
+.ntitle.spaced { margin-top: 14px; }
+
+/* ============================================================================================
+   THE BOARD — a column, as matching-column.scss draws one, pinned to the real 508px card.
+   ============================================================================================ */
+.board {
+  width: 510px;   /* 508 + the 1px borders */
+  background: var(--card); border: 1px solid #C9D0D6; border-radius: 3px; overflow: hidden;
+}
+.strip {
+  display: flex; align-items: center; gap: var(--gap); height: var(--strip-h);
+  padding: 0 var(--edge) 0 var(--lead);
+  background: var(--surface); border-bottom: 1px solid var(--divider);
+  font-size: 10.5px; font-weight: 500; line-height: 12px; letter-spacing: .7px;
+  text-transform: uppercase; color: var(--muted);
+}
+.s-name   { flex: 1 1 auto; min-width: 0; }
+.s-sclass { flex: 0 0 var(--c-sclass); }
+.s-date   { flex: 0 0 var(--c-date); }
+.s-qty    { flex: 0 0 var(--c-qty); text-align: right; }
+.s-meter  { flex: 0 0 var(--c-meter); text-align: right; }
+.s-chev   { flex: 0 0 var(--c-chev); }
+
+/* --- the band. week-band.scss --- */
+.band { border-top: 2px solid var(--muted); }
+.band.current { border-top: 2px solid var(--petrol); }
+.bhead {
+  display: flex; align-items: center; gap: 8px; height: var(--band-h); padding: 0 10px;
+  background: var(--band); border-bottom: 1px solid var(--divider);
+}
+.band.current .bhead { background: var(--band-current); }
+.blabel { font-size: 12px; font-weight: 500; line-height: 14px; letter-spacing: .7px;
+          text-transform: uppercase; color: var(--muted); }
+.band.current .blabel { color: var(--petrol); }
+.band.past .blabel, .band.past .totals { color: var(--faint); }
+.dt { font-weight: 700; }
+.tag { font-size: 8.5px; font-weight: 700; line-height: 11px; letter-spacing: .3px;
+       text-transform: uppercase; }
+.now { color: var(--petrol); } .gone { color: var(--faint); }
+.totals { margin-left: auto; font-size: 11px; line-height: 14px; color: var(--muted);
+          font-variant-numeric: tabular-nums; }
+
+/* ============================================================================================
+   THE CARD — card-shell, as _card-geometry.scss:329-851 builds it.
+   ============================================================================================ */
+.card {
+  position: relative; display: flex; height: var(--card-h);
+  background: var(--card); border-bottom: 1px solid var(--divider);
+  padding-right: var(--edge);
+}
+.card.zebra { background: var(--zebra); }
+.card > .spine { position: absolute; left: 0; top: 0; bottom: 0; z-index: 1; }
+.sp-booked    { width: var(--spine-booked); background: var(--divider); }
+.sp-pending   { width: var(--spine);
+                background: repeating-linear-gradient(45deg, var(--rule-strong) 0 2px, #FFF 2px 4px); }
+.sp-confirmed { width: var(--spine); background: var(--petrol); }
+.sp-cancelled { width: var(--spine);
+                background: repeating-linear-gradient(180deg, var(--faint) 0 6px, transparent 6px 10px); }
+
+.grip {
+  flex: 0 0 var(--grip); width: var(--grip); align-self: stretch;
+  display: flex; align-items: center; justify-content: center;
+  padding-left: var(--spine); color: var(--faint);
+  border-right: 1px solid var(--divider);
+}
+.grip svg { width: 20px; height: 20px; fill: currentColor; }
+
+/* The two-row grid. Rows 17px and 14px with a 3px gutter — 34px of content centred in the 51px
+   box. NOTHING an option does here may change either row height. */
+.cbody {
+  flex: 1 1 auto; min-width: 0; display: grid;
+  grid-template-columns: minmax(0, 1fr) var(--c-sclass) var(--c-date) var(--c-qty) var(--c-meter);
+  grid-template-rows: 17px 14px;
+  column-gap: var(--gap); row-gap: 3px;
+  align-content: center; align-items: center;
+  padding: 0 var(--edge);
+}
+.cbody > * { min-width: 0; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+
+.name   { grid-area: 1/1; font-size: 13px; font-weight: 500; line-height: 17px; }
+.sclass { grid-area: 1/2; font-size: 13px; font-weight: 500; line-height: 17px; color: var(--muted); }
+.day    { grid-area: 1/3; font-size: 13px; font-weight: 600; line-height: 17px;
+          font-variant-numeric: tabular-nums; }
+.qty    { grid-area: 1/4; font-size: 13px; font-weight: 500; line-height: 17px; text-align: right;
+          font-variant-numeric: tabular-nums; }
+.meterc { grid-area: 1/5; display: flex; align-items: center; justify-content: flex-end; gap: 6px; }
+
+.cbody > .meta { grid-area: 2/1; }
+.meta  { font-size: 11.5px; line-height: 14px; color: var(--muted);
+         overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+.month { grid-area: 2/3; justify-self: start; width: var(--c-month);
+         font-size: 9px; font-weight: 600; line-height: 12px; letter-spacing: .7px;
+         text-transform: uppercase; color: var(--muted); }
+
+/* The trail: 2/3 through 2/6, pushed to the card's edge, max-width keeping it out of the month.
+   218px of area less the month's 26 + 8 = 184px. */
+.trail { grid-area: 2/3 / 3/6; justify-self: end;
+         max-width: calc(100% - (var(--c-month) + var(--gap)));
+         display: flex; align-items: center; gap: var(--gap); overflow: hidden;
+         font-size: 11.5px; line-height: 14px; color: var(--muted); }
+.over   { flex: 0 0 auto; font-weight: 500; }
+.mcount { flex: 0 1 auto; min-width: 0; overflow: hidden; white-space: nowrap;
+          text-overflow: ellipsis;
+          text-decoration: underline dotted; text-underline-offset: 2px; }
+
+/* THE SUBJECT. One element, four homes — the renderer puts it where the position says, and
+   everything below styles it the same wherever it lands. */
+.status { flex: 0 0 auto; display: inline-flex; align-items: center; gap: 3px;
+          white-space: nowrap; font-size: 11.5px; line-height: 14px; color: var(--muted); }
+.status svg { width: 14px; height: 14px; fill: currentColor; flex: 0 0 auto; }
+
+/* P2 — line 2's leading run: status, then the meta after it. Columns 1 and 2 together, which is
+   the 96px empty cell plus the flexing name column: 204px on a 508px card. */
+.lead2 { grid-area: 2/1 / 3/3; display: flex; align-items: center; gap: 6px; min-width: 0;
+         overflow: hidden; }
+.lead2 .dot { flex: 0 0 auto; color: var(--faint); font-size: 11.5px; line-height: 14px; }
+.lead2 .meta { flex: 0 1 auto; min-width: 0; }
+
+/* P3 — line 1's leading run: the glyph, then the plant name. The WORD does not come with it:
+   line 1 has no room for a second phrase, and that is the whole of why this option is a
+   design-system amendment rather than a move. */
+.lead1 { grid-area: 1/1; display: flex; align-items: center; gap: 5px; min-width: 0;
+         overflow: hidden; }
+.lead1 .name { grid-area: auto; flex: 0 1 auto; min-width: 0;
+               overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+.p3 .lead1 .sword { display: none; }
+.p3 .lead1 .status { gap: 0; }
+
+/* P4 — the empty cell. */
+.cbody > .status.cell2 { grid-area: 2/2; justify-self: start; }
+
+/* --- the meter --- */
+.track { position: relative; width: var(--meter-track); height: 8px; background: var(--q-track);
+         border-radius: 1px; overflow: hidden; }
+.fill  { position: absolute; left: 0; top: 0; height: 100%; border-radius: 1px; }
+.fill.draft { opacity: .42; }
+.num   { width: var(--meter-num); text-align: right; font-size: 13px; font-weight: 500;
+         font-variant-numeric: tabular-nums; }
+.q-under { color: var(--q-under-ink); } .q-exact { color: var(--q-exact-ink); }
+.q-over  { color: var(--q-over-ink); }
+
+.chev { flex: 0 0 var(--c-chev); width: var(--c-chev); align-self: center; display: flex;
+        align-items: center; justify-content: center; color: var(--muted); }
+.chev svg { width: 18px; height: 18px; fill: currentColor; }
+
+.card.cancelled { filter: grayscale(1); opacity: .62; }
+.card.cancelled .name { text-decoration: line-through; }
+
+/* --- "Drag anywhere" with the grips hidden: --apg-lead falls to 6 + 8 (NOT 8 — the spine is an
+       overlay 6px wide on every status but Booked, so the name has to clear it). --- */
+.nogrip { --lead: calc(var(--spine) + var(--edge)); }
+.nogrip .grip { display: none; }
+.nogrip .cbody { padding-left: var(--lead); }
+
+/* ============================================================================================
+   THE MODIFIERS. Classes on the board root, so each composes with every position.
+   ============================================================================================ */
+
+/* M1 — exceptions only. Booked draws nothing at all... */
+.m-exc .st-booked .status { display: none; }
+/* ...except in P3, where the glyph is a cell in front of the name and removing it would leave the
+   plant names ragged. There it keeps its box and loses its ink. */
+.p3.m-exc .st-booked .status { display: inline-flex; visibility: hidden; }
+
+/* M2 — icon only. */
+.m-icon .sword { display: none; }
+.m-icon .status { gap: 0; }
+
+/* M3 — micro-caps, the same treatment the month cell takes: a label, not prose. */
+.m-caps .sword { font-size: 9px; font-weight: 600; line-height: 12px; letter-spacing: .7px;
+                 text-transform: uppercase; }
+
+/* M4 — the micro-chip. 14px tall so it cannot touch row 1, hairline, 2px radius, no hue: a chip
+   is exactly the surface design-system.md 3 forbids colouring. */
+.m-chip .status { height: 14px; padding: 0 4px 0 3px; border: 1px solid var(--divider);
+                  border-radius: 2px; background: #FFF; }
+.m-chip .status svg { width: 12px; height: 12px; }
+.m-chip.m-icon .status { padding: 0 2px; }
+.m-chip .zebra .status { background: #FFF; }
+
+/* M5 — tone. Booked recedes; the three that mean something keep the meta grey. Hueless, so it
+   borrows nothing from the quantity ramp. */
+.m-tone .st-booked .status { color: var(--faint); }
+</style>
+</head>
+<body>
+<div class="lab">
+
+<div class="intro">
+  <h1>Where the status goes</h1>
+  <p>
+    Today the status word is the last item in <code>.trail</code>, and the trail is flush with the
+    card's trailing edge — so <b class="k">Booked</b> ends at x=468, which is where the meter's
+    numeral ends and where the <b class="k">UNMATCHED</b> heading ends. Reading down that column
+    gives <em>Unmatched → 180 → Booked</em>. It is also ragged on its other side: the match count in
+    front of it varies by ~50px, so the status glyph starts at a different x on nearly every row.
+  </p>
+  <p>
+    Line 2 of the card grid places three things — <code>.meta</code> in column 1, <code>.month</code>
+    in column 3, <code>.trail</code> across 3–6. <b class="k">Grid area 2 / 2 is empty</b>, and has
+    been since the two lines became one grid. It is 96px wide, it already sits under a heading, and
+    a status at its longest measures 69px. Every option below is judged on the readout, not the eye.
+  </p>
+</div>
+
+<div class="presets">
+  <span class="plabel">Position</span>
+  <button class="opt" data-pos="p0">0 · baseline</button>
+  <button class="opt" data-pos="p1">1 · trail swapped</button>
+  <button class="opt" data-pos="p2">2 · line 2 leads</button>
+  <button class="opt" data-pos="p3">3 · line 1 leads</button>
+  <button class="opt" data-pos="p4">4 · its own cell</button>
+  <span class="sep"></span>
+  <span class="plabel">Modifiers</span>
+  <button class="opt" data-mod="m-exc">exceptions only</button>
+  <button class="opt" data-mod="m-icon">icon only</button>
+  <button class="opt" data-mod="m-caps">micro-caps</button>
+  <button class="opt" data-mod="m-chip">micro-chip</button>
+  <button class="opt" data-mod="m-tone">tone</button>
+  <span class="sep"></span>
+  <span class="plabel">Grips</span>
+  <button class="opt" data-grip="1">hidden</button>
+  <span class="active" id="active"></span>
+</div>
+
+<div class="stage">
+  <div class="stack">
+    <div class="cap">Ships today <span class="what">P0 — the trail's last item</span></div>
+    <div class="board" id="left"></div>
+    <div class="measure" id="mleft"></div>
+  </div>
+  <div class="stack">
+    <div class="cap">Proposal <span class="what" id="what">P0 — the trail's last item</span></div>
+    <div class="board" id="right"></div>
+    <div class="measure" id="mright"></div>
+  </div>
+  <div class="notes" id="notes"></div>
+</div>
+
+</div>
+
+<script>
+/* ============================================================================================
+   Glyphs — Material Symbols Outlined, inlined because the icon font would not load offline.
+   The four status glyphs are card-chrome.ts's statusIcon() exactly.
+   ============================================================================================ */
+const G = {
+  grip: '<svg viewBox="0 -960 960 960"><path d="M360-160q-33 0-56.5-23.5T280-240q0-33 23.5-56.5T360-320q33 0 56.5 23.5T440-240q0 33-23.5 56.5T360-160Zm240 0q-33 0-56.5-23.5T520-240q0-33 23.5-56.5T600-320q33 0 56.5 23.5T680-240q0 33-23.5 56.5T600-160ZM360-400q-33 0-56.5-23.5T280-480q0-33 23.5-56.5T360-560q33 0 56.5 23.5T440-480q0 33-23.5 56.5T360-400Zm240 0q-33 0-56.5-23.5T520-480q0-33 23.5-56.5T600-560q33 0 56.5 23.5T680-480q0 33-23.5 56.5T600-400ZM360-640q-33 0-56.5-23.5T280-720q0-33 23.5-56.5T360-800q33 0 56.5 23.5T440-720q0 33-23.5 56.5T360-640Zm240 0q-33 0-56.5-23.5T520-720q0-33 23.5-56.5T600-800q33 0 56.5 23.5T680-720q0 33-23.5 56.5T600-640Z"/></svg>',
+  down: '<svg viewBox="0 -960 960 960"><path d="M480-344 240-584l56-56 184 184 184-184 56 56-240 240Z"/></svg>',
+  booked:    '<svg viewBox="0 -960 960 960"><path d="M480-80q-83 0-156-31.5T197-197q-54-54-85.5-127T80-480q0-83 31.5-156T197-763q54-54 127-85.5T480-880q83 0 156 31.5T763-763q54 54 85.5 127T880-480q0 83-31.5 156T763-197q-54 54-127 85.5T480-80Zm0-80q134 0 227-93t93-227q0-134-93-227t-227-93q-134 0-227 93t-93 227q0 134 93 227t227 93Z"/></svg>',
+  pending:   '<svg viewBox="0 -960 960 960"><path d="m612-292 56-56-148-148v-184h-80v216l172 172ZM480-80q-83 0-156-31.5T197-197q-54-54-85.5-127T80-480q0-83 31.5-156T197-763q54-54 127-85.5T480-880q83 0 156 31.5T763-763q54 54 85.5 127T880-480q0 83-31.5 156T763-197q-54 54-127 85.5T480-80Z"/></svg>',
+  confirmed: '<svg viewBox="0 -960 960 960"><path d="m424-296 282-282-56-56-226 226-114-114-56 56 170 170ZM480-80q-83 0-156-31.5T197-197q-54-54-85.5-127T80-480q0-83 31.5-156T197-763q54-54 127-85.5T480-880q83 0 156 31.5T763-763q54 54 85.5 127T880-480q0 83-31.5 156T763-197q-54 54-127 85.5T480-80Z"/></svg>',
+  cancelled: '<svg viewBox="0 -960 960 960"><path d="M480-80q-83 0-156-31.5T197-197q-54-54-85.5-127T80-480q0-83 31.5-156T197-763q54-54 127-85.5T480-880q83 0 156 31.5T763-763q54 54 85.5 127T880-480q0 83-31.5 156T763-197q-54 54-127 85.5T480-80Zm0-80q54 0 104-17.5t92-50.5L228-676q-33 42-50.5 92T160-480q0 134 93 227t227 93Zm252-124q33-42 50.5-92T800-480q0-134-93-227t-227-93q-54 0-104 17.5T284-732l448 448Z"/></svg>',
+};
+
+/* ============================================================================================
+   The records. A demand column, because it is the side with the tighter trail — the demand card
+   carries `Over-filled` and the supply card's equivalent is a bug state that should never show.
+   The spread is chosen to make the raggedness visible: every status, a card with no matches, a
+   card with the longest match count, and Rangitikei carrying `2 matches · confirmed` beside a
+   Pending status, which is the exact case _card-geometry.scss:709-719 records as truncating.
+   ============================================================================================ */
+const BANDS = [
+  { label: '16 Aug', past: true, now: false, meta: '3 spaces · 812 head', rows: [
+    { name: 'Kokiri',     proc: 'ANZCO',          sc: 'Nat Beef - Premium', d: 16, m: 'Aug',
+      req: 240, excl: 240, incl: 240, un: 0,   st: 'confirmed', state: 'exact',
+      mc: '2 matches · confirmed' },
+    { name: 'Rangitikei', proc: 'ANZCO · 07:30',  sc: 'Lamb',               d: 18, m: 'Aug',
+      req: 320, excl: 210, incl: 210, un: 110, st: 'pending',   state: 'under',
+      mc: '2 matches · confirmed' },
+    { name: 'Dannevirke', proc: 'Alliance Group', sc: 'Bulls',              d: 19, m: 'Aug',
+      req: 252, excl: 0,   incl: 0,   un: 252, st: 'booked',    state: 'under',
+      mc: 'no matches' },
+  ]},
+  { label: '23 Aug', past: false, now: true, meta: '4 spaces · 1,486 head', rows: [
+    { name: 'Kokiri',      proc: 'ANZCO · 14:00',  sc: 'Nat Beef - Premium', d: 23, m: 'Aug',
+      req: 480, excl: 180, incl: 300, un: 180, st: 'booked',    state: 'under',
+      mc: '2 matches · 1 draft' },
+    { name: 'Wallacetown', proc: 'Alliance Group', sc: 'Mutton',             d: 24, m: 'Aug',
+      req: 366, excl: 366, incl: 366, un: 0,   st: 'confirmed', state: 'exact',
+      mc: '1 match · confirmed' },
+    { name: 'Te Aroha',    proc: 'SFF',            sc: 'Lamb',               d: 25, m: 'Aug',
+      req: 260, excl: 120, incl: 284, un: -24, st: 'pending',   state: 'over',
+      mc: '3 matches · 1 draft' },
+    { name: 'Pareora',     proc: 'ANZCO',          sc: 'Cow',                d: 27, m: 'Aug',
+      req: 380, excl: 0,   incl: 0,   un: 380, st: 'cancelled', state: 'under',
+      mc: 'no matches' },
+  ]},
+  { label: '30 Aug', past: false, now: false, meta: '2 spaces · 604 head', rows: [
+    { name: 'Rangitikei', proc: 'ANZCO',          sc: 'Lamb',               d: 31, m: 'Aug',
+      req: 344, excl: 0,   incl: 96,  un: 248, st: 'booked', state: 'under',
+      mc: '1 match · 1 draft' },
+    { name: 'Kokiri',     proc: 'ANZCO · 06:00',  sc: 'Sire Bull',          d: 2,  m: 'Sep',
+      req: 260, excl: 0,   incl: 0,   un: 260, st: 'booked', state: 'under',
+      mc: 'no matches' },
+  ]},
+];
+
+const BAR  = { under: 'var(--q-under-bar)', exact: 'var(--q-exact-bar)', over: 'var(--q-over-bar)' };
+const INK  = { under: 'q-under', exact: 'q-exact', over: 'q-over' };
+const WORD = { under: '', exact: '', over: 'Over-filled' };
+const CAP  = { booked: 'Booked', pending: 'Pending', confirmed: 'Confirmed', cancelled: 'Cancelled' };
+
+function pct(v, of) { return Math.max(0, Math.min(100, of > 0 ? (v / of) * 100 : 100)); }
+
+function meter(r) {
+  const over = r.state === 'over';
+  const track = over
+    ? `<div class="track" style="background:#FFF;box-shadow:inset 0 0 0 1px var(--q-over-bar)">
+         <div class="fill" style="width:100%;background:var(--q-over-bar)"></div></div>`
+    : `<div class="track">
+         <div class="fill draft" style="width:${pct(r.incl, r.req)}%;background:${BAR[r.state]}"></div>
+         <div class="fill" style="width:${pct(r.excl, r.req)}%;background:${BAR[r.state]}"></div></div>`;
+  return `${track}<span class="num ${INK[r.state]}">${r.un < 0 ? -r.un : r.un}</span>`;
+}
+
+/* The status element itself. One markup, four homes — `extra` is the only thing that changes, and
+   it is a class the position adds, never a different shape. The word is its own span so the
+   modifiers can shrink it, uppercase it or delete it without touching the glyph. */
+function status(r, extra) {
+  return `<span class="status ${extra || ''}" title="${CAP[r.st]}">${G[r.st]}` +
+         `<span class="sword">${CAP[r.st]}</span></span>`;
+}
+
+/* ============================================================================================
+   The row. `pos` decides where the status is emitted — the markup moves, not just the CSS,
+   because a flex child of `.trail` and a grid cell of `.cbody` are not the same element in the
+   same place with a different rule. This is what the app would actually do.
+   ============================================================================================ */
+function row(r, i, pos) {
+  const cls = [
+    i % 2 === 1 ? 'zebra' : '',
+    r.st === 'cancelled' ? 'cancelled' : '',
+    'st-' + r.st,
+  ].filter(Boolean).join(' ');
+
+  const over = WORD[r.state]
+    ? `<span class="over ${INK[r.state]}">${WORD[r.state]}</span>` : '';
+  const mcount = `<span class="mcount">${r.mc}</span>`;
+
+  /* Line 1's leading cell: the plant name, or (P3) a glyph in front of it. */
+  const line1lead = pos === 'p3'
+    ? `<span class="lead1">${status(r, 'g1')}<span class="name">${r.name}</span></span>`
+    : `<span class="name">${r.name}</span>`;
+
+  /* Line 2's leading cell: the meta, or (P2) the status and then the meta. */
+  const line2lead = pos === 'p2'
+    ? `<span class="lead2">${status(r, 'g2')}<span class="dot">·</span>` +
+      `<span class="meta">${r.proc}</span></span>`
+    : `<span class="meta">${r.proc}</span>`;
+
+  /* P4's own cell — grid area 2 / 2, the one that has always been empty. */
+  const cell2 = pos === 'p4' ? status(r, 'cell2') : '';
+
+  /* The trail. P0 puts the status last, P1 first, and every other position leaves it out
+     entirely, which hands the whole 184px run to the match count. The drop order
+     design-system.md 6.1 specifies is unchanged in all five: only .mcount may shrink. */
+  const trail = pos === 'p0' ? `${over}${mcount}${status(r, 'g0')}`
+              : pos === 'p1' ? `${status(r, 'g1t')}${over}${mcount}`
+              : `${over}${mcount}`;
+
+  return `
+  <div class="card ${cls}">
+    <span class="spine sp-${r.st}"></span>
+    <span class="grip">${G.grip}</span>
+    <div class="cbody">
+      ${line1lead}
+      <span class="sclass">${r.sc}</span>
+      <span class="day">${r.d}</span>
+      <span class="qty">${r.req}</span>
+      <span class="meterc">${meter(r)}</span>
+      ${line2lead}
+      ${cell2}
+      <span class="month">${r.m}</span>
+      <span class="trail">${trail}</span>
+    </div>
+    <span class="chev">${G.down}</span>
+  </div>`;
+}
+
+function board(el, pos) {
+  let html = `<div class="strip">
+      <span class="s-name">Plant</span><span class="s-sclass">Stock class</span>
+      <span class="s-date">Date</span><span class="s-qty">Req</span>
+      <span class="s-meter">Unmatched</span><span class="s-chev"></span></div>`;
+
+  for (const b of BANDS) {
+    const tag = b.now ? '<span class="tag now">This week</span>'
+              : b.past ? '<span class="tag gone">Past</span>' : '';
+    html += `<section class="band${b.now ? ' current' : ''}${b.past ? ' past' : ''}">
+      <header class="bhead">
+        <span class="blabel">Week of <span class="dt">${b.label}</span></span>${tag}
+        <span class="totals">${b.meta}</span>
+      </header>`;
+    b.rows.forEach((r, i) => { html += row(r, i, pos); });
+    html += `</section>`;
+  }
+  el.innerHTML = html;
+}
+
+/* ============================================================================================
+   THE MEASURE READOUT — the part that decides this.
+
+   Four questions, all of them about x positions and budgets, none of them answerable by eye:
+
+     1. does the status form a column with ITSELF? Count the distinct left edges of the status
+        elements down the board. One value is a column; nine values is a run of prose.
+     2. does it end where `Unmatched` ends? That is the complaint, and it is a single equality.
+     3. how much of the 184px trail is left for the match count once the status has taken its
+        share — and does anything truncate?
+     4. how much of line 2 is still empty.
+
+   Everything is measured relative to the first card's own left edge, so the numbers are the
+   card's own coordinates and comparable with the app's (the browser checklist quotes x from the
+   viewport; these are 0-based on the card).
+   ============================================================================================ */
+function measure(boardEl, outEl, label) {
+  const cards = [...boardEl.querySelectorAll('.card')];
+  if (!cards.length) { outEl.innerHTML = ''; return; }
+
+  const originX = cards[0].getBoundingClientRect().left;
+  const rel = (el) => {
+    const b = el.getBoundingClientRect();
+    return { l: Math.round(b.left - originX), r: Math.round(b.right - originX), w: Math.round(b.width) };
+  };
+
+  /* 1 — the status column, if there is one. Hidden statuses (M1 on a Booked card) are skipped:
+     an absent thing is not a misaligned thing. */
+  const stats = cards.map((c) => c.querySelector('.status'))
+                     .filter((s) => s && s.offsetParent !== null &&
+                                    getComputedStyle(s).visibility !== 'hidden');
+  const lefts = stats.map((s) => rel(s).l);
+  const uniq = [...new Set(lefts)].sort((a, b) => a - b);
+  const widest = stats.reduce((m, s) => Math.max(m, rel(s).w), 0);
+
+  const colLine = stats.length === 0
+    ? `<em>no status drawn on any card</em>`
+    : uniq.length === 1
+      ? `<span class="good">one column, x=${uniq[0]}</span>`
+      : `<span class="bad">ragged — ${uniq.length} different x, ${uniq[0]}…${uniq[uniq.length - 1]}` +
+        ` (${uniq[uniq.length - 1] - uniq[0]}px of drift)</span>`;
+
+  /* 2 — the trailing edge. The `Unmatched` heading's right edge and the meter numeral's are the
+     same by construction (the 40px trailing run); the question is whether the status joins them. */
+  const unmatchedR = rel(boardEl.querySelector('.s-meter')).r;
+  const numR = rel(cards[0].querySelector('.num')).r;
+  const inUnmatched = stats.some((s) => rel(s).r === unmatchedR);
+
+  /* 3 — the trail's budget and what is left of it.
+     The budget is composed from the tokens rather than read off the element: the computed
+     `max-width` of a grid item is the unresolved `calc(100% - 34px)` string, and parsing that
+     returns NaN — which is exactly what the first run of this readout printed. */
+  const px = (n) => parseFloat(
+    getComputedStyle(document.documentElement).getPropertyValue(n));
+  const budget = Math.round(
+    px('--c-date') + px('--gap') + px('--c-qty') + px('--gap') + px('--c-meter')
+    - (px('--c-month') + px('--gap')));
+  const trailW = Math.max(...cards.map((c) => rel(c.querySelector('.trail')).w));
+  const clipped = cards.filter((c) => {
+    const m = c.querySelector('.mcount');
+    return m && m.scrollWidth > m.clientWidth + 1;
+  }).length;
+
+  /* 4 — line 2's unused width: the columns row 2 does not place anything in. */
+  const c2 = getComputedStyle(document.documentElement).getPropertyValue('--c-sclass').trim();
+  const cell2Used = cards.some((c) => c.querySelector('.status.cell2') ||
+                                      c.querySelector('.lead2'));
+
+  /* 5 — what the fix costs the row it moved into. Moving a variable-width thing into a run of
+     prose does not remove the raggedness, it relocates it: P2 buys a stable status column by
+     making the processor start at four different x. This is the line that says so. */
+  const metaX = [...new Set(cards.map((c) => {
+    const m = c.querySelector('.meta');
+    return m ? rel(m).l : -1;
+  }))].sort((a, b) => a - b);
+  const metaLine = metaX.length === 1
+    ? `<span class="good">stable at x=${metaX[0]}</span>`
+    : `<span class="bad">ragged — ${metaX.length} different x, ` +
+      `${metaX[0]}…${metaX[metaX.length - 1]}</span>`;
+
+  /* Which font actually rendered, and it matters: the app serves Roboto from Google Fonts and this
+     file is offline by the series' own rule, so on a machine without Roboto installed every width
+     below is measured in Segoe UI, which sets ~1% wider at these sizes.
+
+     NOT `document.fonts.check('500 13px Roboto')` — that returns true when the family is merely
+     usable, fallback included, so it says yes on a machine with no Roboto at all. The honest test
+     is to set the same string in Roboto and in a family that cannot exist and compare the two
+     widths. */
+  const wid = (fam) => {
+    const s = document.createElement('span');
+    s.style.cssText = 'position:absolute;visibility:hidden;white-space:nowrap;' +
+                      'font-weight:500;font-size:13px;font-family:' + fam;
+    s.textContent = 'Confirmed Rangitikei 2 matches';
+    document.body.appendChild(s);
+    const w = s.getBoundingClientRect().width;
+    s.remove();
+    return w;
+  };
+  const roboto = Math.abs(wid('Roboto,serif') - wid('NoSuchFontXYZ,serif')) > 0.5;
+
+  outEl.innerHTML = `
+    <div class="mh">${label}</div>
+    type ................ ${roboto ? 'Roboto (the app’s own)'
+                                   : '<em>Segoe UI fallback — widths are an upper bound</em>'}<br>
+    status column ....... ${colLine}<br>
+    widest status ....... ${widest}px<br>
+    trailing edge ....... status ends at ${stats.length ? rel(stats[0]).r : '—'},
+      UNMATCHED ends at ${unmatchedR}, numeral ends at ${numR}
+      ${inUnmatched ? '<span class="bad">— same column</span>'
+                    : '<span class="good">— clear of it</span>'}<br>
+    trail ............... ${trailW}px used of ${budget}px budget,
+      ${clipped ? `<span class="bad">${clipped} match count${clipped > 1 ? 's' : ''} truncated</span>`
+                : '<span class="good">nothing truncated</span>'}<br>
+    line 2, area 2/2 .... ${cell2Used ? '<span class="good">occupied</span>'
+                                      : `<span class="bad">empty, ${c2} wasted</span>`}<br>
+    the meta behind it .. ${metaLine}
+  `;
+}
+
+/* ============================================================================================
+   Notes — one per drawn idea, with its argument and its cost. Clicking one selects it.
+   The costs are the half worth reading: every one of these is defensible on its own.
+   ============================================================================================ */
+const NOTES = [
+  { id: 'P0', k: 'pos', v: 'p0', t: 'Baseline — the trail\'s last item',
+    p: 'The status is the last thing in line 2\'s trailing run, so its right edge is the card\'s. ' +
+       'It is the last item standing when the row runs short, which is the one thing this position ' +
+       'gets right and every alternative has to preserve.',
+    c: 'Sits in the <b>Unmatched</b> column, and starts at a different x on nearly every row.' },
+
+  { id: 'P1', k: 'pos', v: 'p1', t: 'Trail, swapped — status first',
+    p: 'Two lines of the template change places. The status now opens the trail and the match ' +
+       'count is flush right, so the thing under UNMATCHED is prose that plainly is not a quantity.',
+    c: 'The status is <b>still ragged</b> — now it drifts with the over label instead of the match ' +
+       'count — and it stops being the last item standing, so the drop order in §6.1 has to be ' +
+       'rewritten or the status truncates before the match count does.' },
+
+  { id: 'P2', k: 'pos', v: 'p2', t: 'Line 2 leads — beside its own spine',
+    p: 'The status opens line 2 at the card\'s leading run, with the processor after it. It puts ' +
+       'the word next to the 3px/6px edge that says the same thing, so the two redundant channels ' +
+       'are read together instead of 400px apart. Columns 1 and 2 give it 204px, of which the meta ' +
+       'currently uses 100.',
+    c: 'The meta\'s left edge moves with the status width, so <b>the processor becomes the ragged ' +
+       'thing</b> instead. Four status words, four x positions for the name behind it.' },
+
+  { id: 'P3', k: 'pos', v: 'p3', t: 'Line 1 leads — a glyph before the plant',
+    p: 'A 14px glyph in front of the plant name, taking its space from the only column that ' +
+       'flexes. Status ends up on the same line as the record\'s identity, which is where a status ' +
+       'usually is, and the trail is left entirely to the matches.',
+    c: 'Puts a second glyph 5px from the grip\'s, and <b>deletes the word from the screen</b> — ' +
+       '§3.1 requires edge, icon and word. It also costs the plant name ~19px, and the plant name ' +
+       'is already the cell that truncates first.' },
+
+  { id: 'P4', k: 'pos', v: 'p4', t: 'Its own cell — grid area 2 / 2',
+    p: 'Into the empty cell under the stock class column: 96px, already aligned, already under a ' +
+       'heading. The glyph lands at the same x on every row, so the statuses read down the column ' +
+       'as one list. Nothing else moves — the meta keeps column 1, the month keeps column 3 — and ' +
+       'the match count inherits the whole 184px trail.',
+    c: 'The heading above it says STOCK CLASS, so the column is shared by two unrelated things. ' +
+       'Line 2 is unlabelled meta everywhere else too (the month sits under DATE, the processor ' +
+       'under PLANT), so this is consistent with the row rather than an exception to it.' },
+
+  { id: 'M1', k: 'mod', v: 'm-exc', t: 'Exceptions only — Booked draws nothing',
+    p: 'Thirty-four of the forty seeded spaces are Booked. "Nothing has happened yet" is already ' +
+       'said by the 3px edge, which §3.1 notes is legible before the pattern even resolves. Drawn ' +
+       'this way the column reports only what has moved.',
+    c: '<b>Deletes the word</b> from the majority of cards, and the card row is the only place the ' +
+       'record\'s own status is written — the drawer names its matches\' statuses, never its own.' },
+
+  { id: 'M2', k: 'mod', v: 'm-icon', t: 'Icon only — the word on hover',
+    p: 'Four glyphs over four statuses, which is a small enough vocabulary to learn in a morning, ' +
+       'and the legend already teaches it. Frees 40-55px wherever the status lands.',
+    c: '<b>Same amendment as M1</b>, and applied to every card rather than to the quiet ones. ' +
+       'A tooltip is not a channel: it is not there until it is asked for.' },
+
+  { id: 'M3', k: 'mod', v: 'm-caps', t: 'Micro-caps — a label, not prose',
+    p: 'The word in the month cell\'s 9px uppercase. Line 2 currently reads as one sentence of ' +
+       'grey prose; this separates the status from it by type treatment rather than by position, ' +
+       'and shrinks it by about a fifth.',
+    c: 'A third type size on a 14px line. Uppercase at 9px is harder to read than 11.5px sentence ' +
+       'case, which is the trade the month cell already makes for a three-letter word.' },
+
+  { id: 'M4', k: 'mod', v: 'm-chip', t: 'Micro-chip — a hairline box',
+    p: 'A 14px stroked box, the filter chip\'s treatment at a quarter of its height. Says "this is ' +
+       'a state, not a phrase" without moving anything.',
+    c: 'A chip is the exact surface §3 forbids colouring, so it must stay hueless — and a hueless ' +
+       'chip on a row that already has a patterned edge is a fourth status channel doing the work ' +
+       'of the first three. At 14px it is also 1px from the row above.' },
+
+  { id: 'M5', k: 'mod', v: 'm-tone', t: 'Tone — Booked recedes',
+    p: 'Booked in $lms-faint, the other three in $lms-text-muted. M1\'s argument without M1\'s ' +
+       'amendment: the word stays on the card, so all three channels survive, but the 34 quiet ' +
+       'cards stop competing with the six that are not.',
+    c: 'Two greys inside four L* points on a screen the last two labs spent removing greys from. ' +
+       'It also uses the cancelled spine\'s own value for a live record.' },
+];
+
+/* ============================================================================================
+   Wiring. Position is exclusive, modifiers compose, the hash carries the set.
+   ============================================================================================ */
+const S = { pos: 'p0', mods: new Set(), nogrip: false };
+const right = document.getElementById('right');
+const left  = document.getElementById('left');
+
+function renderNotes() {
+  document.getElementById('notes').innerHTML =
+    '<p class="ntitle">Where it goes — pick one</p>' +
+    NOTES.filter((n) => n.k === 'pos').map(noteHtml).join('') +
+    '<p class="ntitle spaced">How much of it is drawn — compose</p>' +
+    NOTES.filter((n) => n.k === 'mod').map(noteHtml).join('');
+}
+
+function noteHtml(n) {
+  const on = n.k === 'pos' ? S.pos === n.v : S.mods.has(n.v);
+  return `<div class="note ${on ? 'on' : ''}" data-k="${n.k}" data-v="${n.v}">
+    <h3><span class="id">${n.id}</span>${n.t}</h3>
+    <p>${n.p}</p>
+    <p class="cost">${n.c}</p>
+  </div>`;
+}
+
+function apply() {
+  board(left, 'p0');
+  board(right, S.pos);
+
+  left.className  = 'board' + (S.nogrip ? ' nogrip' : '');
+  right.className = 'board ' + S.pos + ' ' + [...S.mods].join(' ') + (S.nogrip ? ' nogrip' : '');
+
+  const note = NOTES.find((n) => n.v === S.pos);
+  document.getElementById('what').textContent = `${note.id} — ${note.t.split(' — ')[1] || note.t}`;
+
+  document.querySelectorAll('button.opt').forEach((b) => {
+    const on = (b.dataset.pos && b.dataset.pos === S.pos)
+            || (b.dataset.mod && S.mods.has(b.dataset.mod))
+            || (b.dataset.grip && S.nogrip);
+    b.classList.toggle('on', !!on);
+  });
+
+  const set = [S.pos, ...S.mods].join(' ') + (S.nogrip ? ' nogrip' : '');
+  document.getElementById('active').textContent = set;
+  location.hash = set.replace(/ /g, ',');
+
+  renderNotes();
+
+  /* Measured after layout, on both boards, so the comparison is numeric rather than remembered. */
+  requestAnimationFrame(() => {
+    measure(left,  document.getElementById('mleft'),  'MEASURED — ships today');
+    measure(right, document.getElementById('mright'), 'MEASURED — ' + set);
+  });
+}
+
+function toggle(k, v) {
+  if (k === 'pos') { S.pos = v; }
+  else if (k === 'grip') { S.nogrip = !S.nogrip; }
+  else { S.mods.has(v) ? S.mods.delete(v) : S.mods.add(v); }
+  apply();
+}
+
+document.querySelector('.presets').addEventListener('click', (e) => {
+  const b = e.target.closest('button.opt');
+  if (!b) return;
+  if (b.dataset.pos) toggle('pos', b.dataset.pos);
+  else if (b.dataset.mod) toggle('mod', b.dataset.mod);
+  else toggle('grip');
+});
+
+document.getElementById('notes').addEventListener('click', (e) => {
+  const n = e.target.closest('.note');
+  if (n) toggle(n.dataset.k, n.dataset.v);
+});
+
+document.addEventListener('keydown', (e) => {
+  if (e.key >= '0' && e.key <= '4') toggle('pos', 'p' + e.key);
+  if (e.key === 'g') toggle('grip');
+});
+
+/* The hash restores a set, so a screenshot can be reproduced from its URL. */
+(function fromHash() {
+  const parts = decodeURIComponent(location.hash.replace(/^#/, '')).split(',').filter(Boolean);
+  for (const p of parts) {
+    if (/^p[0-4]$/.test(p)) S.pos = p;
+    else if (p === 'nogrip') S.nogrip = true;
+    else if (/^m-/.test(p)) S.mods.add(p);
+  }
+})();
+
+apply();
+</script>
+</body>
+</html>

@@ -121,18 +121,51 @@ public static class MatchWriter
                 : MatchLifecycle.OnlyDraftedCanBeDeleted;
 
     /// <summary>
+    /// Why a match may not be notified, or null when it may.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// An ANZCO match, still Drafted. <b>Nothing is sent.</b> The endpoint behind this writes a status
+    /// and no message, because the notification mediums are deferred beyond pass 1; what the status
+    /// buys is a board that says which matches have been put to the processor and are waiting on a
+    /// reply.
+    /// </para>
+    /// <para>
+    /// It takes the working set for the processor clause: the gate is about the Processor Space, and
+    /// <see cref="Match"/> carries only its id. The client hides the button for the other two
+    /// processors, and this exists because that is not a reason to trust it —
+    /// <c>MatchLifecycle.NotifyBlockedReason</c> answers both with the same sentence.
+    /// </para>
+    /// </remarks>
+    public static string? RejectNotify(WorkingSet set, Match? match)
+    {
+        if (match is null)
+        {
+            return NoSuchMatch;
+        }
+
+        var space = Space(set, match.ProcessorSpaceId);
+
+        // A match whose space has vanished is not a lifecycle question. It cannot be notified, and
+        // saying which processor does not receive notifications would mean naming one we cannot read.
+        return space is null
+            ? NoSuchSpace
+            : MatchLifecycle.NotifyBlockedReason(match, space);
+    }
+
+    /// <summary>
     /// Why a match may not be confirmed, or null when it may.
     /// </summary>
     /// <remarks>
-    /// Drafted to Confirmed in one step, because Notified has no UI transition in pass 1 (resolved
-    /// question 2). Confirming is the only thing on this screen that moves a match forward.
+    /// Drafted or Notified, since 2026-09-11. Notifying is a step APG may take and not one it must,
+    /// so a match that skipped it confirms in one move exactly as every match did before.
     /// </remarks>
     public static string? RejectConfirm(Match? match) =>
         match is null
             ? NoSuchMatch
             : MatchLifecycle.CanConfirm(match)
                 ? null
-                : MatchLifecycle.OnlyDraftedCanBeConfirmed;
+                : MatchLifecycle.OnlyALiveMatchCanBeConfirmed;
 
     /// <summary>
     /// Why a match may not be cancelled, or null when it may.
@@ -271,6 +304,10 @@ public static class MatchWriter
             Space = space,
             Availability = availability,
             MaximumQuantity = EditCeiling(set, match),
+
+            // The same gate the endpoint enforces, asked once so the footer and the write cannot
+            // disagree about whether this processor is notified.
+            CanNotify = RejectNotify(set, match) is null,
         };
     }
 

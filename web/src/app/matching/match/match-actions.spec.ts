@@ -23,6 +23,7 @@ describe('Match actions', () => {
     status: 'Drafted' | 'Confirmed',
     overrides: Partial<MatchEditContextDto> = {},
   ): MatchEditContextDto => ({
+    canNotify: status === 'Drafted',
     match: aMatch({
       id: 12,
       status,
@@ -51,6 +52,7 @@ describe('Match actions', () => {
 
   const match = vi.fn();
   const updateMatch = vi.fn();
+  const notifyMatch = vi.fn();
   const confirmMatch = vi.fn();
   const cancelMatch = vi.fn();
   const deleteMatch = vi.fn();
@@ -73,6 +75,7 @@ describe('Match actions', () => {
     for (const stub of [
       match,
       updateMatch,
+      notifyMatch,
       confirmMatch,
       cancelMatch,
       deleteMatch,
@@ -95,6 +98,7 @@ describe('Match actions', () => {
     }));
 
     updateMatch.mockReturnValue(of(written));
+    notifyMatch.mockReturnValue(of(written));
     confirmMatch.mockReturnValue(of(written));
     cancelMatch.mockReturnValue(of({ ...written, match: null }));
     deleteMatch.mockReturnValue(of({ ...written, match: null }));
@@ -109,6 +113,7 @@ describe('Match actions', () => {
           useValue: {
             match,
             updateMatch,
+            notifyMatch,
             confirmMatch,
             cancelMatch,
             deleteMatch,
@@ -222,7 +227,30 @@ describe('Match actions', () => {
     expect(updateMatch).toHaveBeenCalledWith(12, edit({ pricePerKg: 7.25 }));
   });
 
-  // --- the four actions ---------------------------------------------------------------------------
+  // --- the five actions ---------------------------------------------------------------------------
+
+  it('notifies a draft in one write, carrying the form values and asking nothing first', () => {
+    act('Drafted', { action: 'notify', request: edit({ quantityMatched: 55 }) });
+
+    expect(notifyMatch).toHaveBeenCalledWith(12, edit({ quantityMatched: 55 }));
+    expect(updateMatch).not.toHaveBeenCalled();
+    expect(openDialog).toHaveBeenCalledTimes(1);
+    expect(patches).toHaveLength(1);
+  });
+
+  /**
+   * The snack is the second place the prototype's silence is stated, after the dialog's caption, and
+   * it is the one an operator sees when they press the button without reading anything. `Notify` is
+   * a word that promises an outbound message; nothing here sends one.
+   */
+  it('says in the snack that no message was sent', () => {
+    act('Drafted', { action: 'notify', request: edit() });
+
+    const [message] = openSnack.mock.calls.at(-1) as [string];
+
+    expect(message).toContain('no message sent');
+    expect(message).toContain('ANZCO');
+  });
 
   it('confirms a draft in one write, carrying the form values', () => {
     act('Drafted', { action: 'confirm', request: edit({ quantityMatched: 55 }) });

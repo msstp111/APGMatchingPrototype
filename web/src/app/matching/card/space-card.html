@@ -51,14 +51,18 @@
     <span class="sclass" [title]="space().stockClass">{{ space().stockClass }}</span>
 
     <!--
-      The day of the month. Its month sits directly beneath it in row 2 — one date over the card's two
-      existing lines, which is what lets the cell be 40px instead of the 62px `dd-MM-yy` needs. Both
-      halves are preformatted by the server (NzTime.DayOfMonthLabel / MonthLabel): slicing a date is
-      still date arithmetic, and no-domain-arithmetic.spec.ts is right to forbid it here.
+      The weekday, and nothing else (2026-09-11). This cell used to stack a day of the month over its
+      month across the card's two lines; both are now gone, because this card is drawn inside the band
+      of its own delivery week and that band header names the week three rows up. The weekday is the
+      one part of a delivery date the header does not carry.
 
-      The title carries the whole thing, year included, on both halves — that is where the year went.
+      Preformatted by the server (NzTime.WeekdayLabel), like every label on this screen: naming a
+      weekday from the ISO value means constructing a Date, and no-domain-arithmetic.spec.ts is right
+      to forbid it here. The title still carries the whole date, year included.
+
+      The supply card is unchanged and still splits its date over both lines — see its own comment.
     -->
-    <span class="day" [title]="space().deliveryDateLabel">{{ space().deliveryDayLabel }}</span>
+    <span class="day" [title]="space().deliveryDateLabel">{{ space().deliveryWeekdayLabel }}</span>
     <span class="qty">{{ space().quantityRequired }}</span>
 
     <app-fill-meter
@@ -73,7 +77,11 @@
       [ghostQuantity]="proposedQuantity()"
     />
 
-    <!-- Row 2. The month sits in the date column; everything else is pushed to the card's edge. -->
+    <!--
+      Row 2. The date column is empty here now that the cell above it is a weekday rather than half a
+      date; `.trail` keeps its stand-off from that column all the same, so line 2 measures the same on
+      both sides of the screen and the supply card's month has somewhere to sit.
+    -->
     <!--
       The delivery time is optional, and when it is absent the whole segment goes rather than the
       usual `-` (design-system.md 13): line 2 is unlabelled meta, so a bare dash after a separator
@@ -83,8 +91,6 @@
     <span class="meta"
       >{{ space().processor }}@if (space().deliveryTime) {<span> · {{ space().deliveryTime }}</span>}</span
     >
-    <span class="month" [title]="space().deliveryDateLabel">{{ space().deliveryMonthLabel }}</span>
-
     <span class="trail">
       @if (isOver()) {
         <!-- The wording is the DTO's quantityStateLabel — "Over-filled" — never composed here. -->
@@ -134,9 +140,11 @@
   @if (isSource()) {
     <div class="card stay" [class.zebra]="zebra()" aria-hidden="true">
       <span class="spine" [class]="spine()"></span>
-      <span class="grip" aria-hidden="true">
-        <span class="material-symbols-outlined">drag_indicator</span>
-      </span>
+      @if (gripsVisible()) {
+        <span class="grip" aria-hidden="true">
+          <span class="material-symbols-outlined">drag_indicator</span>
+        </span>
+      }
       <div class="cbody">
         <ng-container [ngTemplateOutlet]="lines" />
       </div>
@@ -183,15 +191,17 @@
       later would leave every surviving card somewhere CDK does not believe it is, and the drop would
       land nowhere. When the aid is switched off the handler returns immediately.
     -->
-    <span
-      class="grip"
-      cdkDragHandle
-      title="Drag onto a card in the other column to match"
-      aria-hidden="true"
-      (pointerdown)="grabbed($event)"
-    >
-      <span class="material-symbols-outlined">drag_indicator</span>
-    </span>
+    @if (gripsVisible()) {
+      <span
+        class="grip"
+        cdkDragHandle
+        title="Drag onto a card in the other column to match"
+        aria-hidden="true"
+        (pointerdown)="grabbed($event)"
+      >
+        <span class="material-symbols-outlined">drag_indicator</span>
+      </span>
+    }
 
     <!--
       The body is the expand target, and since 2026-09-09 it is a drag target too when "Drag anywhere"
@@ -245,11 +255,11 @@
     </button>
 
     <!--
-      Phase 9. A 200px chip rather than a copy of the card, and no `matchSize`: at full card width the
+      Phase 9. A 232px chip rather than a copy of the card, and no `matchSize`: at full card width the
       preview sat over the row being aimed at, which is half of why the target was hard to read.
     -->
     <ng-template cdkDragPreview>
-      <app-drag-preview [name]="dragName()" [headCount]="space().quantityRequired" />
+      <app-drag-preview [name]="dragName()" [headCount]="dragHeadCount()" />
     </ng-template>
   </div>
 
@@ -267,5 +277,5 @@
 </div>
 
 @if (expanded()) {
-  <app-card-expansion side="demand" [space]="space()" />
+  <app-card-expansion side="demand" [space]="space()" (collapse)="toggle()" />
 }

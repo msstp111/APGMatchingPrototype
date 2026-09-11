@@ -8,9 +8,11 @@ import { MatInputModule } from '@angular/material/input';
 import { MatSelectModule } from '@angular/material/select';
 import {
   CreateProcessorSpaceRequest,
+  DayOptionDto,
   ProcessorSpaceDto,
   ReferenceDataDto,
   UpdateProcessorSpaceRequest,
+  WeekOptionDto,
 } from '../../api/models';
 import { DebugRibbon } from './debug-ribbon';
 import { integerHeads, trimmedOrNull } from './record-form';
@@ -40,9 +42,20 @@ export type SpaceFormResult =
  * They are what the meatworks booked: re-pointing an existing slot at another processor would re-key
  * its default price and invalidate its plant in the same stroke.
  *
- * Dates are a native `<input type="date">`, whose value *is* the ISO `yyyy-MM-dd` string the API
- * wants. A Material datepicker would hand the form a JavaScript `Date`, which is the one thing no file
- * under `matching/` may construct.
+ * **The delivery date is asked for in two parts** (2026-09-11): the week commencing, then the weekday
+ * within it. That is the shape the screen itself has — a space is booked into a week band and sits on
+ * a day inside it, and the card's date cell now names only the weekday — so the form asks the two
+ * questions the operator is actually answering rather than one date that has to be decomposed by eye.
+ *
+ * The date it submits is `week.days[index].date`: **a lookup into a list the server sent, never a
+ * sum**. That is the whole reason `WeekOptionDto` carries its seven days. Composing the date here
+ * would mean advancing an ISO string by a weekday's offset, which is the date arithmetic
+ * `no-domain-arithmetic.spec.ts` forbids, and the native `<input type="date">` this pair replaces was
+ * on the card for the same rule — its value *was* the ISO string, so nothing had to be worked out.
+ *
+ * The two controls are independent: changing the week keeps the weekday, which is what makes "the same
+ * slot, a week later" one click. The API contract is unchanged — it still receives one
+ * `deliveryDate`.
  */
 @Component({
   selector: 'app-space-form',
@@ -100,10 +113,20 @@ export class SpaceForm {
       Validators.min(1),
       integerHeads,
     ]),
-    deliveryDate: new FormControl<string>(this.space?.deliveryDate ?? '', {
+    // The Sunday, as its ISO string — the same identity `WeekOptionDto.weekCommencing` has, so the
+    // option is found by string equality and no date is ever parsed.
+    weekCommencing: new FormControl<string>(this.space?.weekCommencing ?? '', {
       nonNullable: true,
       validators: [Validators.required],
     }),
+    // The index into that week's seven days, 0 = Sunday. An index rather than the date itself so that
+    // changing the week carries the chosen weekday across instead of emptying the control.
+    //
+    // `Validators.required` is correct on a 0: Angular treats only null, undefined and an empty
+    // string or array as missing, so Sunday is a value like any other.
+    weekday: new FormControl<number | null>(SpaceForm.weekdayOf(this.space, this.data.reference), [
+      Validators.required,
+    ]),
     deliveryTime: new FormControl<string>(this.space?.deliveryTime ?? '', { nonNullable: true }),
     notes: new FormControl<string>(this.space?.notes ?? '', { nonNullable: true }),
   });
@@ -114,6 +137,34 @@ export class SpaceForm {
 
   private readonly quantity = toSignal(this.form.controls.quantityRequired.valueChanges, {
     initialValue: this.form.controls.quantityRequired.value,
+  });
+
+  private readonly weekCommencing = toSignal(this.form.controls.weekCommencing.valueChanges, {
+    initialValue: this.form.controls.weekCommencing.value,
+  });
+
+  private readonly weekday = toSignal(this.form.controls.weekday.valueChanges, {
+    initialValue: this.form.controls.weekday.value,
+  });
+
+  /** Every week the space may be booked into — a calendar the server built, not a range composed here. */
+  readonly weeks: readonly WeekOptionDto[] = this.data.reference.weeks;
+
+  /** The chosen week's own seven days. Empty until a week is chosen, exactly like the plant list. */
+  readonly days = computed<readonly DayOptionDto[]>(
+    () => this.weeks.find((week) => week.weekCommencing === this.weekCommencing())?.days ?? [],
+  );
+
+  /**
+   * The delivery date the two controls name, or null while either is unanswered.
+   *
+   * An index into the server's list. Nothing here adds a day to anything, which is the point of
+   * shipping the days at all.
+   */
+  readonly deliveryDate = computed<string | null>(() => {
+    const index = this.weekday();
+
+    return index === null ? null : (this.days()[index]?.date ?? null);
   });
 
   /** The chosen processor's own entry, and with it both of its lists. */
@@ -163,7 +214,12 @@ export class SpaceForm {
   }
 
   save(): void {
-    if (this.form.invalid) {
+    const deliveryDate = this.deliveryDate();
+
+    // The date is the one value the form does not hold directly, so it is checked beside the form's
+    // own validity rather than trusted from it: a week the server no longer offers would leave both
+    // controls filled and the pair naming nothing.
+    if (this.form.invalid || deliveryDate === null) {
       this.form.markAllAsTouched();
 
       return;
@@ -178,7 +234,7 @@ export class SpaceForm {
         request: {
           plant: value.plant,
           quantityRequired,
-          deliveryDate: value.deliveryDate,
+          deliveryDate,
           deliveryTime: trimmedOrNull(value.deliveryTime),
           notes: trimmedOrNull(value.notes),
         },
@@ -194,10 +250,30 @@ export class SpaceForm {
         plant: value.plant,
         stockClass: value.stockClass,
         quantityRequired,
-        deliveryDate: value.deliveryDate,
+        deliveryDate,
         deliveryTime: trimmedOrNull(value.deliveryTime),
         notes: trimmedOrNull(value.notes),
       },
     });
+  }
+
+  /**
+   * Which weekday an existing space falls on: the position of its delivery date in its own week's
+   * seven days.
+   *
+   * A search rather than a calculation, for the same reason the form composes its date by lookup — and
+   * it is the reason the server's week list has to cover every record. A week missing from it leaves
+   * this null and the form opens with the weekday unanswered, which is visible and recoverable; a
+   * date derived here would be neither.
+   */
+  private static weekdayOf(space: ProcessorSpaceDto | null, reference: ReferenceDataDto): number | null {
+    if (space === null) {
+      return null;
+    }
+
+    const week = reference.weeks.find((option) => option.weekCommencing === space.weekCommencing);
+    const index = week?.days.findIndex((day) => day.date === space.deliveryDate) ?? -1;
+
+    return index === -1 ? null : index;
   }
 }

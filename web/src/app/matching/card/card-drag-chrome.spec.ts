@@ -286,6 +286,38 @@ describe('The card’s drag chrome', () => {
       expect(fixture.componentInstance.dragName()).toBe('SFF');
     });
 
+    /**
+     * The chip carries `unmatched`, on both sides (2026-09-10).
+     *
+     * Asserted through `dragHeadCount` because the chip itself lives in a `cdkDragPreview`, which
+     * CDK only instantiates during a real pointer drag and therefore never in jsdom — the rendered
+     * figure was checked in a browser instead, and the browser checklist carries that row.
+     *
+     * The fixtures are deliberately built with a total that DIFFERS from unmatched. Equal values
+     * would pass against either field and the test would guard nothing, which is exactly how the
+     * total came to be shipped in the first place.
+     */
+    it('labels the chip with what is left to match, not the record’s size', async () => {
+      const demandFixture = TestBed.createComponent(SpaceCard);
+      demandFixture.componentRef.setInput('space', aSpace({ quantityRequired: 800, unmatched: 305 }));
+      demandFixture.componentRef.setInput('zebra', false);
+      demandFixture.detectChanges();
+      await demandFixture.whenStable();
+
+      expect(demandFixture.componentInstance.dragHeadCount()).toBe(305);
+
+      const supplyFixture = TestBed.createComponent(AvailabilityCard);
+      supplyFixture.componentRef.setInput(
+        'record',
+        anAvailability({ quantityAvailable: 730, unmatched: 96 }),
+      );
+      supplyFixture.componentRef.setInput('zebra', false);
+      supplyFixture.detectChanges();
+      await supplyFixture.whenStable();
+
+      expect(supplyFixture.componentInstance.dragHeadCount()).toBe(96);
+    });
+
     it('names the record and carries the outcome once the server has answered', async () => {
       const fixture = TestBed.createComponent(DragPreview);
 
